@@ -1,0 +1,40 @@
+{
+  "name": "My Bookcase - Personal Reading Tracker",
+  "short_name": "My Bookcase",
+  "description": "Track your personal reading collection, discover new books, and manage your reading preferences",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ea580c",
+  "orientation": "portrait-primary",
+  "categories": ["books", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/placeholder.svg?height=192&width=192",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/placeholder.svg?height=512&width=512",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Author",
+      "short_name": "Add Author",
+      "description": "Quickly add a new author to track",
+      "url": "/?action=add-author",
+      "icons": [
+        {
+          "src": "/placeholder.svg?height=96&width=96",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

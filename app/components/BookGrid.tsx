@@ -1,0 +1,538 @@
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  BookCheck,
+  BookmarkPlus,
+  BookX,
+  Globe,
+  FileText,
+  Calendar,
+  Headphones,
+  ShoppingCart,
+  Send,
+  BookOpen,
+} from "lucide-react"
+import type { Book, Platform } from "@/lib/types"
+import ShareBookModal from "./ShareBookModal"
+import { updateBookStatus } from "@/lib/database"
+
+interface BookGridProps {
+  books: Book[]
+  sortBy: string
+  readBooks: Set<string>
+  wantToReadBooks: Set<string>
+  dontWantBooks: Set<string>
+  sharedBooks: Set<string>
+  friends: string[]
+  platforms: Platform[]
+  onMarkAsRead: (bookId: string, title: string, author: string) => void
+  onMarkAsWant: (bookId: string, title: string, author: string) => void
+  onToggleDontWant: (bookId: string, title: string, author: string) => void
+  onShare: (bookId: string, friendName: string) => void
+  userId?: string // Added userId for database operations
+}
+
+export default function BookGrid({
+  books,
+  sortBy,
+  readBooks,
+  wantToReadBooks,
+  dontWantBooks,
+  sharedBooks,
+  friends,
+  platforms,
+  onMarkAsRead,
+  onMarkAsWant,
+  onToggleDontWant,
+  onShare,
+  userId,
+}: BookGridProps) {
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
+  const [recommendedBooks, setRecommendedBooks] = useState<Set<string>>(new Set())
+  const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
+
+  const handleMarkAsRead = async (bookId: string, title: string, author: string) => {
+    if (isUpdating.has(bookId)) return
+
+    setIsUpdating((prev) => new Set([...prev, bookId]))
+
+    try {
+      if (userId) {
+        await updateBookStatus(userId, bookId, "read")
+      }
+      onMarkAsRead(bookId, title, author)
+    } catch (error) {
+      console.error("Error updating book status to read:", error)
+    } finally {
+      setIsUpdating((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(bookId)
+        return newSet
+      })
+    }
+  }
+
+  const handleMarkAsWant = async (bookId: string, title: string, author: string) => {
+    if (isUpdating.has(bookId)) return
+
+    setIsUpdating((prev) => new Set([...prev, bookId]))
+
+    try {
+      if (userId) {
+        await updateBookStatus(userId, bookId, "want")
+      }
+      onMarkAsWant(bookId, title, author)
+    } catch (error) {
+      console.error("Error updating book status to want:", error)
+    } finally {
+      setIsUpdating((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(bookId)
+        return newSet
+      })
+    }
+  }
+
+  const handleToggleDontWant = async (bookId: string, title: string, author: string) => {
+    if (isUpdating.has(bookId)) return
+
+    setIsUpdating((prev) => new Set([...prev, bookId]))
+
+    try {
+      if (userId) {
+        const newStatus = dontWantBooks.has(bookId) ? "unread" : "dont-want"
+        await updateBookStatus(userId, bookId, newStatus)
+      }
+      onToggleDontWant(bookId, title, author)
+    } catch (error) {
+      console.error("Error updating book status:", error)
+    } finally {
+      setIsUpdating((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(bookId)
+        return newSet
+      })
+    }
+  }
+
+  const getReadingStatus = (bookId: string) => {
+    if (readBooks.has(bookId)) return "read"
+    if (wantToReadBooks.has(bookId)) return "want"
+    if (dontWantBooks.has(bookId)) return "pass"
+    return "unread"
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "read":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "want":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "pass":
+        return "bg-red-100 text-red-800 border-red-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "read":
+        return "Read"
+      case "want":
+        return "Want"
+      case "pass":
+        return "Pass"
+      default:
+        return "Unread"
+    }
+  }
+
+  const openPlatformLink = (book: Book, platform: Platform) => {
+    let url = platform.url
+
+    // Construct platform-specific URLs for direct book access
+    switch (platform.name.toLowerCase()) {
+      case "kindle":
+        // Amazon Kindle - search by title and author for best match
+        const amazonQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://www.amazon.com/s?k=${encodeURIComponent(amazonQuery)}&i=digital-text&ref=nb_sb_noss`
+        break
+
+      case "audible":
+        // Audible - search by title and author
+        const audibleQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://www.audible.com/search?keywords=${encodeURIComponent(audibleQuery)}&ref=a_search_c1_lProduct_1_1&pf_rd_p=073d8370-97e5-4b7b-be04-aa6cf4b9e3a4&pf_rd_r=&pageLoadId=&creativeId=`
+        break
+
+      case "books":
+      case "print":
+        // Google Books or general book search
+        const bookQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(bookQuery + " book")}`
+        break
+
+      case "apple books":
+      case "ibooks":
+        // Apple Books
+        const appleQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://books.apple.com/search?term=${encodeURIComponent(appleQuery)}`
+        break
+
+      case "kobo":
+        // Kobo
+        const koboQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://www.kobo.com/search?query=${encodeURIComponent(koboQuery)}`
+        break
+
+      case "barnes & noble":
+      case "nook":
+        // Barnes & Noble
+        const bnQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = `https://www.barnesandnoble.com/s/${encodeURIComponent(bnQuery)}`
+        break
+
+      default:
+        // For custom platforms, use the existing template replacement
+        const query = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
+        url = platform.url
+          .replace("{title}", encodeURIComponent(book.title))
+          .replace("{author}", encodeURIComponent(getAuthorName(book)))
+          .replace("{query}", encodeURIComponent(query))
+          .replace("{isbn}", encodeURIComponent(book.isbn || ""))
+    }
+
+    window.open(url, "_blank")
+  }
+
+  const handleShare = (book: Book) => {
+    setSelectedBook(book)
+    setShowShareModal(true)
+  }
+
+  const getAuthorName = (book: Book): string => {
+    if (typeof book.author === "string") {
+      return book.author
+    }
+    if (book.author && typeof book.author === "object" && "name" in book.author) {
+      return (book.author as any).name || "Unknown Author"
+    }
+    return "Unknown Author"
+  }
+
+  const getLastName = (authorName: string): string => {
+    if (!authorName || typeof authorName !== "string") return ""
+    const nameParts = authorName.trim().split(/\s+/)
+    return nameParts[nameParts.length - 1].toLowerCase()
+  }
+
+  const toggleDescription = (bookId: string) => {
+    const newExpanded = new Set(expandedDescriptions)
+    if (newExpanded.has(bookId)) {
+      newExpanded.delete(bookId)
+    } else {
+      newExpanded.add(bookId)
+    }
+    setExpandedDescriptions(newExpanded)
+  }
+
+  const isUpcomingRelease = (publishedDate: string) => {
+    if (!publishedDate) return false
+    const bookDate = new Date(publishedDate)
+    const now = new Date()
+    const twelveMonthsFromNow = new Date()
+    twelveMonthsFromNow.setMonth(twelveMonthsFromNow.getMonth() + 12)
+    return bookDate >= now && bookDate <= twelveMonthsFromNow
+  }
+
+  const formatUpcomingDate = (publishedDate: string) => {
+    if (!publishedDate) return ""
+    const date = new Date(publishedDate)
+    const now = new Date()
+
+    if (date > now) {
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    }
+    return publishedDate
+  }
+
+  const sortedBooks = [...books].sort((a, b) => {
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.publishedDate || "1900").getTime() - new Date(a.publishedDate || "1900").getTime()
+      case "oldest":
+        return new Date(a.publishedDate || "2100").getTime() - new Date(b.publishedDate || "2100").getTime()
+      case "title":
+        return a.title.localeCompare(b.title)
+      case "author":
+        const lastNameA = getLastName(getAuthorName(a))
+        const lastNameB = getLastName(getAuthorName(b))
+        const nameComparison = lastNameA.localeCompare(lastNameB)
+
+        // If authors have the same last name, sort by publication date (newest first)
+        if (nameComparison === 0) {
+          return new Date(b.publishedDate || "1900").getTime() - new Date(a.publishedDate || "1900").getTime()
+        }
+
+        return nameComparison
+      case "pages":
+        return (b.pageCount || 0) - (a.pageCount || 0)
+      default:
+        return 0
+    }
+  })
+
+  if (books.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-24 h-24 mx-auto mb-4 opacity-20">
+          <BookOpen className="w-full h-full text-orange-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-orange-800 mb-2">Start Your Personal Library</h3>
+        <p className="text-orange-600">Add your favorite authors to discover and organize your books.</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {sortedBooks.map((book) => {
+          const bookId = `${book.title}-${book.author}`
+          const status = getReadingStatus(bookId)
+          const isExpanded = expandedDescriptions.has(book.id)
+          const isUpcoming = isUpcomingRelease(book.publishedDate || "")
+          const isBookUpdating = isUpdating.has(bookId)
+
+          return (
+            <Card
+              key={book.id}
+              data-book-id={book.id}
+              className={`bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-4 ${
+                isUpcoming
+                  ? "border-emerald-500 shadow-emerald-200 ring-2 ring-emerald-200 bg-gradient-to-br from-white to-emerald-50"
+                  : "border-black"
+              }`}
+            >
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {isUpcoming && (
+                    <div className="flex justify-center">
+                      <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-emerald-500 shadow-lg">
+                        UPCOMING RELEASE
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Book Cover */}
+                  {book.thumbnail && (
+                    <div className="flex justify-center">
+                      <img
+                        src={book.thumbnail || "/placeholder.svg"}
+                        alt={book.title}
+                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
+                      />
+                    </div>
+                  )}
+
+                  {/* Book Info */}
+                  <div className="space-y-3">
+                    <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
+                      {book.title}
+                    </h3>
+                    <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
+
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      {book.publishedDate && (
+                        <div
+                          className={`flex items-center gap-1 ${
+                            isUpcoming
+                              ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
+                              : "text-black"
+                          }`}
+                        >
+                          <Calendar
+                            className={`w-3 h-3 ${
+                              isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
+                            }`}
+                          />
+                          <span className="font-bold">
+                            {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
+                          </span>
+                          {isUpcoming && (
+                            <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
+                          )}
+                        </div>
+                      )}
+                      {book.pageCount && book.pageCount > 0 && (
+                        <div className="flex items-center gap-1 text-black">
+                          <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          <span className="font-bold">{book.pageCount} pages</span>
+                        </div>
+                      )}
+                      {book.language && book.language !== "en" && (
+                        <div className="flex items-center gap-1 text-black">
+                          <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          <span className="font-bold">{book.language.toUpperCase()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="flex justify-center">
+                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
+                      {getStatusText(status)}
+                    </Badge>
+                  </div>
+
+                  {/* Description */}
+                  {book.description && (
+                    <div className="space-y-2">
+                      <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
+                        {book.description}
+                      </p>
+                      {book.description.length > 300 && (
+                        <button
+                          onClick={() => toggleDescription(book.id)}
+                          className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                        >
+                          {isExpanded ? "Show less" : "Read more"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    <div className="flex gap-1 justify-center">
+                      <Button
+                        variant={status === "read" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
+                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                          status === "read"
+                            ? "bg-green-500 hover:bg-green-600 text-white"
+                            : "border-green-500 text-green-700 hover:bg-green-50 bg-white"
+                        }`}
+                      >
+                        <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Read
+                      </Button>
+                      <Button
+                        variant={status === "want" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
+                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                          status === "want"
+                            ? "bg-blue-500 hover:bg-blue-600 text-white"
+                            : "border-blue-500 text-blue-700 hover:bg-blue-50 bg-white"
+                        }`}
+                      >
+                        <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Want
+                      </Button>
+                      <Button
+                        variant={status === "pass" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
+                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                          status === "pass"
+                            ? "bg-red-500 hover:bg-red-600 text-white"
+                            : "border-red-500 text-red-700 hover:bg-red-50 bg-white"
+                        }`}
+                      >
+                        <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Pass
+                      </Button>
+                    </div>
+
+                    {/* Platform Links */}
+                    {platforms.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold text-red-600 uppercase tracking-wide">Find on:</div>
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {platforms.slice(0, 4).map((platform) => (
+                            <Button
+                              key={platform.name}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPlatformLink(book, platform)}
+                              className="border-2 border-black text-black hover:bg-orange-50 bg-white text-xs font-bold h-8 px-3"
+                            >
+                              {platform.name === "Kindle" && (
+                                <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Audible" && (
+                                <Headphones className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Books" && (
+                                <ShoppingCart className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {!["Kindle", "Audible", "Books"].includes(platform.name) && (
+                                <Globe className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Books" ? "Print" : platform.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Social Actions */}
+                    <div className="flex gap-2 pt-2 border-t-2 border-black justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs font-bold border-2 border-black text-black hover:bg-orange-50 bg-white"
+                      >
+                        <Send className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        {recommendedBooks.has(book.id) ? "Recommended" : "Recommend"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShare(book)}
+                        className="h-6 px-2 text-xs font-bold border-2 border-black text-black hover:bg-orange-50 bg-white"
+                      >
+                        <Send className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        {sharedBooks.has(book.id) ? "Shared" : "Share"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Share Modal */}
+      {selectedBook && (
+        <ShareBookModal
+          book={selectedBook}
+          author={getAuthorName(selectedBook)}
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false)
+            setSelectedBook(null)
+          }}
+          onBookShared={onShare}
+        />
+      )}
+    </>
+  )
+}
