@@ -1,4 +1,5 @@
 import type { Author, Book, User } from "./types"
+import { fetchRecommendationsWithCache } from "@/lib/apiCache"
 
 interface RecommendationParams {
   authors: Author[]
@@ -49,18 +50,16 @@ export async function generateRecommendations({
         })
       }
 
-      for (const query of searchQueries) {
-        try {
-          const response = await fetch(
-            `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&orderBy=relevance&printType=books&langRestrict=${preferredLanguages[0] || "en"}`,
-          )
+      // Use cached API call for recommendations
+      try {
+        const apiResults = await fetchRecommendationsWithCache(
+          authorNames.slice(0, 3), // Limit to first 3 authors
+          preferredGenres.slice(0, 2), // Limit to first 2 genres
+          preferredLanguages
+        )
 
-          if (!response.ok) continue
-
-          const data = await response.json()
-
-          if (data.items) {
-            const newBooks = data.items
+        if (apiResults.length > 0) {
+          const newBooks = apiResults
               .filter((item: any) => {
                 const volumeInfo = item.volumeInfo
 
@@ -134,8 +133,7 @@ export async function generateRecommendations({
             recommendations.push(...newBooks)
           }
         } catch (error) {
-          console.error(`Error fetching recommendations for ${authorName}:`, error)
-          continue
+          console.error("Error fetching recommendations:", error)
         }
 
         // Break after first successful query for this author

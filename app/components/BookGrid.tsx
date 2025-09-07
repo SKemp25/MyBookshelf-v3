@@ -19,6 +19,7 @@ import {
 import type { Book, Platform } from "@/lib/types"
 import ShareBookModal from "./ShareBookModal"
 import { updateBookStatus } from "@/lib/database"
+import { useToast } from "@/hooks/use-toast"
 
 interface BookGridProps {
   books: Book[]
@@ -56,6 +57,7 @@ export default function BookGrid({
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   const [recommendedBooks, setRecommendedBooks] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
 
   const handleMarkAsRead = async (bookId: string, title: string, author: string) => {
     if (isUpdating.has(bookId)) return
@@ -67,8 +69,17 @@ export default function BookGrid({
         await updateBookStatus(userId, bookId, "read")
       }
       onMarkAsRead(bookId, title, author)
+      toast({
+        title: "Book Marked as Read!",
+        description: `"${title}" by ${author}`,
+      })
     } catch (error) {
       console.error("Error updating book status to read:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update book status. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsUpdating((prev) => {
         const newSet = new Set(prev)
@@ -88,8 +99,17 @@ export default function BookGrid({
         await updateBookStatus(userId, bookId, "want")
       }
       onMarkAsWant(bookId, title, author)
+      toast({
+        title: "Added to Want to Read!",
+        description: `"${title}" by ${author}`,
+      })
     } catch (error) {
       console.error("Error updating book status to want:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update book status. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsUpdating((prev) => {
         const newSet = new Set(prev)
@@ -196,6 +216,67 @@ export default function BookGrid({
         // Barnes & Noble
         const bnQuery = `${book.title} ${getAuthorName(book)}`.replace(/[^\w\s]/g, " ").trim()
         url = `https://www.barnesandnoble.com/s/${encodeURIComponent(bnQuery)}`
+        break
+
+      case "library":
+        // Smart library URL handling - detect common platforms and construct proper search URLs
+        if (platform.url && platform.url !== "") {
+          const title = book.title.replace(/[^\w\s]/g, " ").trim()
+          const author = getAuthorName(book).replace(/[^\w\s]/g, " ").trim()
+          
+          // Create multiple search strategies for better results
+          const searchStrategies = [
+            `"${title}" "${author}"`,  // Exact phrase search
+            `${title} ${author}`,      // Combined search
+            title,                     // Title only
+            author,                    // Author only
+            `${author} ${title}`       // Author first
+          ]
+          
+          const encodedTitle = encodeURIComponent(title)
+          const encodedAuthor = encodeURIComponent(author)
+          const encodedQuery = encodeURIComponent(searchStrategies[0]) // Use best strategy first
+          
+          // Check if URL contains template variables (user knows how to use them)
+          if (platform.url.includes("{") && platform.url.includes("}")) {
+            url = platform.url
+              .replace("{title}", encodedTitle)
+              .replace("{author}", encodedAuthor)
+              .replace("{query}", encodedQuery)
+          } else {
+            // Smart detection for common library platforms
+            const urlLower = platform.url.toLowerCase()
+            
+            if (urlLower.includes("libbyapp.com") || urlLower.includes("libby")) {
+              // Libby - use title and author separately for better results
+              url = `https://libbyapp.com/search/library?q=${encodedTitle}&author=${encodedAuthor}`
+            } else if (urlLower.includes("overdrive.com")) {
+              // OverDrive - use combined search with quotes for exact matching
+              url = `https://www.overdrive.com/search?q=${encodedQuery}`
+            } else if (urlLower.includes("hoopladigital.com") || urlLower.includes("hoopla")) {
+              // Hoopla - use title search first
+              url = `https://www.hoopladigital.com/search?q=${encodedTitle}`
+            } else if (urlLower.includes("worldcat.org")) {
+              // WorldCat - use advanced search format
+              url = `https://www.worldcat.org/search?q=ti%3A${encodedTitle}+au%3A${encodedAuthor}&qt=results_page`
+            } else if (urlLower.includes("catalog") || urlLower.includes("library")) {
+              // Generic library catalog - try multiple search parameters
+              const separator = platform.url.includes("?") ? "&" : "?"
+              url = `${platform.url}${separator}search=${encodedTitle}&author=${encodedAuthor}`
+            } else {
+              // Generic library - try to append search parameters
+              const separator = platform.url.includes("?") ? "&" : "?"
+              url = `${platform.url}${separator}q=${encodedQuery}`
+            }
+          }
+        } else {
+          // Default to WorldCat with advanced search if no custom URL provided
+          const title = book.title.replace(/[^\w\s]/g, " ").trim()
+          const author = getAuthorName(book).replace(/[^\w\s]/g, " ").trim()
+          const encodedTitle = encodeURIComponent(title)
+          const encodedAuthor = encodeURIComponent(author)
+          url = `https://www.worldcat.org/search?q=ti%3A${encodedTitle}+au%3A${encodedAuthor}&qt=results_page`
+        }
         break
 
       default:

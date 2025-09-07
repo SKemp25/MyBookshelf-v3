@@ -11,6 +11,10 @@ import ReadingStatsCard from "./ReadingStatsCard"
 import { ChevronDown, ChevronUp, Users, BookOpen, Settings, Activity } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
+import { normalizeAuthorName } from "./AuthorManager"
+import { saveUserAuthors } from "@/lib/database"
+import DataExport from "./DataExport"
+import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
@@ -32,6 +36,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [sortBy, setSortBy] = useState<string>("newest")
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["en"])
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState<string>("")
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(defaultAdvancedFilters)
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(true)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(true)
@@ -304,6 +309,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const filteredBooks = (books || []).filter((book) => {
+    // Search filter - search in title and author
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      const titleMatch = book.title?.toLowerCase().includes(query) || false
+      const authorMatch = book.author?.toLowerCase().includes(query) || false
+      if (!titleMatch && !authorMatch) {
+        return false
+      }
+    }
+
     if ((userState.preferredLanguages || []).length > 0) {
       const bookLanguage = book.language || "en"
       if (!userState.preferredLanguages.includes(bookLanguage)) {
@@ -344,17 +359,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
         // Check if date is valid
         if (isNaN(bookDate.getTime())) {
-          console.log(`Invalid date for book: ${book.title} - ${book.publishedDate}`)
           return false
         }
 
         // Only show books with future publication dates
         if (bookDate <= now) {
-          console.log(`Filtering out past/current book: ${book.title} - ${book.publishedDate}`)
           return false
         }
       } catch (error) {
-        console.log(`Date parsing error for book: ${book.title} - ${book.publishedDate}`)
         return false
       }
     }
@@ -447,7 +459,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       case "Books":
         return "https://www.amazon.com/s?k={title}&i=stripbooks"
       case "Library":
-        return "https://www.worldcat.org/search?q={title}"
+        return "https://libbyapp.com"
       default:
         return ""
     }
@@ -555,12 +567,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isAuthorsOpen && (
-                <AuthorManager
-                  authors={authors}
-                  setAuthors={setAuthors}
-                  userId={currentUser || "guest"}
-                  onBooksFound={onBooksFound}
-                />
+                <APIErrorBoundary>
+                  <ComponentErrorBoundary componentName="Author Manager">
+                    <AuthorManager
+                      authors={authors}
+                      setAuthors={setAuthors}
+                      userId={currentUser || "guest"}
+                      onBooksFound={onBooksFound}
+                    />
+                  </ComponentErrorBoundary>
+                </APIErrorBoundary>
               )}
             </div>
 
@@ -577,13 +593,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isRecommendationsOpen && (
-                <BookRecommendations
-                  authors={authors}
-                  books={books}
-                  readBooks={readBooks}
-                  wantToReadBooks={wantToReadBooks}
-                  user={userState}
-                  onBookClick={(book) => {
+                <APIErrorBoundary>
+                  <ComponentErrorBoundary componentName="Book Recommendations">
+                    <BookRecommendations
+                      authors={authors}
+                      books={books}
+                      readBooks={readBooks}
+                      wantToReadBooks={wantToReadBooks}
+                      user={userState}
+                      onBookClick={(book) => {
+                    // Add the book to the collection
                     setBooks((prevBooks) => {
                       const existingTitles = new Set(prevBooks.map((b) => `${b.title}-${b.author}`))
                       if (!existingTitles.has(`${book.title}-${book.author}`)) {
@@ -592,6 +611,45 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       return prevBooks
                     })
 
+                    // Add the author to the authors list if not already present
+                    const bookAuthor = book.author || book.authors?.[0]
+                    if (bookAuthor) {
+                      const normalizedAuthor = normalizeAuthorName(bookAuthor)
+                      setAuthors((prevAuthors) => {
+                        const authorExists = prevAuthors.some(author => 
+                          author.toLowerCase() === normalizedAuthor.toLowerCase()
+                        )
+                        if (!authorExists) {
+                          const updatedAuthors = [...prevAuthors, normalizedAuthor].sort((a, b) => {
+                            const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                            return getLastName(a).localeCompare(getLastName(b))
+                          })
+                          
+                          // Save to database and track analytics
+                          if (currentUser) {
+                            saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                              console.error("Error saving authors to database:", error)
+                            )
+                            
+                            trackEvent(currentUser, {
+                              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                              event_data: {
+                                author_name: normalizedAuthor,
+                                total_authors: updatedAuthors.length,
+                                source: "recommendation_click",
+                                timestamp: new Date().toISOString(),
+                              },
+                            }).catch(error => 
+                              console.error("Error tracking author addition:", error)
+                            )
+                          }
+                          
+                          return updatedAuthors
+                        }
+                        return prevAuthors
+                      })
+                    }
+
                     setTimeout(() => {
                       const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
                       if (bookElement) {
@@ -599,7 +657,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       }
                     }, 100)
                   }}
-                />
+                    />
+                  </ComponentErrorBoundary>
+                </APIErrorBoundary>
               )}
             </div>
 
@@ -616,7 +676,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   {isAnalyticsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
 
-                {isAnalyticsOpen && <ReadingStatsCard userId={currentUser} />}
+                {isAnalyticsOpen && (
+                  <ComponentErrorBoundary componentName="Reading Analytics">
+                    <ReadingStatsCard userId={currentUser} />
+                  </ComponentErrorBoundary>
+                )}
               </div>
             )}
 
@@ -937,7 +1001,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           type="url"
                           value={
                             platforms.find((p) => p.name === "Library")?.url ||
-                            "https://www.worldcat.org/search?q={title}"
+                            "https://libbyapp.com"
                           }
                           onChange={(e) => {
                             setPlatforms((prev) =>
@@ -945,8 +1009,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             )
                           }}
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://www.worldcat.org/search?q={title}"
+                          placeholder="https://libbyapp.com"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Just enter your library URL (e.g., libbyapp.com, overdrive.com). We'll automatically search for the book!
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -967,6 +1034,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 setSelectedLanguages={setSelectedLanguages}
                 selectedGenres={selectedGenres}
                 setSelectedGenres={setSelectedGenres}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
                 userPreferences={userState}
                 advancedFilters={advancedFilters}
                 onFiltersChange={setAdvancedFilters}
@@ -986,6 +1055,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       READING PROGRESS {readBooks.size} OF {books.length}
                     </span>
                   </div>
+                  <DataExport 
+                    books={books}
+                    authors={authors}
+                    readBooks={readBooks}
+                    wantToReadBooks={wantToReadBooks}
+                    dontWantBooks={dontWantBooks}
+                    userProfile={userState}
+                  />
                 </div>
                 <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
                   <span className="text-orange-800 font-medium text-xs">

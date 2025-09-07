@@ -3,7 +3,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Filter, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Filter, X, Search } from "lucide-react"
 import type { Book } from "../lib/types"
 import AdvancedFilters, { type AdvancedFilterState, defaultAdvancedFilters } from "./AdvancedFilters"
 
@@ -14,6 +15,7 @@ interface BookFiltersProps {
   sortBy: string
   selectedLanguages: string[]
   selectedGenres: string[]
+  searchQuery: string
   userPreferences: any
   advancedFilters: AdvancedFilterState
   onFiltersChange: (filters: AdvancedFilterState) => void
@@ -21,6 +23,7 @@ interface BookFiltersProps {
   setSortBy: (sort: string) => void
   setSelectedLanguages: (languages: string[]) => void
   setSelectedGenres: (genres: string[]) => void
+  setSearchQuery: (query: string) => void
 }
 
 export default function BookFilters({
@@ -30,6 +33,7 @@ export default function BookFilters({
   sortBy,
   selectedLanguages,
   selectedGenres,
+  searchQuery,
   userPreferences,
   advancedFilters,
   onFiltersChange,
@@ -37,6 +41,7 @@ export default function BookFilters({
   setSortBy,
   setSelectedLanguages,
   setSelectedGenres,
+  setSearchQuery,
 }: BookFiltersProps) {
   const safeAuthors = Array.isArray(authors) ? authors : []
   const safeBooks = Array.isArray(books) ? books : []
@@ -52,6 +57,7 @@ export default function BookFilters({
 
   const clearAllFilters = () => {
     setSelectedAuthor("")
+    setSearchQuery("")
   }
 
   return (
@@ -59,6 +65,26 @@ export default function BookFilters({
       <div className="flex items-center gap-3 mb-4">
         <Filter className="w-6 h-6 text-orange-600" />
         <h3 className="text-lg font-semibold text-orange-700">Filters &amp; Sorting</h3>
+      </div>
+
+      {/* Search Box */}
+      <div className="space-y-3 mb-6">
+        <h4 className="text-base font-semibold text-red-700">Search Books</h4>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            type="text"
+            placeholder="Search by title or author..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-200"
+          />
+        </div>
+        {searchQuery && (
+          <p className="text-sm text-orange-600">
+            Searching for: "{searchQuery}"
+          </p>
+        )}
       </div>
 
       {/* Sort By */}
@@ -83,7 +109,7 @@ export default function BookFilters({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-base font-semibold text-gray-800">Filter by Author</h4>
-            {selectedAuthor && (
+            {(selectedAuthor || searchQuery) && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -91,7 +117,7 @@ export default function BookFilters({
                 className="text-orange-600 hover:text-orange-800 h-auto p-1"
               >
                 <X className="w-4 h-4 mr-1" />
-                Clear
+                Clear All
               </Button>
             )}
           </div>

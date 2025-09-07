@@ -1,5 +1,7 @@
 "use client"
 
+import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
+
 // Simple localStorage-based authentication
 export async function signIn(prevState: any, formData: FormData) {
   if (!formData) {
@@ -29,6 +31,18 @@ export async function signIn(prevState: any, formData: FormData) {
     // Set current user
     localStorage.setItem("bookshelf_current_user", email.toString())
     localStorage.setItem("bookshelf_is_logged_in", "true")
+
+    // Update login metadata
+    try {
+      users[userKey].loginCount = (users[userKey].loginCount || 0) + 1
+      users[userKey].lastLoginAt = new Date().toISOString()
+      localStorage.setItem("bookshelf_users", JSON.stringify(users))
+    } catch (_) {}
+
+    // Track login event
+    try {
+      await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.LOGIN })
+    } catch (_) {}
 
     return { success: true }
   } catch (error) {
@@ -69,6 +83,8 @@ export async function signUp(prevState: any, formData: FormData) {
       password: password.toString(),
       fullName: fullName.toString(),
       createdAt: new Date().toISOString(),
+      loginCount: 1,
+      lastLoginAt: new Date().toISOString(),
     }
 
     localStorage.setItem("bookshelf_users", JSON.stringify(users))
@@ -90,6 +106,12 @@ export async function signUp(prevState: any, formData: FormData) {
     // Auto sign in the new user
     localStorage.setItem("bookshelf_current_user", email.toString())
     localStorage.setItem("bookshelf_is_logged_in", "true")
+
+    // Track signup + login events
+    try {
+      await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.SIGNUP })
+      await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.LOGIN })
+    } catch (_) {}
 
     return { success: true }
   } catch (error) {
