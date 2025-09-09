@@ -527,9 +527,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         if (statusToHide === "want-to-read" && (wantToReadBooks || new Set()).has(bookId)) {
           return false // Hide this book
         }
-        if (statusToHide === "dont-want" && (dontWantBooks || new Set()).has(bookId)) {
-          return false // Hide this book
-        }
         if (
           statusToHide === "unread" &&
           !(readBooks || new Set()).has(bookId) &&
@@ -539,6 +536,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           return false // Hide this book (it has no status)
         }
       }
+    }
+
+    // Hide passed books by default unless showPassedBooks is true
+    const bookId = `${book.title}-${book.author}`
+    if ((dontWantBooks || new Set()).has(bookId) && !safeAdvancedFilters.showPassedBooks) {
+      return false // Hide passed books unless explicitly shown
     }
 
     return true

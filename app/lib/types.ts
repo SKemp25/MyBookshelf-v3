@@ -114,13 +114,14 @@ export interface AdvancedFilterState {
   description?: string
   fromDate?: string
   toDate?: string
+  showPassedBooks?: boolean
 }
 
 export const defaultAdvancedFilters: AdvancedFilterState = {
   singleAuthorOnly: false,
   hasDescription: false,
   seriesOnly: false,
-  readingStatus: ["dont-want"],
+  readingStatus: [],
   genre: "all",
   yearRange: {
     start: "",
@@ -131,6 +132,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   titleContains: "",
   excludeWords: [],
   upcomingOnly: false,
+  showPassedBooks: false,
 }
 
 export type FilterState = {

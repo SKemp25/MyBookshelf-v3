@@ -24,7 +24,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   singleAuthorOnly: false,
   hasDescription: false,
   seriesOnly: false,
-  readingStatus: ["dont-want"],
+  readingStatus: [],
   genre: "all",
   yearRange: {
     start: "",
@@ -35,6 +35,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   titleContains: "",
   excludeWords: [],
   upcomingOnly: false,
+  showPassedBooks: false,
 }
 
 export default function AdvancedFilters({ filters, onFiltersChange, books, authors }: AdvancedFiltersProps) {
@@ -223,7 +224,6 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                 { value: "read", label: "Hide Read books" },
                 { value: "unread", label: "Hide Unread books" },
                 { value: "want-to-read", label: "Hide Want to read books" },
-                { value: "dont-want", label: "Hide Passed books" },
               ].map((status) => (
                 <div key={status.value} className="flex items-center space-x-2">
                   <Checkbox
@@ -237,6 +237,21 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                   </Label>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Show Passed Books */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="show-passed-books"
+                checked={safeFilters.showPassedBooks || false}
+                onCheckedChange={(checked) => updateFilter("showPassedBooks", checked)}
+                className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              />
+              <Label htmlFor="show-passed-books" className="text-sm text-orange-700">
+                Show Passed books
+              </Label>
             </div>
           </div>
 
@@ -297,12 +312,9 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                 <Input
                   id="year-end"
                   type="number"
-                  placeholder={(new Date().getFullYear() + 1).toString()}
+                  placeholder="No limit"
                   value={safeFilters.yearRange.end}
                   onChange={(e) => updateYearRange("end", e.target.value)}
-                  min="1900"
-                  max="2050"
-                  step="1"
                   className="border-orange-200 focus:border-orange-400 h-8 text-sm"
                 />
               </div>
