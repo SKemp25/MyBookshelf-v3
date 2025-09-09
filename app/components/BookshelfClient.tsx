@@ -490,6 +490,31 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
+    // Year range filtering
+    if (safeAdvancedFilters.yearRange) {
+      const { start, end } = safeAdvancedFilters.yearRange
+      if (book.publishedDate && (start || end)) {
+        try {
+          const bookDate = new Date(book.publishedDate)
+          if (isNaN(bookDate.getTime())) {
+            return false // Invalid date
+          }
+          
+          const bookYear = bookDate.getFullYear()
+          
+          if (start && bookYear < parseInt(start)) {
+            return false
+          }
+          
+          if (end && bookYear > parseInt(end)) {
+            return false
+          }
+        } catch (error) {
+          return false
+        }
+      }
+    }
+
     // Hide books based on selected statuses to hide
     if (Array.isArray(safeAdvancedFilters.readingStatus) && safeAdvancedFilters.readingStatus.length > 0) {
       const bookId = `${book.title}-${book.author}`
