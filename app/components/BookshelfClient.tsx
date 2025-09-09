@@ -506,7 +506,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Year range filtering
     if (safeAdvancedFilters.yearRange) {
       const { start, end } = safeAdvancedFilters.yearRange
-      if (book.publishedDate && (start || end)) {
+      if (book.publishedDate && (start.trim() || end.trim())) {
         try {
           const bookDate = new Date(book.publishedDate)
           if (isNaN(bookDate.getTime())) {
@@ -518,13 +518,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           // Debug logging for 2025+ books
           if (bookYear >= 2025) {
             console.log(`2025+ book found: ${book.title} (${bookYear}) - start: "${start}", end: "${end}"`)
+            console.log(`Year range filter: start.trim()="${start.trim()}", end.trim()="${end.trim()}"`)
+            console.log(`Will be filtered out: ${(start.trim() && bookYear < parseInt(start)) || (end.trim() && bookYear > parseInt(end))}`)
           }
           
-          if (start && bookYear < parseInt(start)) {
+          if (start.trim() && bookYear < parseInt(start)) {
             return false
           }
           
-          if (end && bookYear > parseInt(end)) {
+          if (end.trim() && bookYear > parseInt(end)) {
             return false
           }
         } catch (error) {
@@ -562,6 +564,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return false // Hide passed books unless explicitly shown
     }
 
+    // Debug: Log if 2025+ books make it through all filters
+    if (book.publishedDate) {
+      const year = new Date(book.publishedDate).getFullYear()
+      if (year >= 2025) {
+        console.log(`2025+ book passed all filters: ${book.title} (${book.publishedDate})`)
+      }
+    }
+    
     return true
   })
 
