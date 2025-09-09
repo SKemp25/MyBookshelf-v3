@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, User, BookOpen } from "lucide-react"
+import { Calendar, User, BookOpen, X } from "lucide-react"
 import type { Book } from "../lib/types"
 
 interface RecommendationBookModalProps {
@@ -13,6 +13,7 @@ interface RecommendationBookModalProps {
   onClose: () => void
   onAddBook: (book: Book) => void
   onAddAuthor: (authorName: string) => void
+  onPass?: () => void
 }
 
 export default function RecommendationBookModal({ 
@@ -20,7 +21,8 @@ export default function RecommendationBookModal({
   isOpen, 
   onClose, 
   onAddBook, 
-  onAddAuthor 
+  onAddAuthor,
+  onPass
 }: RecommendationBookModalProps) {
   if (!book) return null
 
@@ -44,6 +46,13 @@ export default function RecommendationBookModal({
 
   const handleAddAuthor = () => {
     onAddAuthor(authorName)
+    onClose()
+  }
+
+  const handlePass = () => {
+    if (onPass) {
+      onPass()
+    }
     onClose()
   }
 
@@ -124,7 +133,7 @@ export default function RecommendationBookModal({
               Choose how to add this recommendation:
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 onClick={handleAddBook}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
@@ -140,6 +149,16 @@ export default function RecommendationBookModal({
                 <User className="w-4 h-4 mr-2" />
                 Add Author
               </Button>
+              {onPass && (
+                <Button
+                  onClick={handlePass}
+                  variant="outline"
+                  className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Pass
+                </Button>
+              )}
             </div>
 
             <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded">

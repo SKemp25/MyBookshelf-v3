@@ -31,6 +31,7 @@ export default function BookRecommendations({
   const [loading, setLoading] = useState(false)
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [passedBooks, setPassedBooks] = useState<Set<string>>(new Set())
 
   const curatedRecommendations: Book[] = [
     {
@@ -202,6 +203,7 @@ export default function BookRecommendations({
           if (existingBookIds.has(book.id)) return false
           const bookKey = `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`
           if (existingBookTitles.has(bookKey)) return false
+          if (passedBooks.has(book.id)) return false
 
           // Filter by user language preferences
           if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
@@ -214,7 +216,11 @@ export default function BookRecommendations({
           return true
         })
 
-        setRecommendations(filteredRecommendations)
+        // Shuffle the recommendations to show different books each time
+        const shuffledRecommendations = [...filteredRecommendations].sort(() => Math.random() - 0.5)
+        
+        // Take only the first 3 recommendations to keep it manageable
+        setRecommendations(shuffledRecommendations.slice(0, 3))
 
         if (user?.suggestNewAuthors) {
           const newAuthors = generateAuthorRecommendations()
@@ -242,6 +248,14 @@ export default function BookRecommendations({
   const handleAddAuthor = (authorName: string) => {
     if (onAuthorClick) {
       onAuthorClick(authorName)
+    }
+  }
+
+  const handlePass = () => {
+    if (selectedBook) {
+      setPassedBooks(prev => new Set([...prev, selectedBook.id]))
+      // Generate new recommendations after passing
+      generateNewRecommendations()
     }
   }
 
@@ -389,6 +403,7 @@ export default function BookRecommendations({
         onClose={() => setIsModalOpen(false)}
         onAddBook={handleAddBook}
         onAddAuthor={handleAddAuthor}
+        onPass={handlePass}
       />
     </div>
   )
