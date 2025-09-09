@@ -32,6 +32,7 @@ export default function BookRecommendations({
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [passedBooks, setPassedBooks] = useState<Set<string>>(new Set())
+  const [refreshCounter, setRefreshCounter] = useState(0)
 
   const curatedRecommendations: Book[] = [
     {
@@ -97,6 +98,71 @@ export default function BookRecommendations({
       pageCount: 288,
       categories: ["Literary Fiction", "Philosophy"],
       thumbnail: "/midnight-library.png",
+      language: "en",
+    },
+    {
+      id: "rec-6",
+      title: "Klara and the Sun",
+      author: "Kazuo Ishiguro",
+      authorId: "Kazuo Ishiguro",
+      publishedDate: "2021-03-02",
+      description:
+        "From the Nobel Prize-winning author of Never Let Me Go and The Remains of the Day, a beautiful novel about an artificial friend and the human heart.",
+      pageCount: 320,
+      categories: ["Science Fiction", "Literary Fiction"],
+      thumbnail: "/klara-and-the-sun.png",
+      language: "en",
+    },
+    {
+      id: "rec-7",
+      title: "Project Hail Mary",
+      author: "Andy Weir",
+      authorId: "Andy Weir",
+      publishedDate: "2021-05-04",
+      description:
+        "Ryland Grace is the sole survivor on a desperate, last-chance mission—and if he fails, humanity and the earth itself will perish.",
+      pageCount: 496,
+      categories: ["Science Fiction", "Adventure"],
+      thumbnail: "/project-hail-mary.png",
+      language: "en",
+    },
+    {
+      id: "rec-8",
+      title: "The Thursday Murder Club",
+      author: "Richard Osman",
+      authorId: "Richard Osman",
+      publishedDate: "2020-09-03",
+      description:
+        "Four septuagenarians with a few tricks up their sleeves investigate a murder in their retirement village.",
+      pageCount: 384,
+      categories: ["Mystery", "Humor"],
+      thumbnail: "/thursday-murder-club.png",
+      language: "en",
+    },
+    {
+      id: "rec-9",
+      title: "Nineteen Minutes",
+      author: "Jodi Picoult",
+      authorId: "Jodi Picoult",
+      publishedDate: "2007-03-06",
+      description:
+        "In nineteen minutes, you can mow the front lawn, color your hair, watch a third of a hockey game. In nineteen minutes, you can bake scones or get a tooth filled by a dentist.",
+      pageCount: 464,
+      categories: ["Contemporary Fiction", "Drama"],
+      thumbnail: "/nineteen-minutes-book-cover.png",
+      language: "en",
+    },
+    {
+      id: "rec-10",
+      title: "The Ocean at the End of the Lane",
+      author: "Neil Gaiman",
+      authorId: "Neil Gaiman",
+      publishedDate: "2013-06-18",
+      description:
+        "A novel about memory, magic and survival, about the power of stories and the darkness inside each of us.",
+      pageCount: 181,
+      categories: ["Fantasy", "Literary Fiction"],
+      thumbnail: "/ocean-end-lane-book-cover.png",
       language: "en",
     },
   ]
@@ -191,6 +257,7 @@ export default function BookRecommendations({
 
   const generateNewRecommendations = () => {
     setLoading(true)
+    setRefreshCounter(prev => prev + 1)
 
     setTimeout(() => {
       try {
@@ -219,8 +286,20 @@ export default function BookRecommendations({
         // Shuffle the recommendations to show different books each time
         const shuffledRecommendations = [...filteredRecommendations].sort(() => Math.random() - 0.5)
         
-        // Take only the first 3 recommendations to keep it manageable
-        setRecommendations(shuffledRecommendations.slice(0, 3))
+        // Use refresh counter to show different sets of recommendations
+        const startIndex = (refreshCounter * 3) % shuffledRecommendations.length
+        const endIndex = Math.min(startIndex + 3, shuffledRecommendations.length)
+        
+        // If we're at the end, start from the beginning but shuffle again
+        let selectedRecommendations
+        if (startIndex + 3 > shuffledRecommendations.length) {
+          const reShuffled = [...filteredRecommendations].sort(() => Math.random() - 0.5)
+          selectedRecommendations = reShuffled.slice(0, 3)
+        } else {
+          selectedRecommendations = shuffledRecommendations.slice(startIndex, endIndex)
+        }
+        
+        setRecommendations(selectedRecommendations)
 
         if (user?.suggestNewAuthors) {
           const newAuthors = generateAuthorRecommendations()
@@ -261,6 +340,7 @@ export default function BookRecommendations({
 
   useEffect(() => {
     if (authors.length > 0) {
+      setRefreshCounter(0) // Reset refresh counter when dependencies change
       generateNewRecommendations()
     } else {
       setRecommendations([])
