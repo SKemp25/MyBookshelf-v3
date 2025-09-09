@@ -444,6 +444,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         }
       }
       return false
+    } else {
+      // Debug: Log 2025+ books that pass author filter
+      if (book.publishedDate) {
+        const year = new Date(book.publishedDate).getFullYear()
+        if (year >= 2025) {
+          console.log(`2025+ book passed author filter: ${book.title} by ${bookAuthor}`)
+        }
+      }
     }
 
     // Filter by selected authors if any are selected
@@ -464,6 +472,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     const safeAdvancedFilters = advancedFilters || defaultAdvancedFilters
+
+    // Debug: Log filter values for 2025+ books
+    if (book.publishedDate) {
+      const year = new Date(book.publishedDate).getFullYear()
+      if (year >= 2025) {
+        console.log(`2025+ book filter values: upcomingOnly=${safeAdvancedFilters.upcomingOnly}, showPassedBooks=${safeAdvancedFilters.showPassedBooks}`)
+      }
+    }
 
     if (safeAdvancedFilters.upcomingOnly) {
       if (!book.publishedDate) return false
