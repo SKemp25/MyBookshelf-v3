@@ -1,3 +1,10 @@
+
+// Helper function to convert HTTP URLs to HTTPS
+function ensureHttps(url: string): string {
+  if (!url) return url
+  return url.replace(/^http:\/\//, 'https://')
+}
+
 // Simple in-memory cache for API responses
 class APICache {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
@@ -111,11 +118,11 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
             categories: item.volumeInfo.categories || [],
             language: item.volumeInfo.language || "en",
             pageCount: item.volumeInfo.pageCount || 0,
-            imageUrl: item.volumeInfo.imageLinks?.thumbnail || "",
-            thumbnail: item.volumeInfo.imageLinks?.thumbnail || "",
-            previewLink: item.volumeInfo.previewLink || "",
-            infoLink: item.volumeInfo.infoLink || "",
-            canonicalVolumeLink: item.volumeInfo.canonicalVolumeLink || "",
+            imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+            thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+            previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
+            infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
+            canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
           }
         })
         allBooks = [...allBooks, ...processedBooks]
