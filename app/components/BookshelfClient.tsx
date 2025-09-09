@@ -413,6 +413,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       const titleMatch = (book.title || "").toLowerCase().includes(query)
       const authorMatch = (getBookAuthor(book) || "").toLowerCase().includes(query)
       if (!titleMatch && !authorMatch) {
+        // Debug: Log 2025+ books filtered out by search
+        if (book.publishedDate) {
+          const year = new Date(book.publishedDate).getFullYear()
+          if (year >= 2025) {
+            console.log(`2025+ book filtered out by search: ${book.title} (search query: "${query}")`)
+          }
+        }
         return false
       }
     }
@@ -420,11 +427,25 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     if ((userState.preferredLanguages || []).length > 0) {
       const bookLanguage = book.language || "en"
       if (!userState.preferredLanguages.includes(bookLanguage)) {
+        // Debug: Log 2025+ books filtered out by language
+        if (book.publishedDate) {
+          const year = new Date(book.publishedDate).getFullYear()
+          if (year >= 2025) {
+            console.log(`2025+ book filtered out by language: ${book.title} (language: ${bookLanguage}, preferred: ${userState.preferredLanguages})`)
+          }
+        }
         return false
       }
     }
 
     if (isRerelease(book)) {
+      // Debug: Log 2025+ books filtered out by rerelease
+      if (book.publishedDate) {
+        const year = new Date(book.publishedDate).getFullYear()
+        if (year >= 2025) {
+          console.log(`2025+ book filtered out by rerelease: ${book.title}`)
+        }
+      }
       return false
     }
 
