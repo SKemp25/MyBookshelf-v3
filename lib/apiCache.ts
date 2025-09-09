@@ -94,13 +94,14 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
 
     for (const query of queries) {
       const response = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
+        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=relevance&printType=books`,
       )
       
       if (!response.ok) continue
       
       const data = await response.json()
       if (data.items) {
+        console.log(`API returned ${data.items.length} books for query: ${query}`)
         // Process the raw API data into proper Book objects
         const processedBooks = data.items.map((item: any) => {
           let publishedDate = item.volumeInfo.publishedDate
@@ -108,7 +109,7 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
             publishedDate = `${publishedDate}-01-01`
           }
 
-          return {
+          const bookData = {
             id: item.id,
             title: item.volumeInfo.title || "Unknown Title",
             author: item.volumeInfo.authors?.[0] || "Unknown Author",
@@ -124,6 +125,16 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
             infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
             canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
           }
+          
+          // Debug: Log books with 2025+ dates
+          if (publishedDate && publishedDate !== "Unknown Date") {
+            const year = new Date(publishedDate).getFullYear()
+            if (year >= 2025) {
+              console.log(`2025+ book from API: ${bookData.title} (${publishedDate})`)
+            }
+          }
+          
+          return bookData
         })
         allBooks = [...allBooks, ...processedBooks]
       }

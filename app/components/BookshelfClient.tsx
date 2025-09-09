@@ -385,6 +385,19 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const filteredAndLimitedBooks = (() => {
+    // Debug: Log all books and their publication dates
+    console.log(`Total books loaded: ${books.length}`)
+    const booksWithDates = books.filter(book => book.publishedDate)
+    console.log(`Books with dates: ${booksWithDates.length}`)
+    const recentBooks = booksWithDates.filter(book => {
+      const year = new Date(book.publishedDate).getFullYear()
+      return year >= 2024
+    })
+    console.log(`Books from 2024+: ${recentBooks.length}`)
+    recentBooks.forEach(book => {
+      console.log(`- ${book.title} (${book.publishedDate})`)
+    })
+    
     const base = (books || []).filter((book) => {
     // Search filter - search in title and author
     if (searchQuery.trim()) {
@@ -501,6 +514,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           }
           
           const bookYear = bookDate.getFullYear()
+          
+          // Debug logging for 2025+ books
+          if (bookYear >= 2025) {
+            console.log(`2025+ book found: ${book.title} (${bookYear}) - start: "${start}", end: "${end}"`)
+          }
           
           if (start && bookYear < parseInt(start)) {
             return false
