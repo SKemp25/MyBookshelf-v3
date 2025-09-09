@@ -7,9 +7,8 @@ import BookGrid from "./BookGrid"
 import BookFilters from "./BookFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
-import ReadingStatsCard from "./ReadingStatsCard"
 import TooltipManager from "./TooltipManager"
-import { ChevronDown, ChevronUp, Users, BookOpen, Settings, Activity, HelpCircle } from "lucide-react"
+import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
@@ -60,7 +59,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     setCurrentUser(user)
   }, [])
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false) // Added analytics section state
   const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false) // Added recently viewed section state
   const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
   const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
@@ -551,7 +549,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     // Hide passed books by default unless showPassedBooks is true
     const bookId = `${book.title}-${book.author}`
-    if ((dontWantBooks || new Set()).has(bookId) && !safeAdvancedFilters.showPassedBooks) {
+    if ((dontWantBooks || new Set()).has(bookId) && !(safeAdvancedFilters as any).showPassedBooks) {
       return false // Hide passed books unless explicitly shown
     }
 
@@ -1148,27 +1146,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               )}
             </div>
 
-            {isLoggedIn && currentUser && (
-              <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
-                <button
-                  data-tour="analytics"
-                  onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    Reading Analytics
-                  </div>
-                  {isAnalyticsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-
-                {isAnalyticsOpen && (
-                  <ComponentErrorBoundary componentName="Reading Analytics">
-                    <ReadingStatsCard userId={currentUser} />
-                  </ComponentErrorBoundary>
-                )}
-              </div>
-            )}
 
             <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
               <button
