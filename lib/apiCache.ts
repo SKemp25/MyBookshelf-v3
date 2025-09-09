@@ -94,7 +94,31 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
       
       const data = await response.json()
       if (data.items) {
-        allBooks = [...allBooks, ...data.items]
+        // Process the raw API data into proper Book objects
+        const processedBooks = data.items.map((item: any) => {
+          let publishedDate = item.volumeInfo.publishedDate
+          if (publishedDate && publishedDate.length === 4) {
+            publishedDate = `${publishedDate}-01-01`
+          }
+
+          return {
+            id: item.id,
+            title: item.volumeInfo.title || "Unknown Title",
+            author: item.volumeInfo.authors?.[0] || "Unknown Author",
+            authors: item.volumeInfo.authors || [],
+            publishedDate: publishedDate || "Unknown Date",
+            description: item.volumeInfo.description || "",
+            categories: item.volumeInfo.categories || [],
+            language: item.volumeInfo.language || "en",
+            pageCount: item.volumeInfo.pageCount || 0,
+            imageUrl: item.volumeInfo.imageLinks?.thumbnail || "",
+            thumbnail: item.volumeInfo.imageLinks?.thumbnail || "",
+            previewLink: item.volumeInfo.previewLink || "",
+            infoLink: item.volumeInfo.infoLink || "",
+            canonicalVolumeLink: item.volumeInfo.canonicalVolumeLink || "",
+          }
+        })
+        allBooks = [...allBooks, ...processedBooks]
       }
     }
 

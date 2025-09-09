@@ -24,10 +24,10 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   singleAuthorOnly: false,
   hasDescription: false,
   seriesOnly: false,
-  readingStatus: [],
+  readingStatus: ["dont-want"],
   genre: "all",
   yearRange: {
-    start: (new Date().getFullYear() - 10).toString(),
+    start: "",
     end: "",
   },
   minPages: "",
@@ -217,13 +217,13 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Reading Status (select multiple)</Label>
+            <Label className="text-sm text-orange-700">Hide (select to hide)</Label>
             <div className="space-y-2">
               {[
-                { value: "read", label: "Read" },
-                { value: "unread", label: "Unread" },
-                { value: "want-to-read", label: "Want to read" },
-                { value: "dont-want", label: "Don't want" },
+                { value: "read", label: "Hide Read books" },
+                { value: "unread", label: "Hide Unread books" },
+                { value: "want-to-read", label: "Hide Want to read books" },
+                { value: "dont-want", label: "Hide Passed books" },
               ].map((status) => (
                 <div key={status.value} className="flex items-center space-x-2">
                   <Checkbox
@@ -298,13 +298,8 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                   id="year-end"
                   type="number"
                   placeholder={(new Date().getFullYear() + 1).toString()}
-                  value={safeFilters.yearRange.end || (new Date().getFullYear() + 1).toString()}
+                  value={safeFilters.yearRange.end}
                   onChange={(e) => updateYearRange("end", e.target.value)}
-                  onFocus={(e) => {
-                    if (!e.target.value) {
-                      updateYearRange("end", (new Date().getFullYear() + 1).toString())
-                    }
-                  }}
                   min="1900"
                   max="2050"
                   step="1"

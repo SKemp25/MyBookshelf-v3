@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Calendar, User } from "lucide-react"
 import type { Author, Book } from "@/lib/types"
+import RecommendationBookModal from "./RecommendationBookModal"
 
 interface BookRecommendationsProps {
   authors: Author[]
@@ -13,6 +14,7 @@ interface BookRecommendationsProps {
   wantToReadBooks: Set<string>
   user: any
   onBookClick?: (book: Book) => void
+  onAuthorClick?: (authorName: string) => void
 }
 
 export default function BookRecommendations({
@@ -22,10 +24,13 @@ export default function BookRecommendations({
   wantToReadBooks,
   user,
   onBookClick,
+  onAuthorClick,
 }: BookRecommendationsProps) {
   const [recommendations, setRecommendations] = useState<Book[]>([])
   const [authorRecommendations, setAuthorRecommendations] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const curatedRecommendations: Book[] = [
     {
@@ -146,16 +151,33 @@ export default function BookRecommendations({
       }
     })
 
+    // Get authors from want list to improve recommendations
+    const wantListAuthors = new Set<string>()
+    wantToReadBooks.forEach((bookId) => {
+      const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+      if (book) {
+        wantListAuthors.add(book.author)
+      }
+    })
+
+    // Combine existing authors with want list authors for better recommendations
+    const allRelevantAuthors = [...existingAuthors, ...Array.from(wantListAuthors)]
+
     const authorMap: { [key: string]: string[] } = {
       "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Stephen Fry"],
       "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith"],
       "Kristin Hannah": ["Jodi Picoult", "Liane Moriarty", "Taylor Jenkins Reid"],
       "Daniel Mason": ["Anthony Doerr", "Hanya Yanagihara", "Colson Whitehead"],
       "Philip Pullman": ["Neil Gaiman", "Terry Pratchett", "Susanna Clarke"],
+      "Madeline Miller": ["Pat Barker", "Jennifer Saint", "Stephen Fry"],
+      "Jennifer Saint": ["Pat Barker", "Madeline Miller", "Stephen Fry"],
+      "Ali Smith": ["Kate Atkinson", "Sarah Waters", "Zadie Smith"],
+      "Sarah Waters": ["Kate Atkinson", "Ali Smith", "Zadie Smith"],
+      "Zadie Smith": ["Kate Atkinson", "Ali Smith", "Sarah Waters"],
     }
 
     const potentialAuthors = new Set<string>()
-    existingAuthors.forEach((author) => {
+    allRelevantAuthors.forEach((author) => {
       if (authorMap[author]) {
         authorMap[author].forEach((rec) => potentialAuthors.add(rec))
       }
@@ -173,12 +195,12 @@ export default function BookRecommendations({
       try {
         const existingBookIds = new Set(books.map((book) => book.id))
         const existingBookTitles = new Set(
-          books.map((book) => `${book.title.toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
+          books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
         )
 
         const filteredRecommendations = curatedRecommendations.filter((book) => {
           if (existingBookIds.has(book.id)) return false
-          const bookKey = `${book.title.toLowerCase()}-${getAuthorName(book).toLowerCase()}`
+          const bookKey = `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`
           if (existingBookTitles.has(bookKey)) return false
 
           // Filter by user language preferences
@@ -207,8 +229,19 @@ export default function BookRecommendations({
   }
 
   const handleBookClick = (book: Book) => {
+    setSelectedBook(book)
+    setIsModalOpen(true)
+  }
+
+  const handleAddBook = (book: Book) => {
     if (onBookClick) {
       onBookClick(book)
+    }
+  }
+
+  const handleAddAuthor = (authorName: string) => {
+    if (onAuthorClick) {
+      onAuthorClick(authorName)
     }
   }
 
@@ -225,8 +258,8 @@ export default function BookRecommendations({
     <div className="space-y-4">
       {loading ? (
         <div className="text-center py-6">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <p className="text-blue-600 text-sm">Finding books for you...</p>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400 mx-auto mb-2"></div>
+          <p className="text-blue-500 text-sm">Finding books for you...</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -240,7 +273,8 @@ export default function BookRecommendations({
                 {authorRecommendations.map((author) => (
                   <div
                     key={author}
-                    className="p-2 bg-gradient-to-r from-orange-50 to-red-50 rounded border border-orange-200 hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => onAuthorClick && onAuthorClick(author)}
+                    className="p-2 bg-gradient-to-r from-orange-50 to-red-50 rounded border border-orange-100 hover:shadow-sm transition-shadow cursor-pointer"
                   >
                     <p className="text-red-700 text-xs font-medium">{author}</p>
                     <p className="text-red-600 text-xs opacity-75">Tap to explore their books</p>
@@ -274,7 +308,7 @@ export default function BookRecommendations({
                   <div
                     key={book.id}
                     onClick={() => handleBookClick(book)}
-                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:shadow-md transition-shadow cursor-pointer"
+                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 hover:shadow-md transition-shadow cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
                       {book.thumbnail && (
@@ -309,7 +343,7 @@ export default function BookRecommendations({
                               </Badge>
                             )}
                             {book.seriesInfo && (
-                              <Badge variant="outline" className="border-blue-300 text-blue-700 text-xs px-1 py-0">
+                              <Badge variant="outline" className="border-blue-200 text-blue-600 text-xs px-1 py-0">
                                 #{book.seriesInfo.number}
                               </Badge>
                             )}
@@ -331,13 +365,13 @@ export default function BookRecommendations({
                 </div>
               )}
 
-              <div className="pt-2 border-t border-blue-200">
+              <div className="pt-2 border-t border-blue-100">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={generateNewRecommendations}
                   disabled={loading}
-                  className="w-full h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 bg-transparent"
+                  className="w-full h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
                 >
                   <RefreshCw className={`w-3 h-3 mr-1 ${loading ? "animate-spin" : ""}`} />
                   {loading ? "..." : "Refresh"}
@@ -347,6 +381,15 @@ export default function BookRecommendations({
           )}
         </div>
       )}
+
+      {/* Recommendation Book Modal */}
+      <RecommendationBookModal
+        book={selectedBook}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAddBook={handleAddBook}
+        onAddAuthor={handleAddAuthor}
+      />
     </div>
   )
 }

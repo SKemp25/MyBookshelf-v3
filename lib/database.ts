@@ -36,13 +36,15 @@ export async function loadUserProfile(userId: string) {
 
 // Save user books
 export async function saveUserBooks(userId: string, books: any[]) {
-  const existingData = loadFromLocalStorage("personal_bookshelf") || {}
-  saveToLocalStorage("personal_bookshelf", { ...existingData, books })
+  const userDataKey = `bookshelf_data_${userId}`
+  const existingData = loadFromLocalStorage(userDataKey) || {}
+  saveToLocalStorage(userDataKey, { ...existingData, books })
 }
 
 // Load user books
 export async function loadUserBooks(userId: string) {
-  const data = loadFromLocalStorage("personal_bookshelf")
+  const userDataKey = `bookshelf_data_${userId}`
+  const data = loadFromLocalStorage(userDataKey)
   return data?.books || []
 }
 
@@ -52,24 +54,27 @@ export async function updateBookStatus(
   bookId: string,
   status: "read" | "want" | "unread" | "dont-want",
 ) {
-  const data = loadFromLocalStorage("personal_bookshelf") || {}
+  const userDataKey = `bookshelf_data_${userId}`
+  const data = loadFromLocalStorage(userDataKey) || {}
   const books = data.books || []
   const bookIndex = books.findIndex((book: any) => (book.id || `${book.title}-${book.author}`) === bookId)
   if (bookIndex !== -1) {
     books[bookIndex].readingStatus = status
-    saveToLocalStorage("personal_bookshelf", { ...data, books })
+    saveToLocalStorage(userDataKey, { ...data, books })
   }
 }
 
 // Save user authors
 export async function saveUserAuthors(userId: string, authors: string[]) {
-  const existingData = loadFromLocalStorage("personal_bookshelf") || {}
-  saveToLocalStorage("personal_bookshelf", { ...existingData, authors })
+  const userDataKey = `bookshelf_data_${userId}`
+  const existingData = loadFromLocalStorage(userDataKey) || {}
+  saveToLocalStorage(userDataKey, { ...existingData, authors })
 }
 
 // Load user authors
 export async function loadUserAuthors(userId: string) {
-  const data = loadFromLocalStorage("personal_bookshelf")
+  const userDataKey = `bookshelf_data_${userId}`
+  const data = loadFromLocalStorage(userDataKey)
   return data?.authors || []
 }
 
@@ -81,30 +86,35 @@ export async function migrateLocalStorageToDatabase(userId: string) {
 
 // Sync all user data to localStorage
 export async function syncUserDataToDatabase(userId: string, userData: UserData) {
-  saveToLocalStorage("personal_bookshelf", {
+  const userDataKey = `bookshelf_data_${userId}`
+  saveToLocalStorage(userDataKey, {
     books: userData.books,
     authors: userData.authors,
     readBooks: userData.readBooks,
     wantToReadBooks: userData.wantToReadBooks,
     dontWantBooks: userData.dontWantBooks,
+    sharedBooks: userData.sharedBooks,
+    friends: userData.friends,
+    platforms: userData.platforms,
   })
   saveToLocalStorage(`bookshelf_user_${userId}`, userData.preferences)
 }
 
 // Load all user data from localStorage
 export async function loadUserDataFromDatabase(userId: string): Promise<UserData> {
-  const personalData = loadFromLocalStorage("personal_bookshelf") || {}
+  const userDataKey = `bookshelf_data_${userId}`
+  const userData = loadFromLocalStorage(userDataKey) || {}
   const userPrefs = loadFromLocalStorage(`bookshelf_user_${userId}`) || {}
 
   return {
-    books: personalData.books || [],
-    authors: personalData.authors || [],
-    readBooks: personalData.readBooks || [],
-    wantToReadBooks: personalData.wantToReadBooks || [],
-    dontWantBooks: personalData.dontWantBooks || [],
-    sharedBooks: personalData.sharedBooks || [],
-    friends: personalData.friends || [],
-    platforms: personalData.platforms || [],
+    books: userData.books || [],
+    authors: userData.authors || [],
+    readBooks: userData.readBooks || [],
+    wantToReadBooks: userData.wantToReadBooks || [],
+    dontWantBooks: userData.dontWantBooks || [],
+    sharedBooks: userData.sharedBooks || [],
+    friends: userData.friends || [],
+    platforms: userData.platforms || [],
     preferences: userPrefs,
   }
 }

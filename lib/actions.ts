@@ -52,7 +52,10 @@ export async function signIn(prevState: any, formData: FormData) {
 }
 
 export async function signUp(prevState: any, formData: FormData) {
+  console.log("signUp function called with:", { prevState, formData: formData ? "present" : "missing" })
+  
   if (!formData) {
+    console.log("signUp: Form data is missing")
     return { error: "Form data is missing" }
   }
 
@@ -60,7 +63,10 @@ export async function signUp(prevState: any, formData: FormData) {
   const password = formData.get("password")
   const fullName = formData.get("fullName")
 
+  console.log("signUp: Extracted data:", { email, password: password ? "***" : "empty", fullName })
+
   if (!email || !password || !fullName) {
+    console.log("signUp: Missing required fields")
     return { error: "All fields are required to create an account" }
   }
 
@@ -113,6 +119,7 @@ export async function signUp(prevState: any, formData: FormData) {
       await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.LOGIN })
     } catch (_) {}
 
+    console.log("signUp: Account created successfully for:", email.toString())
     return { success: true }
   } catch (error) {
     console.error("Sign up error:", error)

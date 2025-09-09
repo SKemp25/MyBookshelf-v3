@@ -15,9 +15,9 @@ import {
   ShoppingCart,
   Send,
   BookOpen,
+  User,
 } from "lucide-react"
 import type { Book, Platform } from "@/lib/types"
-import ShareBookModal from "./ShareBookModal"
 import { updateBookStatus } from "@/lib/database"
 import { useToast } from "@/hooks/use-toast"
 
@@ -33,8 +33,11 @@ interface BookGridProps {
   onMarkAsRead: (bookId: string, title: string, author: string) => void
   onMarkAsWant: (bookId: string, title: string, author: string) => void
   onToggleDontWant: (bookId: string, title: string, author: string) => void
-  onShare: (bookId: string, friendName: string) => void
   userId?: string // Added userId for database operations
+  onBookClick?: (bookId: string) => void // Track recently viewed
+  highContrast?: boolean // High contrast mode
+  recommendedAuthors?: Set<string> // Authors that came from recommendations
+  onAddAuthor?: (authorName: string) => void // Add all books by an author
 }
 
 export default function BookGrid({
@@ -49,13 +52,13 @@ export default function BookGrid({
   onMarkAsRead,
   onMarkAsWant,
   onToggleDontWant,
-  onShare,
   userId,
+  onBookClick,
+  highContrast = false,
+  recommendedAuthors = new Set(),
+  onAddAuthor,
 }: BookGridProps) {
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
-  const [showShareModal, setShowShareModal] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
-  const [recommendedBooks, setRecommendedBooks] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
@@ -130,8 +133,20 @@ export default function BookGrid({
         await updateBookStatus(userId, bookId, newStatus)
       }
       onToggleDontWant(bookId, title, author)
+      
+      // Show toast notification
+      const isCurrentlyPassed = dontWantBooks.has(bookId)
+      toast({
+        title: isCurrentlyPassed ? "Book Removed from Pass List!" : "Book Marked as Pass!",
+        description: `"${title}" by ${author}`,
+      })
     } catch (error) {
       console.error("Error updating book status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update book status. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsUpdating((prev) => {
         const newSet = new Set(prev)
@@ -292,17 +307,16 @@ export default function BookGrid({
     window.open(url, "_blank")
   }
 
-  const handleShare = (book: Book) => {
-    setSelectedBook(book)
-    setShowShareModal(true)
-  }
 
   const getAuthorName = (book: Book): string => {
-    if (typeof book.author === "string") {
-      return book.author
+    if (typeof (book as any).author === "string" && (book as any).author) {
+      return (book as any).author as any
     }
-    if (book.author && typeof book.author === "object" && "name" in book.author) {
-      return (book.author as any).name || "Unknown Author"
+    if ((book as any).author && typeof (book as any).author === "object" && "name" in ((book as any).author as any)) {
+      return (((book as any).author as any).name as string) || "Unknown Author"
+    }
+    if (Array.isArray((book as any).authors) && (book as any).authors.length > 0) {
+      return ((book as any).authors[0] as string) || "Unknown Author"
     }
     return "Unknown Author"
   }
@@ -388,36 +402,35 @@ export default function BookGrid({
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {sortedBooks.map((book) => {
+        {sortedBooks.map((book, index) => {
           const bookId = `${book.title}-${book.author}`
           const status = getReadingStatus(bookId)
           const isExpanded = expandedDescriptions.has(book.id)
           const isUpcoming = isUpcomingRelease(book.publishedDate || "")
           const isBookUpdating = isUpdating.has(bookId)
+          const bookAuthor = getAuthorName(book)
+          const isRecommendedAuthor = recommendedAuthors.has(bookAuthor)
 
           return (
             <Card
-              key={book.id}
+              key={`${book.id}-${index}`}
               data-book-id={book.id}
-              className={`bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-4 ${
+              className={`shadow-lg hover:shadow-xl transition-all duration-300 ${
                 isUpcoming
-                  ? "border-emerald-500 shadow-emerald-200 ring-2 ring-emerald-200 bg-gradient-to-br from-white to-emerald-50"
-                  : "border-black"
+                  ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-yellow-50 to-yellow-100 text-black"
+                  : isRecommendedAuthor
+                  ? "shadow-blue-200 ring-2 ring-blue-200 bg-gradient-to-br from-white to-blue-50 text-black"
+                  : highContrast ? "bg-white text-black" : "bg-white text-black"
               }`}
+              onClick={() => onBookClick?.(book.id)}
+              style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {isUpcoming && (
-                    <div className="flex justify-center">
-                      <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-emerald-500 shadow-lg">
-                        UPCOMING RELEASE
-                      </Badge>
-                    </div>
-                  )}
 
                   {/* Book Cover */}
                   {book.thumbnail && (
-                    <div className="flex justify-center">
+                    <div className="flex justify-center mt-4">
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
@@ -502,11 +515,12 @@ export default function BookGrid({
                         size="sm"
                         onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                        className={`h-8 px-3 text-xs font-bold border-2 ${
                           status === "read"
-                            ? "bg-green-500 hover:bg-green-600 text-white"
-                            : "border-green-500 text-green-700 hover:bg-green-50 bg-white"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
                         }`}
+                        title={status === "read" ? "Mark as unread" : "Mark as read"}
                       >
                         <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
                         Read
@@ -516,11 +530,12 @@ export default function BookGrid({
                         size="sm"
                         onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                        className={`h-8 px-3 text-xs font-bold border-2 ${
                           status === "want"
-                            ? "bg-blue-500 hover:bg-blue-600 text-white"
-                            : "border-blue-500 text-blue-700 hover:bg-blue-50 bg-white"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
                         }`}
+                        title={status === "want" ? "Remove from want to read" : "Add to want to read"}
                       >
                         <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
                         Want
@@ -530,11 +545,12 @@ export default function BookGrid({
                         size="sm"
                         onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 border-black ${
+                        className={`h-8 px-3 text-xs font-bold border-2 ${
                           status === "pass"
-                            ? "bg-red-500 hover:bg-red-600 text-white"
-                            : "border-red-500 text-red-700 hover:bg-red-50 bg-white"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
                         }`}
+                        title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
                       >
                         <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
                         Pass
@@ -573,26 +589,27 @@ export default function BookGrid({
                       </div>
                     )}
 
-                    {/* Social Actions */}
-                    <div className="flex gap-2 pt-2 border-t-2 border-black justify-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 px-2 text-xs font-bold border-2 border-black text-black hover:bg-orange-50 bg-white"
-                      >
-                        <Send className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                        {recommendedBooks.has(book.id) ? "Recommended" : "Recommend"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleShare(book)}
-                        className="h-6 px-2 text-xs font-bold border-2 border-black text-black hover:bg-orange-50 bg-white"
-                      >
-                        <Send className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                        {sharedBooks.has(book.id) ? "Shared" : "Share"}
-                      </Button>
-                    </div>
+                    {/* Add Author Button for Recommended Authors */}
+                    {!isRecommendedAuthor && onAddAuthor && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold text-purple-600 uppercase tracking-wide">More by this author:</div>
+                        <div className="flex justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onAddAuthor(bookAuthor)
+                            }}
+                            className="border-2 border-purple-500 text-purple-700 hover:bg-purple-50 bg-white text-xs font-bold h-8 px-3"
+                          >
+                            <User className="w-3 h-3 mr-1" />
+                            Add All Books
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               </CardContent>
@@ -601,19 +618,6 @@ export default function BookGrid({
         })}
       </div>
 
-      {/* Share Modal */}
-      {selectedBook && (
-        <ShareBookModal
-          book={selectedBook}
-          author={getAuthorName(selectedBook)}
-          isOpen={showShareModal}
-          onClose={() => {
-            setShowShareModal(false)
-            setSelectedBook(null)
-          }}
-          onBookShared={onShare}
-        />
-      )}
     </>
   )
 }

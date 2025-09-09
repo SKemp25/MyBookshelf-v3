@@ -4,14 +4,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Filter, X, Search } from "lucide-react"
+import { Filter, X, Search, ChevronDown, ChevronUp } from "lucide-react"
 import type { Book } from "../lib/types"
-import AdvancedFilters, { type AdvancedFilterState, defaultAdvancedFilters } from "./AdvancedFilters"
+import AdvancedFilters, { defaultAdvancedFilters } from "./AdvancedFilters"
+import type { AdvancedFilterState } from "../lib/types"
+
+// Helper function to get author name from book (handles both old and new formats)
+const getBookAuthor = (book: any): string => {
+  return book.author || book.authors?.[0] || "Unknown"
+}
 
 interface BookFiltersProps {
   authors: string[]
   books: Book[]
-  selectedAuthor: string
+  selectedAuthors: string[]
   sortBy: string
   selectedLanguages: string[]
   selectedGenres: string[]
@@ -19,17 +25,20 @@ interface BookFiltersProps {
   userPreferences: any
   advancedFilters: AdvancedFilterState
   onFiltersChange: (filters: AdvancedFilterState) => void
-  setSelectedAuthor: (author: string) => void
+  setSelectedAuthors: (authors: string[]) => void
   setSortBy: (sort: string) => void
   setSelectedLanguages: (languages: string[]) => void
   setSelectedGenres: (genres: string[]) => void
   setSearchQuery: (query: string) => void
+  recommendedAuthors?: Set<string>
+  isFiltersOpen: boolean
+  setIsFiltersOpen: (open: boolean) => void
 }
 
 export default function BookFilters({
   authors,
   books,
-  selectedAuthor,
+  selectedAuthors,
   sortBy,
   selectedLanguages,
   selectedGenres,
@@ -37,11 +46,14 @@ export default function BookFilters({
   userPreferences,
   advancedFilters,
   onFiltersChange,
-  setSelectedAuthor,
+  setSelectedAuthors,
   setSortBy,
   setSelectedLanguages,
   setSelectedGenres,
   setSearchQuery,
+  recommendedAuthors,
+  isFiltersOpen,
+  setIsFiltersOpen,
 }: BookFiltersProps) {
   const safeAuthors = Array.isArray(authors) ? authors : []
   const safeBooks = Array.isArray(books) ? books : []
@@ -49,23 +61,33 @@ export default function BookFilters({
 
   const bookCountByAuthor = safeAuthors.reduce(
     (acc, authorName) => {
-      acc[authorName] = safeBooks.filter((book) => book && book.author === authorName).length
+      acc[authorName] = safeBooks.filter((book) => book && getBookAuthor(book) === authorName).length
       return acc
     },
     {} as Record<string, number>,
   )
 
   const clearAllFilters = () => {
-    setSelectedAuthor("")
+    setSelectedAuthors([])
     setSearchQuery("")
   }
 
   return (
     <div className="text-sm font-medium text-red-700">
-      <div className="flex items-center gap-3 mb-4">
-        <Filter className="w-6 h-6 text-orange-600" />
-        <h3 className="text-lg font-semibold text-orange-700">Filters &amp; Sorting</h3>
-      </div>
+      <button
+        data-tour="filters"
+        onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+        className="w-full flex items-center justify-between mb-4 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Filter className="w-6 h-6 text-orange-600" />
+          <h3 className="text-lg font-semibold text-orange-700">Filters &amp; Sorting</h3>
+        </div>
+        {isFiltersOpen ? <ChevronUp className="w-5 h-5 text-orange-600" /> : <ChevronDown className="w-5 h-5 text-orange-600" />}
+      </button>
+
+      {isFiltersOpen && (
+        <div>
 
       {/* Search Box */}
       <div className="space-y-3 mb-6">
@@ -105,11 +127,11 @@ export default function BookFilters({
       </div>
 
       {/* Author Filter */}
-      {safeAuthors.length > 1 && (
+      {safeAuthors.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-base font-semibold text-gray-800">Filter by Author</h4>
-            {(selectedAuthor || searchQuery) && (
+            {(selectedAuthors.length > 0 || searchQuery) && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -123,35 +145,51 @@ export default function BookFilters({
           </div>
           <div className="flex flex-wrap gap-2">
             {safeAuthors.map((authorName) => {
-              const isSelected = selectedAuthor === authorName
+              const isSelected = selectedAuthors.includes(authorName)
               const bookCount = bookCountByAuthor[authorName] || 0
+              const isRecommended = recommendedAuthors?.has(authorName)
               return (
                 <Badge
                   key={authorName}
                   variant={isSelected ? "default" : "outline"}
-                  className={`cursor-pointer transition-colors ${
+                  className={`cursor-pointer transition-colors relative ${
                     isSelected
                       ? "bg-orange-500 hover:bg-orange-600 text-white"
                       : "border-orange-300 text-orange-700 hover:bg-orange-50"
                   }`}
-                  onClick={() => setSelectedAuthor(isSelected ? "" : authorName)}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedAuthors(selectedAuthors.filter(a => a !== authorName))
+                    } else {
+                      setSelectedAuthors([...selectedAuthors, authorName])
+                    }
+                  }}
                 >
                   {authorName} ({bookCount})
+                  {isRecommended && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-blue-600 text-white rounded-full">R</span>
+                  )}
                 </Badge>
               )
             })}
           </div>
-          {selectedAuthor && <p className="text-sm text-orange-600">Showing books by {selectedAuthor}</p>}
+          {selectedAuthors.length > 0 && (
+            <p className="text-sm text-orange-600">
+              Showing books by {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} authors`}
+            </p>
+          )}
         </div>
       )}
 
-      {/* Advanced Filters */}
-      <AdvancedFilters
-        filters={safeAdvancedFilters}
-        onFiltersChange={onFiltersChange}
-        books={safeBooks}
-        authors={safeAuthors}
-      />
+          {/* Advanced Filters */}
+          <AdvancedFilters
+            filters={safeAdvancedFilters}
+            onFiltersChange={onFiltersChange}
+            books={safeBooks}
+            authors={safeAuthors.map(name => ({ id: name, name }))}
+          />
+        </div>
+      )}
     </div>
   )
 }

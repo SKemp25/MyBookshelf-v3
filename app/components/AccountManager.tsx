@@ -61,6 +61,16 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
   const [signUpState, signUpAction] = useActionState(signUp, null)
   const [resetState, resetAction] = useActionState(resetPassword, null)
 
+  // Handle successful signup redirect
+  useEffect(() => {
+    if (signUpState?.success) {
+      console.log("AccountManager: Signup successful, redirecting...")
+      setTimeout(() => {
+        window.location.href = "/"
+      }, 1500)
+    }
+  }, [signUpState?.success])
+
   const validatePassword = (pwd: string) => {
     const minLength = pwd.length >= 8
     const hasUpper = /[A-Z]/.test(pwd)
@@ -170,6 +180,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
                 <span className="text-sm text-green-700">{signUpState?.success || resetState?.success}</span>
               </div>
             )}
+
 
             {authMode === "reset" && (
               <form action={resetAction} className="space-y-4">

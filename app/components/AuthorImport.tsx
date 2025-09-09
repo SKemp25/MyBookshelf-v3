@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
 import type { Author, Book } from "../lib/types"
+import { normalizeAuthorName } from "./AuthorManager"
+import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 
 interface AuthorImportProps {
   onBulkImport: (books: Book[], authors: Author[]) => void
@@ -25,7 +27,15 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
   } | null>(null)
 
   const processImport = async () => {
-    if (!importText.trim()) return
+    if (!importText.trim()) {
+      setImportResult({
+        success: false,
+        message: "Please enter some text to import.",
+        authors: 0,
+        books: 0,
+      })
+      return
+    }
 
     setIsProcessing(true)
     setImportResult(null)
@@ -36,6 +46,16 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
+
+      if (lines.length === 0) {
+        setImportResult({
+          success: false,
+          message: "No valid lines found in the input.",
+          authors: 0,
+          books: 0,
+        })
+        return
+      }
 
       const authors: Author[] = []
       const books: Book[] = []
@@ -48,12 +68,13 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
         if (line.includes(" - ")) {
           const [authorName, bookTitle] = line.split(" - ", 2)
           if (authorName && bookTitle) {
+            const normalizedAuthorName = normalizeAuthorName(authorName.trim())
             // Find or create author
-            let author = authors.find((a) => a.name.toLowerCase() === authorName.trim().toLowerCase())
+            let author = authors.find((a) => a.name.toLowerCase() === normalizedAuthorName.toLowerCase())
             if (!author) {
               author = {
                 id: `import-author-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                name: authorName.trim(),
+                name: normalizedAuthorName,
               }
               authors.push(author)
             }
@@ -72,20 +93,170 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
               isbn: "",
               publisher: "",
               seriesInfo: null,
-              authors: [authorName.trim()],
+              authors: [normalizedAuthorName],
             }
             books.push(book)
           }
         } else {
-          // Treat as author name only
-          const authorName = line.trim()
-          if (authorName && !authors.find((a) => a.name.toLowerCase() === authorName.toLowerCase())) {
-            const author: Author = {
-              id: `import-author-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
-              name: authorName,
+          // Check if this might be a book title (contains common book words or is longer)
+          const lineTrimmed = line.trim()
+          const isLikelyBookTitle = lineTrimmed.length > 10 || 
+            /^(the|a|an)\s/i.test(lineTrimmed) ||
+            /book|novel|story|tale|chronicle|memoir|biography|autobiography/i.test(lineTrimmed)
+          
+          if (isLikelyBookTitle) {
+            // Try to search for this as a book title
+            try {
+              const response = await fetch(
+                `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(lineTrimmed)}&maxResults=1`
+              )
+              const data = await response.json()
+              
+              if (data.items && data.items.length > 0) {
+                const bookData = data.items[0]
+                const bookTitle = bookData.volumeInfo.title
+                const bookAuthors = bookData.volumeInfo.authors || []
+                
+                if (bookAuthors.length > 0) {
+                  // Add the primary author
+                  const primaryAuthor = bookAuthors[0]
+                  const normalizedAuthorName = normalizeAuthorName(primaryAuthor)
+                  
+                  let author = authors.find((a) => a.name.toLowerCase() === normalizedAuthorName.toLowerCase())
+                  if (!author) {
+                    author = {
+                      id: `import-author-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                      name: normalizedAuthorName,
+                    }
+                    authors.push(author)
+                  }
+                  
+                  // Create the book
+                  const book: Book = {
+                    id: bookData.id || `import-book-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                    title: bookTitle,
+                    authorId: author.id,
+                    publishedDate: bookData.volumeInfo.publishedDate || new Date().getFullYear().toString(),
+                    genre: bookData.volumeInfo.categories?.[0] || "Unknown",
+                    language: bookData.volumeInfo.language || "en",
+                    pageCount: bookData.volumeInfo.pageCount || 0,
+                    description: bookData.volumeInfo.description || "",
+                    thumbnail: bookData.volumeInfo.imageLinks?.thumbnail || "",
+                    isbn: bookData.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier || 
+                          bookData.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier || "",
+                    publisher: bookData.volumeInfo.publisher || "",
+                    seriesInfo: null,
+                    authors: bookAuthors,
+                  }
+                  books.push(book)
+                }
+              }
+            } catch (error) {
+              console.error(`Error searching for book "${lineTrimmed}":`, error)
+              // Fall back to treating as author name
+              const normalizedAuthorName = normalizeAuthorName(lineTrimmed)
+              if (normalizedAuthorName && !authors.find((a) => a.name.toLowerCase() === normalizedAuthorName.toLowerCase())) {
+                const author: Author = {
+                  id: `import-author-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                  name: normalizedAuthorName,
+                }
+                authors.push(author)
+              }
             }
-            authors.push(author)
+          } else {
+            // Treat as author name only
+            const normalizedAuthorName = normalizeAuthorName(lineTrimmed)
+            if (normalizedAuthorName && !authors.find((a) => a.name.toLowerCase() === normalizedAuthorName.toLowerCase())) {
+              const author: Author = {
+                id: `import-author-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                name: normalizedAuthorName,
+              }
+              authors.push(author)
+            }
           }
+        }
+      }
+
+      // Fetch books for authors to ensure we have a fuller set
+      for (const author of authors) {
+        try {
+          const apiResults = await fetchAuthorBooksWithCache(author.name)
+
+          const authorBooks = apiResults
+            .filter((item: any) => {
+              const apiAuthor = item.volumeInfo.authors?.[0] || ""
+              const searchedAuthor = author.name.toLowerCase()
+              const bookAuthor = apiAuthor.toLowerCase()
+
+              if (bookAuthor === searchedAuthor) return true
+
+              const searchedWords = searchedAuthor
+                .split(/[\s,]+/)
+                .filter((word) => word.length > 1)
+                .map((word) => word.toLowerCase())
+
+              const bookWords = bookAuthor
+                .split(/[\s,]+/)
+                .filter((word) => word.length > 1)
+                .map((word) => word.toLowerCase())
+
+              return searchedWords.every((w) => bookWords.includes(w))
+            })
+            .map((item: any) => {
+              let publishedDate = item.volumeInfo.publishedDate
+              if (publishedDate) {
+                let dateObj: Date
+                if (publishedDate.length === 4) {
+                  dateObj = new Date(`${publishedDate}-01-01`)
+                  publishedDate = `${publishedDate}-01-01`
+                } else if (publishedDate.length === 7) {
+                  dateObj = new Date(`${publishedDate}-01`)
+                  publishedDate = `${publishedDate}-01`
+                } else {
+                  dateObj = new Date(publishedDate)
+                }
+                const now = new Date()
+                const twoYearsFromNow = new Date()
+                twoYearsFromNow.setFullYear(now.getFullYear() + 2)
+                if (dateObj > twoYearsFromNow || isNaN(dateObj.getTime())) {
+                  publishedDate = null as any
+                }
+              }
+
+              const primaryAuthor = item.volumeInfo.authors?.[0] || author.name
+
+              return {
+                id: item.id,
+                title: item.volumeInfo.title,
+                author: primaryAuthor,
+                authorId: author.id,
+                publishedDate: publishedDate || new Date().getFullYear().toString(),
+                genre: item.volumeInfo.categories?.[0] || "Unknown",
+                language: item.volumeInfo.language || "en",
+                pageCount: item.volumeInfo.pageCount || 0,
+                description: item.volumeInfo.description || "",
+                thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || "",
+                isbn:
+                  item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                  item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
+                  "",
+                publisher: item.volumeInfo.publisher,
+                seriesInfo: null,
+                authors: item.volumeInfo.authors || [primaryAuthor],
+              } as Book
+            })
+
+          // Merge without duplicates by title-author combo
+          const existingKeys = new Set(books.map((b) => `${b.title}::${(b as any).author || (b as any).authors?.[0] || ""}`))
+          for (const bk of authorBooks) {
+            const key = `${bk.title}::${(bk as any).author || (bk as any).authors?.[0] || ""}`
+            if (!existingKeys.has(key)) {
+              books.push(bk)
+              existingKeys.add(key)
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching books for author ${author.name}:`, error)
         }
       }
 
@@ -110,9 +281,10 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
         })
       }
     } catch (error) {
+      console.error("Import error:", error)
       setImportResult({
         success: false,
-        message: "An error occurred during import. Please check your input format.",
+        message: `An error occurred during import: ${error instanceof Error ? error.message : 'Unknown error'}`,
         authors: 0,
         books: 0,
       })
@@ -143,7 +315,10 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-orange-600">
-          Import multiple authors and books at once. Enter one per line, or use "Author - Book Title" format.
+          Import multiple authors and books at once. Enter one per line. Supports:
+          <br />• Author names (e.g., "Margaret Atwood")
+          <br />• "Author - Book Title" format (e.g., "Zadie Smith - White Teeth")
+          <br />• Book titles (e.g., "The Handmaid's Tale" - will find the author automatically)
         </div>
 
         {/* File Upload */}
@@ -172,6 +347,7 @@ export default function AuthorImport({ onBulkImport }: AuthorImportProps) {
             placeholder={`Examples:
 Margaret Atwood
 Zadie Smith - White Teeth
+The Handmaid's Tale
 Ian McEwan - Atonement
 Haruki Murakami`}
             rows={8}
@@ -228,6 +404,7 @@ Haruki Murakami`}
           <strong>Supported formats:</strong>
           <br />• Author names (one per line)
           <br />• "Author - Book Title" format
+          <br />• Book titles (will automatically find the author)
           <br />• Plain text files (.txt)
         </div>
       </CardContent>

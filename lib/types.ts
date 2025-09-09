@@ -97,6 +97,8 @@ export interface User {
     readingMethods?: string[]
     emailNotifications?: boolean
     smsNotifications?: boolean
+    // Limit visible books per author in the UI; 'all' to disable limiting
+    showLastNBooks?: number | "all"
   }
 }
 

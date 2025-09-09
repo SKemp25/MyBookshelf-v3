@@ -8,45 +8,68 @@ import BookFilters from "./BookFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import ReadingStatsCard from "./ReadingStatsCard"
-import { ChevronDown, ChevronUp, Users, BookOpen, Settings, Activity } from "lucide-react"
+import TooltipManager from "./TooltipManager"
+import { ChevronDown, ChevronUp, Users, BookOpen, Settings, Activity, HelpCircle } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
 import { saveUserAuthors } from "@/lib/database"
+import { deduplicateBooks } from "@/lib/utils"
 import DataExport from "./DataExport"
 import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
   userProfile: any // Updated comment to reflect localStorage-based user profile
 }
 
+// Helper function to get author name from book (handles both old and new formats)
+const getBookAuthor = (book: any): string => {
+  return book.author || book.authors?.[0] || "Unknown"
+}
+
 export default function BookshelfClient({ user, userProfile }: BookshelfClientProps) {
-  const isLoggedIn = typeof window !== "undefined" ? localStorage.getItem("bookshelf_is_logged_in") === "true" : false
-  const currentUser = typeof window !== "undefined" ? localStorage.getItem("bookshelf_current_user") || "" : ""
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [currentUser, setCurrentUser] = useState("")
+  const [isHydrated, setIsHydrated] = useState(false)
 
   const [authors, setAuthors] = useState<string[]>([])
   const [books, setBooks] = useState<Book[]>([])
   const [readBooks, setReadBooks] = useState<Set<string>>(new Set())
   const [wantToReadBooks, setWantToReadBooks] = useState<Set<string>>(new Set())
   const [dontWantBooks, setDontWantBooks] = useState<Set<string>>(new Set())
-  const [sharedBooks, setSharedBooks] = useState<Set<string>>(new Set())
   const [friends, setFriends] = useState<string[]>([])
-  const [selectedAuthor, setSelectedAuthor] = useState<string>("")
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<string>("newest")
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["en"])
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(defaultAdvancedFilters)
-  const [isAuthorsOpen, setIsAuthorsOpen] = useState(true)
-  const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(true)
+  const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
+  const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
+  const [highContrast, setHighContrast] = useState(false)
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
+
+  // Handle hydration
+  useEffect(() => {
+    setIsHydrated(true)
+    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+    const user = localStorage.getItem("bookshelf_current_user") || ""
+    setIsLoggedIn(loggedIn)
+    setCurrentUser(user)
+  }, [])
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false) // Added analytics section state
+  const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false) // Added recently viewed section state
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
+  const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
+  const [recommendedAuthors, setRecommendedAuthors] = useState<Set<string>>(new Set())
   const [platforms, setPlatforms] = useState<Platform[]>([
     { name: "Kindle", url: "", enabled: true },
     { name: "Audible", url: "", enabled: false },
     { name: "Books", url: "", enabled: false },
-    { name: "Library", url: "", enabled: false },
+    { name: "Library", url: "https://www.worldcat.org", enabled: false },
   ])
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -71,6 +94,36 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     suggestNewAuthors: false,
   })
 
+  // Fetch books for all existing authors when component loads
+  useEffect(() => {
+    const fetchBooksForAuthors = async () => {
+      if (!isDataLoaded || !authors.length || books.length > 0) {
+        return
+      }
+      try {
+        const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
+        const allBooks: Book[] = []
+        for (const author of authors) {
+          try {
+            const authorBooks = await fetchAuthorBooksWithCache(author)
+            if (authorBooks && authorBooks.length > 0) {
+              allBooks.push(...authorBooks)
+            }
+          } catch (error) {
+            console.error(`Error fetching books for ${author}:`, error)
+          }
+        }
+        if (allBooks.length > 0) {
+          const deduplicatedBooks = deduplicateBooks(allBooks)
+          setBooks(deduplicatedBooks)
+        }
+      } catch (error) {
+        console.error("Error fetching books for authors:", error)
+      }
+    }
+    fetchBooksForAuthors()
+  }, [isDataLoaded, authors])
+
   useEffect(() => {
     if (isLoggedIn && currentUser) {
       const userPrefsKey = `bookshelf_user_${currentUser}`
@@ -91,6 +144,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             readingMethod: userPrefs.readingMethod || ["Print Books", "E-books", "Audiobooks"],
             publicationTypePreferences: userPrefs.publicationTypePreferences || [],
             suggestNewAuthors: userPrefs.suggestNewAuthors || false,
+            settings: userPrefs.settings || prev.settings, // Preserve settings
           }))
         } catch (error) {
           console.error("Error loading user preferences:", error)
@@ -111,17 +165,24 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       if (!isLoggedIn || !currentUser) return
 
       try {
-        const savedData = localStorage.getItem("personal_bookshelf")
+        // Load user-specific data
+        const userDataKey = `bookshelf_data_${currentUser}`
+        const savedData = localStorage.getItem(userDataKey)
         if (savedData) {
           const parsedData = JSON.parse(savedData)
           setAuthors(parsedData.authors || [])
-          setBooks(parsedData.books || [])
+          const normalizedBooks = (parsedData.books || []).map((b: any) => ({
+            ...b,
+            author: b?.author || (Array.isArray(b?.authors) ? b.authors[0] : b?.author) || "Unknown",
+            authors: Array.isArray(b?.authors) && b.authors.length > 0 ? b.authors : (b?.author ? [b.author] : []),
+          }))
+          setBooks(deduplicateBooks(normalizedBooks))
           setReadBooks(new Set(parsedData.readBooks || []))
           setWantToReadBooks(new Set(parsedData.wantToReadBooks || []))
           setDontWantBooks(new Set(parsedData.dontWantBooks || []))
-          setSharedBooks(new Set(parsedData.sharedBooks || []))
           setFriends(parsedData.friends || [])
           setPlatforms(parsedData.platforms || platforms)
+          setRecommendedAuthors(new Set(parsedData.recommendedAuthors || []))
         }
         setIsDataLoaded(true)
       } catch (error) {
@@ -134,8 +195,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }, [isLoggedIn, currentUser])
 
   useEffect(() => {
-    if (!isLoggedIn || !isDataLoaded) return
+    if (!isLoggedIn || !isDataLoaded || !currentUser) return
 
+    const userDataKey = `bookshelf_data_${currentUser}`
     const dataToSave = {
       authors,
       books,
@@ -145,10 +207,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       user: userState,
       platforms,
       friends,
-      sharedBooks: Array.from(sharedBooks),
+      recommendedAuthors: Array.from(recommendedAuthors),
       lastUpdated: new Date().toISOString(),
     }
-    localStorage.setItem("personal_bookshelf", JSON.stringify(dataToSave))
+    localStorage.setItem(userDataKey, JSON.stringify(dataToSave))
   }, [
     authors,
     books,
@@ -158,9 +220,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     userState,
     platforms,
     friends,
-    sharedBooks,
+    recommendedAuthors,
     isLoggedIn,
     isDataLoaded,
+    currentUser,
   ])
 
   useEffect(() => {
@@ -171,8 +234,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
   }, [authors.length, books.length, isDataLoaded, isLoggedIn])
 
+  // Show contextual tooltip tour on first login
+  useEffect(() => {
+    if (isLoggedIn && currentUser && isDataLoaded) {
+      const hasSeenTour = localStorage.getItem(`bookshelf_tour_seen_${currentUser}`)
+      if (!hasSeenTour) {
+        // Small delay to ensure UI is ready
+        setTimeout(() => {
+          setIsTooltipTourActive(true)
+        }, 1000)
+      }
+    }
+  }, [isLoggedIn, currentUser, isDataLoaded])
+
   const getAgeRangeKeywords = (ageRange: string) => {
-    const keywords = {
+    const keywords: Record<string, string[]> = {
       "Children (0-12)": [
         "children",
         "kids",
@@ -242,21 +318,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     if (!ageRange) return true
 
     const keywords = getAgeRangeKeywords(ageRange)
-    const searchText = `${book.title} ${book.description || ""} ${(book.categories || []).join(" ")}`.toLowerCase()
+    const searchText = `${book.title || ""} ${book.description || ""} ${(book.categories || []).join(" ")}`.toLowerCase()
 
     if (ageRange === "Children (0-12)") {
-      return keywords.some((keyword) => searchText.includes(keyword.toLowerCase()))
+      return keywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
     }
 
     if (ageRange === "Young Adult (13-17)") {
-      return keywords.some((keyword) => searchText.includes(keyword.toLowerCase()))
+      return keywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
     }
 
     if (ageRange === "Adult (18+)") {
       const childKeywords = getAgeRangeKeywords("Children (0-12)")
       const yaKeywords = getAgeRangeKeywords("Young Adult (13-17)")
-      const isChildrens = childKeywords.some((keyword) => searchText.includes(keyword.toLowerCase()))
-      const isYA = yaKeywords.some((keyword) => searchText.includes(keyword.toLowerCase()))
+      const isChildrens = childKeywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
+      const isYA = yaKeywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
       return !isChildrens && !isYA
     }
 
@@ -264,7 +340,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const isRerelease = (book: Book) => {
-    const title = book.title.toLowerCase()
+    const title = (book.title || "").toLowerCase()
     const description = (book.description || "").toLowerCase()
 
     // Common rerelease indicators
@@ -308,12 +384,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
   }
 
-  const filteredBooks = (books || []).filter((book) => {
+  const filteredAndLimitedBooks = (() => {
+    const base = (books || []).filter((book) => {
     // Search filter - search in title and author
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
-      const titleMatch = book.title?.toLowerCase().includes(query) || false
-      const authorMatch = book.author?.toLowerCase().includes(query) || false
+      const titleMatch = (book.title || "").toLowerCase().includes(query)
+      const authorMatch = (getBookAuthor(book) || "").toLowerCase().includes(query)
       if (!titleMatch && !authorMatch) {
         return false
       }
@@ -334,8 +411,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return false
     }
 
-    if (selectedAuthor && book.author !== selectedAuthor) {
+    // Only show books by authors in your authors list
+    const bookAuthor = getBookAuthor(book)
+    if (!authors.includes(bookAuthor)) {
       return false
+    }
+
+    // Filter by selected authors if any are selected
+    if (selectedAuthors.length > 0) {
+      if (!selectedAuthors.includes(bookAuthor)) {
+        return false
+      }
     }
 
     if ((selectedGenres || []).length > 0) {
@@ -371,7 +457,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
-    if (safeAdvancedFilters.title && !book.title.toLowerCase().includes(safeAdvancedFilters.title.toLowerCase())) {
+    if (safeAdvancedFilters.title && !(book.title || "").toLowerCase().includes(safeAdvancedFilters.title.toLowerCase())) {
       return false
     }
 
@@ -380,7 +466,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         .toLowerCase()
         .split(",")
         .map((w) => w.trim())
-      const bookText = `${book.title} ${book.description || ""}`.toLowerCase()
+      const bookText = `${book.title || ""} ${book.description || ""}`.toLowerCase()
       if (excludeWords.some((word) => bookText.includes(word))) {
         return false
       }
@@ -404,46 +490,52 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
+    // Hide books based on selected statuses to hide
     if (Array.isArray(safeAdvancedFilters.readingStatus) && safeAdvancedFilters.readingStatus.length > 0) {
       const bookId = `${book.title}-${book.author}`
-      let matchesAnyStatus = false
-
-      for (const status of safeAdvancedFilters.readingStatus) {
-        if (status === "read" && (readBooks || new Set()).has(bookId)) {
-          matchesAnyStatus = true
-          break
+      
+      // Check if this book should be hidden based on its status
+      for (const statusToHide of safeAdvancedFilters.readingStatus) {
+        if (statusToHide === "read" && (readBooks || new Set()).has(bookId)) {
+          return false // Hide this book
         }
-        if (status === "want-to-read" && (wantToReadBooks || new Set()).has(bookId)) {
-          matchesAnyStatus = true
-          break
+        if (statusToHide === "want-to-read" && (wantToReadBooks || new Set()).has(bookId)) {
+          return false // Hide this book
         }
-        if (status === "dont-want" && (dontWantBooks || new Set()).has(bookId)) {
-          matchesAnyStatus = true
-          break
+        if (statusToHide === "dont-want" && (dontWantBooks || new Set()).has(bookId)) {
+          return false // Hide this book
         }
         if (
-          status === "unread" &&
+          statusToHide === "unread" &&
           !(readBooks || new Set()).has(bookId) &&
           !(wantToReadBooks || new Set()).has(bookId) &&
           !(dontWantBooks || new Set()).has(bookId)
         ) {
-          matchesAnyStatus = true
-          break
+          return false // Hide this book (it has no status)
         }
       }
-
-      if (!matchesAnyStatus) {
-        return false
-      }
-    }
-
-    const bookId = `${book.title}-${book.author}`
-    if ((dontWantBooks || new Set()).has(bookId) && safeAdvancedFilters.readingStatus !== "dont-want") {
-      return false
     }
 
     return true
   })
+
+    const showN = userState.settings?.showLastNBooks
+    if (showN && showN !== "all") {
+      const grouped: Record<string, Book[]> = {}
+      base.forEach((b) => {
+        const key = b.author || "Unknown"
+        if (!grouped[key]) grouped[key] = []
+        grouped[key].push(b)
+      })
+      const result: Book[] = []
+      Object.values(grouped).forEach((arr) => {
+        const sorted = [...arr].sort((a, b) => new Date(b.publishedDate || "1900").getTime() - new Date(a.publishedDate || "1900").getTime())
+        result.push(...sorted.slice(0, Number(showN)))
+      })
+      return result
+    }
+    return base
+  })()
 
   const getDefaultPlatformUrl = (platformName: string) => {
     const userPlatform = platforms.find((p) => p.name === platformName)
@@ -459,7 +551,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       case "Books":
         return "https://www.amazon.com/s?k={title}&i=stripbooks"
       case "Library":
-        return "https://libbyapp.com"
+        return "https://www.worldcat.org"
       default:
         return ""
     }
@@ -473,34 +565,133 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }))
 
   const onBooksFound = (newBooks: Book[]) => {
-    // The AuthorManager already filters books by author, so we don't need to double-filter here
     setBooks((prevBooks) => {
-      const existingTitles = new Set(prevBooks.map((b) => `${b.title}-${b.author}`))
-      const uniqueNewBooks = newBooks.filter((book) => !existingTitles.has(`${book.title}-${book.author}`))
-      return [...prevBooks, ...uniqueNewBooks]
+      // Simple approach: just add new books, filter out any with missing authors
+      const validNewBooks = newBooks.filter(book => {
+        const author = getBookAuthor(book)
+        return author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
+      })
+      
+      // Remove duplicates based on book ID
+      const existingIds = new Set(prevBooks.map(book => book.id))
+      const uniqueNewBooks = validNewBooks.filter(book => !existingIds.has(book.id))
+      
+      const allBooks = [...prevBooks, ...uniqueNewBooks]
+      
+      // Deduplicate by title + author, keeping the most recent publication date
+      const deduplicatedBooks = allBooks.reduce((acc: Book[], currentBook) => {
+        const bookKey = `${(currentBook.title || "").toLowerCase().trim()}-${getBookAuthor(currentBook).toLowerCase().trim()}`
+        
+        const existingIndex = acc.findIndex(existingBook => {
+          const existingKey = `${(existingBook.title || "").toLowerCase().trim()}-${getBookAuthor(existingBook).toLowerCase().trim()}`
+          return existingKey === bookKey
+        })
+        
+        if (existingIndex === -1) {
+          // No duplicate found, add the book
+          acc.push(currentBook)
+        } else {
+          // Duplicate found, keep the one with the most recent publication date
+          const existingBook = acc[existingIndex]
+          const currentDate = new Date(currentBook.publishedDate || "1900-01-01")
+          const existingDate = new Date(existingBook.publishedDate || "1900-01-01")
+          
+          if (currentDate > existingDate) {
+            acc[existingIndex] = currentBook
+          }
+        }
+        
+        return acc
+      }, [])
+      
+      return deduplicatedBooks
     })
   }
 
-  const cleanupBooksForRemovedAuthors = () => {
-    const currentAuthorNames = authors.map((name) => name.toLowerCase())
-    setBooks((prevBooks) => prevBooks.filter((book) => currentAuthorNames.includes(book.author.toLowerCase())))
+  // Track recently viewed books for memory support
+  const trackRecentlyViewed = (bookId: string) => {
+    setRecentlyViewed(prev => {
+      const updated = [bookId, ...prev.filter(id => id !== bookId)].slice(0, 5) // Keep last 5
+      return updated
+    })
   }
 
-  useEffect(() => {
-    if (isDataLoaded) {
-      cleanupBooksForRemovedAuthors()
+  // Scroll to a specific book card
+  const scrollToBook = (bookId: string) => {
+    // Find the book card element by data-book-id
+    const bookElement = document.querySelector(`[data-book-id="${bookId}"]`)
+    if (bookElement) {
+      // Add a temporary highlight effect
+      bookElement.classList.add('ring-4', 'ring-orange-400', 'ring-opacity-75')
+      
+      // Scroll to the element with smooth behavior
+      bookElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center',
+        inline: 'nearest'
+      })
+      
+      // Remove the highlight after 2 seconds
+      setTimeout(() => {
+        bookElement.classList.remove('ring-4', 'ring-orange-400', 'ring-opacity-75')
+      }, 2000)
     }
-  }, [authors, isDataLoaded])
+  }
+
+  // Simplified approach - no cleanup function, just add books directly
+
+  // Prevent hydration mismatch by not rendering until hydrated
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600">
-      <header className="relative bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg overflow-hidden">
+    <div className={`min-h-screen ${highContrast ? 'bg-black' : 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600'}`}>
+      <header className={`relative shadow-lg overflow-hidden ${
+        highContrast 
+          ? "bg-black text-white border-b-4 border-white" 
+          : "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+      }`}>
         <div className="container mx-auto px-4 py-4">
+          {/* Accessibility Controls */}
+          <div className="flex justify-end gap-2 mb-2">
+            <button
+              onClick={() => setHighContrast(!highContrast)}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors border-2 ${
+                highContrast 
+                  ? 'bg-white text-black border-white' 
+                  : 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+              }`}
+              title="Toggle High Contrast Mode"
+            >
+              {highContrast ? '✓ High Contrast' : 'High Contrast'}
+            </button>
+          </div>
+          
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden bg-white text-black p-2 rounded-lg border-2 border-black hover:bg-gray-100 transition-colors"
+                onClick={() => {
+                  const newState = !isMobileMenuOpen
+                  setIsMobileMenuOpen(newState)
+                  
+                  // Scroll to top when opening mobile menu to ensure it's visible
+                  if (newState) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }
+                }}
+                className={`md:hidden p-2 rounded-lg border-2 transition-colors ${
+                  isMobileMenuOpen 
+                    ? "bg-orange-500 text-white border-orange-600" 
+                    : "bg-white text-black border-black hover:bg-gray-100"
+                }`}
                 aria-label="Toggle menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -508,9 +699,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 </svg>
               </button>
 
-              <div className="bg-white border-4 border-black rounded-full px-4 md:px-6 py-2">
+              {/* Make "My Bookshelf" clickable to reset filters */}
+              <button
+                onClick={() => {
+                  setIsAuthorsOpen(true)
+                  setIsRecommendationsOpen(true)
+                  setSearchQuery("")
+                  setSelectedAuthors([])
+                  setSelectedLanguages(["en"])
+                  setSelectedGenres([])
+                  setAdvancedFilters(defaultAdvancedFilters)
+                }}
+                className="bg-white border-4 border-black rounded-full px-4 md:px-6 py-2 hover:bg-orange-50 transition-colors"
+                title="Click to clear all filters and show all books"
+              >
                 <h1 className="text-black font-black text-lg md:text-xl tracking-tight">MY BOOKCASE</h1>
-              </div>
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -541,7 +745,190 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <aside className={`md:col-span-1 space-y-6 ${isMobileMenuOpen ? "block" : "hidden md:block"}`}>
+          {/* Mobile: Show main content first, then sidebar */}
+          <main className={`md:col-span-4 space-y-6 ${isMobileMenuOpen ? "order-2" : "order-1 md:order-2"}`}>
+            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
+              <BookFilters
+                authors={authors}
+                recommendedAuthors={recommendedAuthors}
+                selectedAuthors={selectedAuthors}
+                setSelectedAuthors={setSelectedAuthors}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                selectedLanguages={selectedLanguages}
+                setSelectedLanguages={setSelectedLanguages}
+                selectedGenres={selectedGenres}
+                setSelectedGenres={setSelectedGenres}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                userPreferences={userState}
+                advancedFilters={advancedFilters}
+                onFiltersChange={setAdvancedFilters}
+                books={books}
+                isFiltersOpen={isFiltersOpen}
+                setIsFiltersOpen={setIsFiltersOpen}
+              />
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-red-600 font-bold text-lg uppercase tracking-wide flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    My Bookshelf
+                  </h2>
+                  <div className="bg-white border-2 border-black rounded-lg px-2 py-0.5">
+                    <span className="text-black font-black text-xs">
+                      READING PROGRESS {readBooks.size} OF {books.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
+                  <span className="text-orange-800 font-medium text-xs">
+                    {filteredAndLimitedBooks.length} of {books.length} books
+                  </span>
+                </div>
+              </div>
+
+              <div data-tour="books">
+                <BookGrid
+                  books={filteredAndLimitedBooks}
+                sortBy={sortBy}
+                readBooks={readBooks}
+                wantToReadBooks={wantToReadBooks}
+                dontWantBooks={dontWantBooks}
+                friends={friends}
+                platforms={enabledPlatforms}
+                userId={currentUser}
+                onBookClick={trackRecentlyViewed}
+                highContrast={highContrast}
+                recommendedAuthors={recommendedAuthors}
+                onAddAuthor={async (authorName) => {
+                  // Add the author to the authors list if not already present
+                  const normalizedAuthor = normalizeAuthorName(authorName)
+                  const authorExists = authors.some(author => 
+                    author.toLowerCase() === normalizedAuthor.toLowerCase()
+                  )
+                  
+                  if (!authorExists) {
+                    const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                      const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                      return getLastName(a).localeCompare(getLastName(b))
+                    })
+                    
+                    setAuthors(updatedAuthors)
+                    
+                    // Mark as recommended origin
+                    setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                    
+                    // Save to database and track analytics
+                    if (currentUser) {
+                      saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                        console.error("Error saving authors to database:", error)
+                      )
+                      
+                      trackEvent(currentUser, {
+                        event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                        event_data: {
+                          author_name: normalizedAuthor,
+                          total_authors: updatedAuthors.length,
+                          source: "book_card_add_author",
+                          timestamp: new Date().toISOString(),
+                        },
+                      }).catch(error => 
+                        console.error("Error tracking author addition:", error)
+                      )
+                    }
+                    
+                    // Fetch all books by this author
+                    try {
+                      const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
+                      const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
+                      if (authorBooks && authorBooks.length > 0) {
+                        // Add all books by this author
+                        onBooksFound(authorBooks)
+                      }
+                    } catch (error) {
+                      console.error("Error fetching author books:", error)
+                    }
+                  }
+                }}
+                onMarkAsRead={(bookId, title, author) => {
+                  setReadBooks((prev) => new Set([...prev, bookId]))
+                  setWantToReadBooks((prev) => {
+                    const newSet = new Set(prev)
+                    newSet.delete(bookId)
+                    return newSet
+                  })
+
+                  if (isLoggedIn) {
+                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+                    trackEvent(currentUser, {
+                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_READ,
+                      book_id: bookId,
+                      book_title: title,
+                      book_author: author,
+                      event_data: {
+                        genres: book?.categories || [],
+                        timestamp: new Date().toISOString(),
+                      },
+                    })
+                  }
+                }}
+                onMarkAsWant={(bookId, title, author) => {
+                  setWantToReadBooks((prev) => new Set([...prev, bookId]))
+                  setReadBooks((prev) => {
+                    const newSet = new Set(prev)
+                    newSet.delete(bookId)
+                    return newSet
+                  })
+
+                  if (isLoggedIn) {
+                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+                    trackEvent(currentUser, {
+                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_WANT,
+                      book_id: bookId,
+                      book_title: title,
+                      book_author: author,
+                      event_data: {
+                        genres: book?.categories || [],
+                        timestamp: new Date().toISOString(),
+                      },
+                    })
+                  }
+                }}
+                onToggleDontWant={(bookId, title, author) => {
+                  setDontWantBooks((prev) => {
+                    const newSet = new Set(prev)
+                    if (newSet.has(bookId)) {
+                      newSet.delete(bookId)
+                    } else {
+                      newSet.add(bookId)
+                    }
+                    return newSet
+                  })
+
+                  if (isLoggedIn) {
+                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+                    trackEvent(currentUser, {
+                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_PASS,
+                      book_id: bookId,
+                      book_title: book?.title,
+                      book_author: book?.author,
+                      event_data: {
+                        genres: book?.categories || [],
+                        timestamp: new Date().toISOString(),
+                      },
+                    })
+                  }
+                }}
+                sharedBooks={new Set()}
+                />
+              </div>
+            </div>
+          </main>
+
+          <aside className={`md:col-span-1 space-y-6 ${isMobileMenuOpen ? "block order-1" : "hidden md:block order-2 md:order-1"}`}>
             <div className="md:hidden flex justify-between items-center mb-4">
               <h2 className="text-white font-bold text-lg">Menu</h2>
               <button
@@ -556,6 +943,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
               <button
+                data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
                 className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
               >
@@ -569,11 +957,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               {isAuthorsOpen && (
                 <APIErrorBoundary>
                   <ComponentErrorBoundary componentName="Author Manager">
-                    <AuthorManager
-                      authors={authors}
-                      setAuthors={setAuthors}
-                      userId={currentUser || "guest"}
-                      onBooksFound={onBooksFound}
+                <AuthorManager
+                  authors={authors}
+                  setAuthors={setAuthors}
+                  userId={currentUser || "guest"}
+                  onBooksFound={onBooksFound}
+                      onAuthorsChange={(newAuthors) => {
+                        setAuthors(newAuthors)
+                        // Also save to localStorage
+                        if (currentUser) {
+                          localStorage.setItem(`authors_${currentUser}`, JSON.stringify(newAuthors))
+                        }
+                      }}
                     />
                   </ComponentErrorBoundary>
                 </APIErrorBoundary>
@@ -582,6 +977,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
               <button
+                data-tour="recommendations"
                 onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
                 className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
               >
@@ -593,62 +989,59 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isRecommendationsOpen && (
-                <APIErrorBoundary>
-                  <ComponentErrorBoundary componentName="Book Recommendations">
-                    <BookRecommendations
-                      authors={authors}
-                      books={books}
-                      readBooks={readBooks}
-                      wantToReadBooks={wantToReadBooks}
-                      user={userState}
-                      onBookClick={(book) => {
-                    // Add the book to the collection
-                    setBooks((prevBooks) => {
-                      const existingTitles = new Set(prevBooks.map((b) => `${b.title}-${b.author}`))
-                      if (!existingTitles.has(`${book.title}-${book.author}`)) {
-                        return [book, ...prevBooks] // Add book to the beginning of the array instead of the end
-                      }
-                      return prevBooks
-                    })
-
-                    // Add the author to the authors list if not already present
+                <Card className="bg-white border-orange-200">
+                  <CardContent className="p-4">
+                    <APIErrorBoundary>
+                      <ComponentErrorBoundary componentName="Book Recommendations">
+                        <BookRecommendations
+                      authors={authors.map(name => ({ id: name, name }))}
+                  books={books}
+                  readBooks={readBooks}
+                  wantToReadBooks={wantToReadBooks}
+                  user={userState}
+                  onBookClick={async (book) => {
+                    // Add the single book and include the author with just this one book
                     const bookAuthor = book.author || book.authors?.[0]
                     if (bookAuthor) {
                       const normalizedAuthor = normalizeAuthorName(bookAuthor)
-                      setAuthors((prevAuthors) => {
-                        const authorExists = prevAuthors.some(author => 
-                          author.toLowerCase() === normalizedAuthor.toLowerCase()
-                        )
-                        if (!authorExists) {
-                          const updatedAuthors = [...prevAuthors, normalizedAuthor].sort((a, b) => {
-                            const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
-                            return getLastName(a).localeCompare(getLastName(b))
-                          })
+                      const authorExists = authors.some(author => 
+                        author.toLowerCase() === normalizedAuthor.toLowerCase()
+                      )
+                      
+                      if (!authorExists) {
+                        const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                          const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                          return getLastName(a).localeCompare(getLastName(b))
+                        })
+                        
+                        setAuthors(updatedAuthors)
+                        
+                        // Mark as recommended origin
+                        setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                        
+                        // Save to database and track analytics
+                        if (currentUser) {
+                          saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                            console.error("Error saving authors to database:", error)
+                          )
                           
-                          // Save to database and track analytics
-                          if (currentUser) {
-                            saveUserAuthors(currentUser, updatedAuthors).catch(error => 
-                              console.error("Error saving authors to database:", error)
-                            )
-                            
-                            trackEvent(currentUser, {
-                              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-                              event_data: {
-                                author_name: normalizedAuthor,
-                                total_authors: updatedAuthors.length,
-                                source: "recommendation_click",
-                                timestamp: new Date().toISOString(),
-                              },
-                            }).catch(error => 
-                              console.error("Error tracking author addition:", error)
-                            )
-                          }
-                          
-                          return updatedAuthors
+                          trackEvent(currentUser, {
+                            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                            event_data: {
+                              author_name: normalizedAuthor,
+                              total_authors: updatedAuthors.length,
+                              source: "recommendation_book_click",
+                              timestamp: new Date().toISOString(),
+                            },
+                          }).catch(error => 
+                            console.error("Error tracking author addition:", error)
+                          )
                         }
-                        return prevAuthors
-                      })
+                      }
                     }
+                    
+                    // Add just the single book
+                    onBooksFound([book])
 
                     setTimeout(() => {
                       const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
@@ -657,15 +1050,68 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       }
                     }, 100)
                   }}
-                    />
-                  </ComponentErrorBoundary>
-                </APIErrorBoundary>
+                  onAuthorClick={async (authorName) => {
+                    // Add the author to the authors list if not already present
+                    const normalizedAuthor = normalizeAuthorName(authorName)
+                    const authorExists = authors.some(author => 
+                      author.toLowerCase() === normalizedAuthor.toLowerCase()
+                    )
+                    
+                    if (!authorExists) {
+                      const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                        const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                        return getLastName(a).localeCompare(getLastName(b))
+                      })
+                      
+                      setAuthors(updatedAuthors)
+                      
+                      // Mark as recommended origin
+                      setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                      
+                      // Save to database and track analytics
+                      if (currentUser) {
+                        saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                          console.error("Error saving authors to database:", error)
+                        )
+                        
+                        trackEvent(currentUser, {
+                          event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                          event_data: {
+                            author_name: normalizedAuthor,
+                            total_authors: updatedAuthors.length,
+                            source: "recommendation_author_click",
+                            timestamp: new Date().toISOString(),
+                          },
+                        }).catch(error => 
+                          console.error("Error tracking author addition:", error)
+                        )
+                      }
+                      
+                      // Fetch all books by this author
+                      try {
+                        const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
+                        const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
+                        if (authorBooks && authorBooks.length > 0) {
+                          // Add all books by this author
+                          onBooksFound(authorBooks)
+                        }
+                      } catch (error) {
+                        console.error("Error fetching author books:", error)
+                      }
+                    }
+                  }}
+                />
+                      </ComponentErrorBoundary>
+                    </APIErrorBoundary>
+                  </CardContent>
+                </Card>
               )}
             </div>
 
             {isLoggedIn && currentUser && (
               <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
                 <button
+                  data-tour="analytics"
                   onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
                   className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                 >
@@ -686,6 +1132,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
               <button
+                data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
                 className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
               >
@@ -899,6 +1346,34 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
+                  {/* Show last N books setting */}
+                  <div className="space-y-3">
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Limit Books per Author</h3>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {([3,5,10] as const).map((n) => (
+                        <label key={n} className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="showLastNBooks"
+                            checked={userState.settings?.showLastNBooks === n}
+                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                          />
+                          Last {n}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="showLastNBooks"
+                          checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                          onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                        />
+                        All
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                  </div>
+
                   <div className="space-y-3">
                     <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Platform</h3>
                     <div className="space-y-2">
@@ -1001,7 +1476,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           type="url"
                           value={
                             platforms.find((p) => p.name === "Library")?.url ||
-                            "https://libbyapp.com"
+                            "https://www.worldcat.org"
                           }
                           onChange={(e) => {
                             setPlatforms((prev) =>
@@ -1009,170 +1484,99 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             )
                           }}
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://libbyapp.com"
+                          placeholder="https://www.worldcat.org"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          Just enter your library URL (e.g., libbyapp.com, overdrive.com). We'll automatically search for the book!
+                          Enter your library's website URL (e.g., worldcat.org, yourlibrary.overdrive.com, or yourlibrary.org). 
+                          When you click "Library" on a book, we'll search for that book at your library!
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Data Export Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Data Export</h3>
+                    <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                      <DataExport 
+                books={books}
+                        authors={authors}
+                        readBooks={readBooks}
+                        wantToReadBooks={wantToReadBooks}
+                        dontWantBooks={dontWantBooks}
+                        userProfile={userState}
+              />
+                    </div>
+            </div>
+
+                  {/* Help & Support Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Help & Support</h3>
+                    <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                      <button
+                        onClick={() => setIsTooltipTourActive(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors font-medium"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                        Show App Tour
+                      </button>
+                      <p className="text-xs text-blue-600 mt-2 text-center">
+                        Take a guided tour to learn how to use all features
+                      </p>
+                  </div>
+                </div>
                 </div>
               )}
-            </div>
-          </aside>
-
-          <main className="md:col-span-4 space-y-6">
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
-              <BookFilters
-                authors={authors}
-                selectedAuthor={selectedAuthor}
-                setSelectedAuthor={setSelectedAuthor}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                selectedLanguages={selectedLanguages}
-                setSelectedLanguages={setSelectedLanguages}
-                selectedGenres={selectedGenres}
-                setSelectedGenres={setSelectedGenres}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                userPreferences={userState}
-                advancedFilters={advancedFilters}
-                onFiltersChange={setAdvancedFilters}
-                books={books}
-              />
-            </div>
-
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-red-600 font-bold text-lg uppercase tracking-wide flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    My Bookshelf
-                  </h2>
-                  <div className="bg-white border-2 border-black rounded-lg px-2 py-0.5">
-                    <span className="text-black font-black text-xs">
-                      READING PROGRESS {readBooks.size} OF {books.length}
-                    </span>
-                  </div>
-                  <DataExport 
-                    books={books}
-                    authors={authors}
-                    readBooks={readBooks}
-                    wantToReadBooks={wantToReadBooks}
-                    dontWantBooks={dontWantBooks}
-                    userProfile={userState}
-                  />
-                </div>
-                <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
-                  <span className="text-orange-800 font-medium text-xs">
-                    {filteredBooks.length} of {books.length} books
-                  </span>
-                </div>
               </div>
 
-              <BookGrid
-                books={filteredBooks}
-                sortBy={sortBy}
-                readBooks={readBooks}
-                wantToReadBooks={wantToReadBooks}
-                dontWantBooks={dontWantBooks}
-                sharedBooks={sharedBooks}
-                friends={friends}
-                platforms={enabledPlatforms}
-                userId={currentUser}
-                onMarkAsRead={(bookId, title, author) => {
-                  setReadBooks((prev) => new Set([...prev, bookId]))
-                  setWantToReadBooks((prev) => {
-                    const newSet = new Set(prev)
-                    newSet.delete(bookId)
-                    return newSet
-                  })
-
-                  if (isLoggedIn) {
-                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
-                    trackEvent(currentUser, {
-                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_READ,
-                      book_id: bookId,
-                      book_title: title,
-                      book_author: author,
-                      event_data: {
-                        genres: book?.categories || [],
-                        timestamp: new Date().toISOString(),
-                      },
-                    })
-                  }
-                }}
-                onMarkAsWant={(bookId, title, author) => {
-                  setWantToReadBooks((prev) => new Set([...prev, bookId]))
-                  setReadBooks((prev) => {
-                    const newSet = new Set(prev)
-                    newSet.delete(bookId)
-                    return newSet
-                  })
-
-                  if (isLoggedIn) {
-                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
-                    trackEvent(currentUser, {
-                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_WANT,
-                      book_id: bookId,
-                      book_title: title,
-                      book_author: author,
-                      event_data: {
-                        genres: book?.categories || [],
-                        timestamp: new Date().toISOString(),
-                      },
-                    })
-                  }
-                }}
-                onToggleDontWant={(bookId, title, author) => {
-                  setDontWantBooks((prev) => {
-                    const newSet = new Set(prev)
-                    if (newSet.has(bookId)) {
-                      newSet.delete(bookId)
-                    } else {
-                      newSet.add(bookId)
-                    }
-                    return newSet
-                  })
-
-                  if (isLoggedIn) {
-                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
-                    trackEvent(currentUser, {
-                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_PASS,
-                      book_id: bookId,
-                      book_title: book?.title,
-                      book_author: book?.author,
-                      event_data: {
-                        genres: book?.categories || [],
-                        timestamp: new Date().toISOString(),
-                      },
-                    })
-                  }
-                }}
-                onShare={(bookId, friendName) => {
-                  setSharedBooks((prev) => new Set([...prev, bookId]))
-                  if (!friends.includes(friendName)) {
-                    setFriends((prev) => [...prev, friendName])
-                  }
-
-                  if (isLoggedIn) {
-                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
-                    trackEvent(currentUser, {
-                      event_type: ANALYTICS_EVENTS.BOOK_SHARED,
-                      book_id: bookId,
-                      book_title: book?.title,
-                      book_author: book?.author,
-                      event_data: {
-                        friend_name: friendName,
-                        timestamp: new Date().toISOString(),
-                      },
-                    })
-                  }
-                }}
-              />
+            {/* Recently Viewed Section for Memory Support */}
+            {recentlyViewed.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
+                <button
+                  onClick={() => setIsRecentlyViewedOpen(!isRecentlyViewedOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>🕒</span>
+                    RECENTLY VIEWED
             </div>
-          </main>
+                  {isRecentlyViewedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isRecentlyViewedOpen && (
+                  <div className="space-y-2">
+                  {recentlyViewed.slice(0, 3).map((bookId) => {
+                    const book = books.find(b => b.id === bookId)
+                    if (!book) return null
+                    return (
+                      <div
+                        key={bookId}
+                        className="p-2 bg-orange-50 rounded border border-orange-200 cursor-pointer hover:bg-orange-100 transition-colors group"
+                        onClick={() => scrollToBook(bookId)}
+                        title="Click to scroll to book"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-800 truncate">
+                              {book.title}
+                </div>
+                            <div className="text-xs text-gray-600 truncate">
+                              by {getBookAuthor(book)}
+                </div>
+              </div>
+                          <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+            </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  </div>
+                )}
+              </div>
+            )}
+          </aside>
         </div>
       </div>
 
@@ -1189,6 +1593,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           </p>
         </div>
       </footer>
+
+      {/* Contextual Tooltip Tour */}
+      <TooltipManager
+        isActive={isTooltipTourActive}
+        onComplete={() => {
+          setIsTooltipTourActive(false)
+          // Mark tour as seen for this user
+          if (currentUser) {
+            localStorage.setItem(`bookshelf_tour_seen_${currentUser}`, "true")
+          }
+        }}
+      />
     </div>
   )
 }

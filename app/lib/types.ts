@@ -10,9 +10,10 @@ export interface Author {
 export interface Book {
   id: string
   title: string
-  authorId: string
+  author: string
+  authorId?: string
   publishedDate: string
-  genre: string
+  genre?: string
   language?: string
   pageCount?: number
   description?: string
@@ -95,30 +96,32 @@ export interface User {
 }
 
 export interface AdvancedFilterState {
-  includeAllPublications: boolean
-  singleAuthorOnly: boolean
-  hasDescription: boolean
-  seriesOnly: boolean
-  readingStatus: "all" | "read" | "unread" | "want-to-read" | "dont-want"
-  genre: string // Add genre filter
-  yearRange: {
+  singleAuthorOnly?: boolean
+  hasDescription?: boolean
+  seriesOnly?: boolean
+  readingStatus?: string[]
+  genre?: string
+  yearRange?: {
     start: string
     end: string
   }
-  minPages: string
-  hasCover: boolean
-  titleContains: string
-  excludeWords: string[]
-  upcomingOnly: boolean // Added upcoming releases filter
+  minPages?: string
+  hasCover?: boolean
+  title?: string
+  titleContains?: string
+  excludeWords?: string[] | string
+  upcomingOnly: boolean
+  description?: string
+  fromDate?: string
+  toDate?: string
 }
 
 export const defaultAdvancedFilters: AdvancedFilterState = {
-  includeAllPublications: false,
   singleAuthorOnly: false,
   hasDescription: false,
   seriesOnly: false,
-  readingStatus: "all",
-  genre: "all", // Add default genre filter
+  readingStatus: ["dont-want"],
+  genre: "all",
   yearRange: {
     start: "",
     end: "",
@@ -127,7 +130,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   hasCover: false,
   titleContains: "",
   excludeWords: [],
-  upcomingOnly: false, // Added default value for upcoming releases filter
+  upcomingOnly: false,
 }
 
 export type FilterState = {

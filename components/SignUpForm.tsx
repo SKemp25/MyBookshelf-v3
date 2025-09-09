@@ -67,19 +67,31 @@ export default function SignUpForm() {
   }, [])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    console.log("🚀 SIGNUP FORM SUBMITTED - THIS SHOULD APPEAR!")
     e.preventDefault()
     setLoading(true)
     setError("")
 
     try {
       const formData = new FormData(e.currentTarget)
+      console.log("SignUp form submitted with:", {
+        email: formData.get("email"),
+        fullName: formData.get("fullName"),
+        password: formData.get("password") ? "***" : "empty"
+      })
+      
       const result = await signUp(null, formData)
+      console.log("SignUp result:", result)
+      console.log("SignUp result.success:", result.success)
+      console.log("SignUp result.error:", result.error)
 
       if (result.error) {
+        console.log("SignUp form: Error path taken")
         setError(result.error)
         localStorage.setItem("auth_error", result.error)
       } else if (result.success) {
-        localStorage.removeItem("auth_error")
+        console.log("SignUp form: Success path taken")
+        // Account created successfully - redirect immediately
         const email = formData.get("email") as string
         const fullName = formData.get("fullName") as string
 
@@ -103,10 +115,31 @@ export default function SignUpForm() {
         }
         localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
 
-        // Redirect to main app
-        router.push("/")
-        // Force page reload to update login state
-        window.location.reload()
+        // Clear form and redirect immediately
+        console.log("SignUp form: About to redirect")
+        e.currentTarget.reset()
+        console.log("SignUp form: Form reset, now redirecting")
+        
+        // Try multiple redirect methods
+        try {
+          router.push("/")
+          console.log("SignUp form: Router.push called")
+        } catch (routerError) {
+          console.log("SignUp form: Router failed, trying window.location")
+          window.location.href = "/"
+        }
+        
+        // Also try a direct navigation as backup
+        setTimeout(() => {
+          console.log("SignUp form: Backup redirect")
+          window.location.href = "/"
+        }, 100)
+        
+        console.log("SignUp form: Redirect command sent")
+        return // Exit early to prevent setLoading(false)
+      } else {
+        console.log("SignUp form: Neither error nor success path taken")
+        console.log("SignUp form: Result object:", JSON.stringify(result))
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.")
@@ -176,6 +209,8 @@ export default function SignUpForm() {
                 <AlertDescription className="text-red-100">{error}</AlertDescription>
               </Alert>
             )}
+            
+            
 
             <div className="space-y-4">
               <div className="space-y-2">
