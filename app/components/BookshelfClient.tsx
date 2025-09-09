@@ -427,6 +427,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Only show books by authors in your authors list
     const bookAuthor = getBookAuthor(book)
     if (!authors.includes(bookAuthor)) {
+      // Debug: Log books being filtered out by author
+      if (book.publishedDate) {
+        const year = new Date(book.publishedDate).getFullYear()
+        if (year >= 2025) {
+          console.log(`2025+ book filtered out by author: ${book.title} by ${bookAuthor} (not in authors list)`)
+          console.log(`Authors list:`, authors)
+        }
+      }
       return false
     }
 
