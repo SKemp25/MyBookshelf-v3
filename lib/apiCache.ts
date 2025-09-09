@@ -126,13 +126,6 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
             canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
           }
           
-          // Debug: Log books with 2025+ dates
-          if (publishedDate && publishedDate !== "Unknown Date") {
-            const year = new Date(publishedDate).getFullYear()
-            if (year >= 2025) {
-              console.log(`2025+ book from API: ${bookData.title} (${publishedDate})`)
-            }
-          }
           
           return bookData
         })

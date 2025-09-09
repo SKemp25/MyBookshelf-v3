@@ -343,6 +343,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     const title = (book.title || "").toLowerCase()
     const description = (book.description || "").toLowerCase()
 
+    // If the book is published in the future (2025+), it's likely a legitimate new book, not a rerelease
+    if (book.publishedDate) {
+      const bookYear = new Date(book.publishedDate).getFullYear()
+      if (bookYear >= 2025) {
+        return false // Don't filter out future books as rereleases
+      }
+    }
+
     // Common rerelease indicators
     const rereleaseKeywords = [
       "tie-in",
@@ -385,27 +393,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const filteredAndLimitedBooks = (() => {
-    // Debug: Log all books and their publication dates
-    console.log(`Total books loaded: ${books.length}`)
-    const booksWithDates = books.filter(book => book.publishedDate)
-    console.log(`Books with dates: ${booksWithDates.length}`)
-    const recentBooks = booksWithDates.filter(book => {
-      const year = new Date(book.publishedDate).getFullYear()
-      return year >= 2024
-    })
-    console.log(`Books from 2024+: ${recentBooks.length}`)
-    recentBooks.forEach(book => {
-      console.log(`- ${book.title} (${book.publishedDate})`)
-    })
-    
     const base = (books || []).filter((book) => {
-    // Debug: Log all 2025+ books at the start of filtering
-    if (book.publishedDate) {
-      const year = new Date(book.publishedDate).getFullYear()
-      if (year >= 2025) {
-        console.log(`2025+ book starting filter process: ${book.title} (${book.publishedDate})`)
-      }
-    }
     
     // Search filter - search in title and author
     if (searchQuery.trim()) {
@@ -413,13 +401,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       const titleMatch = (book.title || "").toLowerCase().includes(query)
       const authorMatch = (getBookAuthor(book) || "").toLowerCase().includes(query)
       if (!titleMatch && !authorMatch) {
-        // Debug: Log 2025+ books filtered out by search
-        if (book.publishedDate) {
-          const year = new Date(book.publishedDate).getFullYear()
-          if (year >= 2025) {
-            console.log(`2025+ book filtered out by search: ${book.title} (search query: "${query}")`)
-          }
-        }
         return false
       }
     }
@@ -427,25 +408,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     if ((userState.preferredLanguages || []).length > 0) {
       const bookLanguage = book.language || "en"
       if (!userState.preferredLanguages.includes(bookLanguage)) {
-        // Debug: Log 2025+ books filtered out by language
-        if (book.publishedDate) {
-          const year = new Date(book.publishedDate).getFullYear()
-          if (year >= 2025) {
-            console.log(`2025+ book filtered out by language: ${book.title} (language: ${bookLanguage}, preferred: ${userState.preferredLanguages})`)
-          }
-        }
         return false
       }
     }
 
     if (isRerelease(book)) {
-      // Debug: Log 2025+ books filtered out by rerelease
-      if (book.publishedDate) {
-        const year = new Date(book.publishedDate).getFullYear()
-        if (year >= 2025) {
-          console.log(`2025+ book filtered out by rerelease: ${book.title}`)
-        }
-      }
       return false
     }
 
@@ -456,23 +423,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Only show books by authors in your authors list
     const bookAuthor = getBookAuthor(book)
     if (!authors.includes(bookAuthor)) {
-      // Debug: Log books being filtered out by author
-      if (book.publishedDate) {
-        const year = new Date(book.publishedDate).getFullYear()
-        if (year >= 2025) {
-          console.log(`2025+ book filtered out by author: ${book.title} by ${bookAuthor} (not in authors list)`)
-          console.log(`Authors list:`, authors)
-        }
-      }
       return false
-    } else {
-      // Debug: Log 2025+ books that pass author filter
-      if (book.publishedDate) {
-        const year = new Date(book.publishedDate).getFullYear()
-        if (year >= 2025) {
-          console.log(`2025+ book passed author filter: ${book.title} by ${bookAuthor}`)
-        }
-      }
     }
 
     // Filter by selected authors if any are selected
@@ -494,13 +445,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     const safeAdvancedFilters = advancedFilters || defaultAdvancedFilters
 
-    // Debug: Log filter values for 2025+ books
-    if (book.publishedDate) {
-      const year = new Date(book.publishedDate).getFullYear()
-      if (year >= 2025) {
-        console.log(`2025+ book filter values: upcomingOnly=${safeAdvancedFilters.upcomingOnly}, showPassedBooks=${safeAdvancedFilters.showPassedBooks}`)
-      }
-    }
 
     if (safeAdvancedFilters.upcomingOnly) {
       if (!book.publishedDate) return false
@@ -516,11 +460,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
         // Only show books with future publication dates
         if (bookDate <= now) {
-          // Debug: Log 2025+ books filtered out by upcomingOnly
-          const year = bookDate.getFullYear()
-          if (year >= 2025) {
-            console.log(`2025+ book filtered out by upcomingOnly: ${book.title} (${book.publishedDate}) - bookDate: ${bookDate}, now: ${now}`)
-          }
           return false
         }
       } catch (error) {
@@ -573,12 +512,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           
           const bookYear = bookDate.getFullYear()
           
-          // Debug logging for 2025+ books
-          if (bookYear >= 2025) {
-            console.log(`2025+ book found: ${book.title} (${bookYear}) - start: "${start}", end: "${end}"`)
-            console.log(`Year range filter: start.trim()="${start.trim()}", end.trim()="${end.trim()}"`)
-            console.log(`Will be filtered out: ${(start.trim() && bookYear < parseInt(start)) || (end.trim() && bookYear > parseInt(end))}`)
-          }
           
           if (start.trim() && bookYear < parseInt(start)) {
             return false
@@ -622,13 +555,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return false // Hide passed books unless explicitly shown
     }
 
-    // Debug: Log if 2025+ books make it through all filters
-    if (book.publishedDate) {
-      const year = new Date(book.publishedDate).getFullYear()
-      if (year >= 2025) {
-        console.log(`2025+ book passed all filters: ${book.title} (${book.publishedDate})`)
-      }
-    }
     
     return true
   })
