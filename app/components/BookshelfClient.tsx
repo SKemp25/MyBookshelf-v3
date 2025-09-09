@@ -399,6 +399,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     })
     
     const base = (books || []).filter((book) => {
+    // Debug: Log all 2025+ books at the start of filtering
+    if (book.publishedDate) {
+      const year = new Date(book.publishedDate).getFullYear()
+      if (year >= 2025) {
+        console.log(`2025+ book starting filter process: ${book.title} (${book.publishedDate})`)
+      }
+    }
+    
     // Search filter - search in title and author
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
@@ -471,6 +479,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
         // Only show books with future publication dates
         if (bookDate <= now) {
+          // Debug: Log 2025+ books filtered out by upcomingOnly
+          const year = bookDate.getFullYear()
+          if (year >= 2025) {
+            console.log(`2025+ book filtered out by upcomingOnly: ${book.title} (${book.publishedDate}) - bookDate: ${bookDate}, now: ${now}`)
+          }
           return false
         }
       } catch (error) {
