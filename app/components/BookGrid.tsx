@@ -417,7 +417,7 @@ export default function BookGrid({
               data-book-id={book.id}
               className={`shadow-lg hover:shadow-xl transition-all duration-300 ${
                 isUpcoming
-                  ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-yellow-50 to-yellow-100 text-black"
+                  ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-white to-yellow-50 text-black"
                   : isRecommendedAuthor
                   ? "shadow-blue-200 ring-2 ring-blue-200 bg-gradient-to-br from-white to-blue-50 text-black"
                   : highContrast ? "bg-white text-black" : "bg-white text-black"
