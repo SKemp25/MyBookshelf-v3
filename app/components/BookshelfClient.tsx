@@ -349,23 +349,39 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
-    // Common rerelease indicators
+    // Common rerelease indicators - comprehensive list to filter out special editions
     const rereleaseKeywords = [
+      // Tie-ins
       "tie-in",
       "movie tie-in",
       "tv tie-in",
       "netflix tie-in",
       "film tie-in",
+      "television tie-in",
+      "streaming tie-in",
+      "media tie-in",
+      
+      // Editions
       "movie edition",
       "tv edition",
       "television edition",
       "film edition",
+      "netflix edition",
+      "streaming edition",
       "anniversary edition",
       "special edition",
       "collector's edition",
       "deluxe edition",
       "premium edition",
       "limited edition",
+      "exclusive edition",
+      "gift edition",
+      "holiday edition",
+      "christmas edition",
+      "boxed set",
+      "box set",
+      
+      // Reprints and reissues
       "reissue",
       "reprint",
       "new edition",
@@ -373,18 +389,61 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       "updated edition",
       "expanded edition",
       "enhanced edition",
+      "second edition",
+      "third edition",
+      "fourth edition",
+      "fifth edition",
+      
+      // Covers
       "movie cover",
       "tv cover",
       "film cover",
       "netflix cover",
+      "streaming cover",
+      
+      // Media adaptations
       "now a major motion picture",
       "now a netflix series",
       "now a tv series",
       "now streaming",
       "coming soon to",
-      "media tie-in",
+      "now on netflix",
+      "now on tv",
+      "now in theaters",
+      "now a movie",
+      "now a film",
+      "now a series",
+      
+      // Other indicators
       "adaptation",
       "based on the",
+      "film adaptation",
+      "tv adaptation",
+      "movie adaptation",
+      "netflix adaptation",
+      "streaming adaptation",
+      "cinematic edition",
+      "theatrical edition",
+      "director's cut",
+      "extended edition",
+      "uncut edition",
+      "complete edition",
+      "definitive edition",
+      "author's preferred edition",
+      "restored edition",
+      "remastered edition",
+      "digital edition",
+      "ebook edition",
+      "kindle edition",
+      "audiobook edition",
+      "audio edition",
+      "large print edition",
+      "large print",
+      "dyslexia friendly",
+      "dyslexia-friendly",
+      "accessible edition",
+      "braille edition",
+      "sign language edition",
     ]
 
     return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
