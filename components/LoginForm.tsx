@@ -130,33 +130,33 @@ export default function LoginForm() {
     setError("")
     
     try {
-      // Simulate OAuth flow - in production, this would redirect to OAuth provider
-      // For now, we'll create a demo account with social provider info
-      let demoEmail = `${provider}_${Date.now()}@demo.bookshelf.app`
+      // Use a consistent email format for social accounts (not timestamp-based)
+      // This allows us to check if the account already exists
+      const demoEmail = `${provider}@demo.bookshelf.app`
       const demoName = provider === "google" ? "Google User" : "Apple User"
+      const socialPassword = `social_${provider}_password` // Consistent password for social accounts
       
-      // Register user with a generated password (not used for social login)
-      const result = registerUser(demoName, demoEmail, `social_${Date.now()}`)
+      // First, check if account already exists
+      const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
+      const existingUser = users[demoEmail.toLowerCase()]
       
-      if (result.error && !result.error.includes("already exists")) {
-        setError(result.error)
-        setSocialLoading(null)
-        return
-      }
-      
-      // If account already exists, try to log in
-      if (result.error && result.error.includes("already exists")) {
-        const loginResult = authenticateUser(demoEmail, `social_${Date.now()}`)
+      if (existingUser) {
+        // Account exists - log them in
+        console.log("Social account exists, logging in:", demoEmail)
+        const loginResult = authenticateUser(demoEmail, socialPassword)
         if (loginResult.error) {
-          // For existing social accounts, we can't authenticate without the password
-          // So we'll create a new account with a timestamp
-          demoEmail = `${provider}_${Date.now()}@demo.bookshelf.app`
-          const newResult = registerUser(demoName, demoEmail, `social_${Date.now()}`)
-          if (newResult.error) {
-            setError(newResult.error)
-            setSocialLoading(null)
-            return
-          }
+          setError("Failed to sign in with existing account. Please use email/password login.")
+          setSocialLoading(null)
+          return
+        }
+      } else {
+        // Account doesn't exist - create it
+        console.log("Creating new social account:", demoEmail)
+        const result = registerUser(demoName, demoEmail, socialPassword)
+        if (result.error) {
+          setError(result.error)
+          setSocialLoading(null)
+          return
         }
       }
       
@@ -165,32 +165,34 @@ export default function LoginForm() {
       localStorage.setItem("bookshelf_current_user", demoEmail)
       localStorage.setItem("bookshelf_auth_provider", provider)
       
-      // Save user profile data with all required fields
-      const userPrefsKey = `bookshelf_user_${demoEmail}`
-      const userProfile = {
-        name: demoName,
-        email: demoEmail,
-        phone: "",
-        country: "",
-        cityState: "",
-        preferredLanguages: ["en"],
-        preferredGenres: [],
-        preferredAgeRange: [],
-        ageRange: "",
-        readingMethod: ["Print Books", "E-books", "Audiobooks"],
-        publicationTypePreferences: [],
-        suggestNewAuthors: false,
-        dateOfBirth: "",
-        memoryAids: ["Show book covers"],
-        diagnosedWithMemoryIssues: false,
-        authProvider: provider,
-        settings: {
-          defaultLanguage: "en",
-          preferredPlatforms: ["Kindle"],
-          readingMethods: ["Print Books", "E-books", "Audiobooks"],
-        },
+      // Save user profile data with all required fields (only if new account)
+      if (!existingUser) {
+        const userPrefsKey = `bookshelf_user_${demoEmail}`
+        const userProfile = {
+          name: demoName,
+          email: demoEmail,
+          phone: "",
+          country: "",
+          cityState: "",
+          preferredLanguages: ["en"],
+          preferredGenres: [],
+          preferredAgeRange: [],
+          ageRange: "",
+          readingMethod: ["Print Books", "E-books", "Audiobooks"],
+          publicationTypePreferences: [],
+          suggestNewAuthors: false,
+          dateOfBirth: "",
+          memoryAids: ["Show book covers"],
+          diagnosedWithMemoryIssues: false,
+          authProvider: provider,
+          settings: {
+            defaultLanguage: "en",
+            preferredPlatforms: ["Kindle"],
+            readingMethods: ["Print Books", "E-books", "Audiobooks"],
+          },
+        }
+        localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
       }
-      localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
       
       // Redirect to home
       setTimeout(() => {

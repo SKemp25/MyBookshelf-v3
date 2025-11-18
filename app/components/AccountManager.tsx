@@ -24,6 +24,8 @@ import {
 } from "lucide-react"
 import { signIn, signUp, signOut, resetPassword } from "@/lib/actions"
 import { useRouter } from "next/navigation"
+import { authenticateUser, registerUser } from "@/lib/authStore"
+import { Separator } from "@/components/ui/separator"
 
 interface AccountManagerProps {
   user: any // Updated comment to reflect localStorage-based auth
@@ -51,11 +53,39 @@ function SubmitButton({ children, isLoading }: { children: React.ReactNode; isLo
   )
 }
 
+const GoogleIcon = () => (
+  <svg className="w-5 h-5" viewBox="0 0 24 24">
+    <path
+      fill="currentColor"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="currentColor"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+    />
+  </svg>
+)
+
+const AppleIcon = () => (
+  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+  </svg>
+)
+
 export default function AccountManager({ user, isLoggedIn }: AccountManagerProps) {
   const router = useRouter()
   const [showAuth, setShowAuth] = useState(false)
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "reset">("signin")
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: "" })
+  const [socialLoading, setSocialLoading] = useState<string | null>(null)
 
   const [signInState, signInAction] = useActionState(signIn, null)
   const [signUpState, signUpAction] = useActionState(signUp, null)
@@ -275,44 +305,198 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
             )}
 
             {authMode === "signin" && (
-              <form action={signInAction} className="space-y-4">
-                <div>
-                  <Label htmlFor="email" className="text-orange-700">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      className="border-orange-200 focus:border-orange-400 pl-10"
-                      required
-                    />
+              <>
+                {/* Social Login Buttons */}
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                    onClick={async () => {
+                      setSocialLoading("google")
+                      try {
+                        const demoEmail = "google@demo.bookshelf.app"
+                        const demoName = "Google User"
+                        const socialPassword = "social_google_password"
+                        
+                        const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
+                        const existingUser = users[demoEmail.toLowerCase()]
+                        
+                        if (existingUser) {
+                          const loginResult = authenticateUser(demoEmail, socialPassword)
+                          if (loginResult.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                        } else {
+                          const result = registerUser(demoName, demoEmail, socialPassword)
+                          if (result.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                          const userPrefsKey = `bookshelf_user_${demoEmail}`
+                          const userProfile = {
+                            name: demoName,
+                            email: demoEmail,
+                            phone: "",
+                            country: "",
+                            cityState: "",
+                            preferredLanguages: ["en"],
+                            preferredGenres: [],
+                            preferredAgeRange: [],
+                            ageRange: "",
+                            readingMethod: ["Print Books", "E-books", "Audiobooks"],
+                            publicationTypePreferences: [],
+                            suggestNewAuthors: false,
+                            dateOfBirth: "",
+                            memoryAids: ["Show book covers"],
+                            diagnosedWithMemoryIssues: false,
+                            authProvider: "google",
+                            settings: {
+                              defaultLanguage: "en",
+                              preferredPlatforms: ["Kindle"],
+                              readingMethods: ["Print Books", "E-books", "Audiobooks"],
+                            },
+                          }
+                          localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+                        }
+                        
+                        localStorage.setItem("bookshelf_is_logged_in", "true")
+                        localStorage.setItem("bookshelf_current_user", demoEmail)
+                        localStorage.setItem("bookshelf_auth_provider", "google")
+                        
+                        setTimeout(() => {
+                          window.location.replace(`/?_t=${Date.now()}`)
+                        }, 150)
+                      } catch (err) {
+                        setSocialLoading(null)
+                      }
+                    }}
+                    disabled={socialLoading === "google"}
+                  >
+                    {socialLoading === "google" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                    <span className="ml-2">Continue with Google</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full bg-black hover:bg-gray-900 text-white border-gray-700"
+                    onClick={async () => {
+                      setSocialLoading("apple")
+                      try {
+                        const demoEmail = "apple@demo.bookshelf.app"
+                        const demoName = "Apple User"
+                        const socialPassword = "social_apple_password"
+                        
+                        const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
+                        const existingUser = users[demoEmail.toLowerCase()]
+                        
+                        if (existingUser) {
+                          const loginResult = authenticateUser(demoEmail, socialPassword)
+                          if (loginResult.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                        } else {
+                          const result = registerUser(demoName, demoEmail, socialPassword)
+                          if (result.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                          const userPrefsKey = `bookshelf_user_${demoEmail}`
+                          const userProfile = {
+                            name: demoName,
+                            email: demoEmail,
+                            phone: "",
+                            country: "",
+                            cityState: "",
+                            preferredLanguages: ["en"],
+                            preferredGenres: [],
+                            preferredAgeRange: [],
+                            ageRange: "",
+                            readingMethod: ["Print Books", "E-books", "Audiobooks"],
+                            publicationTypePreferences: [],
+                            suggestNewAuthors: false,
+                            dateOfBirth: "",
+                            memoryAids: ["Show book covers"],
+                            diagnosedWithMemoryIssues: false,
+                            authProvider: "apple",
+                            settings: {
+                              defaultLanguage: "en",
+                              preferredPlatforms: ["Kindle"],
+                              readingMethods: ["Print Books", "E-books", "Audiobooks"],
+                            },
+                          }
+                          localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+                        }
+                        
+                        localStorage.setItem("bookshelf_is_logged_in", "true")
+                        localStorage.setItem("bookshelf_current_user", demoEmail)
+                        localStorage.setItem("bookshelf_auth_provider", "apple")
+                        
+                        setTimeout(() => {
+                          window.location.replace(`/?_t=${Date.now()}`)
+                        }, 150)
+                      } catch (err) {
+                        setSocialLoading(null)
+                      }
+                    }}
+                    disabled={socialLoading === "apple"}
+                  >
+                    {socialLoading === "apple" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AppleIcon />}
+                    <span className="ml-2">Continue with Apple</span>
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full bg-orange-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-orange-600">Or continue with email</span>
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="password" className="text-orange-700">
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      className="border-orange-200 focus:border-orange-400 pl-10"
-                      required
-                    />
+
+                <form action={signInAction} className="space-y-4">
+                  <div>
+                    <Label htmlFor="email" className="text-orange-700">
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
-                <SubmitButton>
-                  <LogIn className="w-5 h-5 mr-2" />
-                  Sign In
-                </SubmitButton>
-              </form>
+                  <div>
+                    <Label htmlFor="password" className="text-orange-700">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="Enter your password"
+                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <SubmitButton>
+                    <LogIn className="w-5 h-5 mr-2" />
+                    Sign In
+                  </SubmitButton>
+                </form>
+              </>
             )}
 
             <div className="text-center space-y-2">
