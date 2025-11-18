@@ -27,7 +27,7 @@ git push origin main
 
 1. Go to your Vercel dashboard: https://vercel.com/dashboard
 2. Check that your latest deployment is "Ready" (usually takes 1-2 minutes)
-3. Your app should be live at: `https://mybookshelf2.vercel.app`
+3. Your app should be live at: `https://my-bookshelf-v3.vercel.app` (or check your Vercel dashboard for the correct domain)
 
 ---
 
@@ -37,7 +37,7 @@ git push origin main
 
 **Option A: Direct URL (Easiest)**
 1. Open Safari on your iPhone/iPad
-2. Type in the address bar: `https://mybookshelf2.vercel.app`
+2. Type in the address bar: `https://my-bookshelf-v3.vercel.app` (or your custom domain if configured)
 3. Tap "Go"
 
 **Option B: Add to Home Screen (Better for Testing)**

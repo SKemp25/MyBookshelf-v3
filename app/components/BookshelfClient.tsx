@@ -615,8 +615,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       if (!book.publishedDate) return false
 
       try {
-        const bookDate = new Date(book.publishedDate)
         const now = new Date()
+        let bookDate: Date
+        const dateStr = book.publishedDate.trim()
+        
+        // Handle different date formats
+        if (dateStr.match(/^\d{4}$/)) {
+          // Year only (e.g., "2026")
+          bookDate = new Date(`${dateStr}-01-01`)
+        } else if (dateStr.match(/^\d{4}-\d{2}$/)) {
+          // Year-month (e.g., "2026-07")
+          bookDate = new Date(`${dateStr}-01`)
+        } else {
+          // Full date (e.g., "2026-07-13")
+          bookDate = new Date(dateStr)
+        }
 
         // Check if date is valid
         if (isNaN(bookDate.getTime())) {
@@ -628,6 +641,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           return false
         }
       } catch (error) {
+        console.error("Error parsing date for upcoming filter:", book.publishedDate, error)
         return false
       }
     }

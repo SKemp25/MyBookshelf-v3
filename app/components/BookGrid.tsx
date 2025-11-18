@@ -369,11 +369,38 @@ export default function BookGrid({
 
   const isUpcomingRelease = (publishedDate: string) => {
     if (!publishedDate) return false
-    const bookDate = new Date(publishedDate)
-    const now = new Date()
-    const twelveMonthsFromNow = new Date()
-    twelveMonthsFromNow.setMonth(twelveMonthsFromNow.getMonth() + 12)
-    return bookDate >= now && bookDate <= twelveMonthsFromNow
+    
+    try {
+      const now = new Date()
+      const twelveMonthsFromNow = new Date()
+      twelveMonthsFromNow.setMonth(twelveMonthsFromNow.getMonth() + 12)
+      
+      // Handle different date formats
+      let bookDate: Date
+      const dateStr = publishedDate.trim()
+      
+      if (dateStr.match(/^\d{4}$/)) {
+        // Year only (e.g., "2026")
+        bookDate = new Date(`${dateStr}-01-01`)
+      } else if (dateStr.match(/^\d{4}-\d{2}$/)) {
+        // Year-month (e.g., "2026-07")
+        bookDate = new Date(`${dateStr}-01`)
+      } else {
+        // Full date (e.g., "2026-07-13")
+        bookDate = new Date(dateStr)
+      }
+      
+      // Check if date is valid
+      if (isNaN(bookDate.getTime())) {
+        return false
+      }
+      
+      // Check if it's in the future and within 12 months
+      return bookDate >= now && bookDate <= twelveMonthsFromNow
+    } catch (error) {
+      console.error("Error parsing date:", publishedDate, error)
+      return false
+    }
   }
 
   const formatUpcomingDate = (publishedDate: string) => {
