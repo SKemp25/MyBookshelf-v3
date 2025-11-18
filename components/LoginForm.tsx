@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Loader2, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { authenticateUser } from "@/lib/authStore"
+import { authenticateUser, registerUser } from "@/lib/authStore"
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -127,11 +127,81 @@ export default function LoginForm() {
 
   const handleSocialLogin = async (provider: "google" | "apple") => {
     setSocialLoading(provider)
-    // TODO: Implement actual social login logic
-    setTimeout(() => {
+    setError("")
+    
+    try {
+      // Simulate OAuth flow - in production, this would redirect to OAuth provider
+      // For now, we'll create a demo account with social provider info
+      let demoEmail = `${provider}_${Date.now()}@demo.bookshelf.app`
+      const demoName = provider === "google" ? "Google User" : "Apple User"
+      
+      // Register user with a generated password (not used for social login)
+      const result = registerUser(demoName, demoEmail, `social_${Date.now()}`)
+      
+      if (result.error && !result.error.includes("already exists")) {
+        setError(result.error)
+        setSocialLoading(null)
+        return
+      }
+      
+      // If account already exists, try to log in
+      if (result.error && result.error.includes("already exists")) {
+        const loginResult = authenticateUser(demoEmail, `social_${Date.now()}`)
+        if (loginResult.error) {
+          // For existing social accounts, we can't authenticate without the password
+          // So we'll create a new account with a timestamp
+          demoEmail = `${provider}_${Date.now()}@demo.bookshelf.app`
+          const newResult = registerUser(demoName, demoEmail, `social_${Date.now()}`)
+          if (newResult.error) {
+            setError(newResult.error)
+            setSocialLoading(null)
+            return
+          }
+        }
+      }
+      
+      // Set login state
+      localStorage.setItem("bookshelf_is_logged_in", "true")
+      localStorage.setItem("bookshelf_current_user", demoEmail)
+      localStorage.setItem("bookshelf_auth_provider", provider)
+      
+      // Save user profile data with all required fields
+      const userPrefsKey = `bookshelf_user_${demoEmail}`
+      const userProfile = {
+        name: demoName,
+        email: demoEmail,
+        phone: "",
+        country: "",
+        cityState: "",
+        preferredLanguages: ["en"],
+        preferredGenres: [],
+        preferredAgeRange: [],
+        ageRange: "",
+        readingMethod: ["Print Books", "E-books", "Audiobooks"],
+        publicationTypePreferences: [],
+        suggestNewAuthors: false,
+        dateOfBirth: "",
+        memoryAids: ["Show book covers"],
+        diagnosedWithMemoryIssues: false,
+        authProvider: provider,
+        settings: {
+          defaultLanguage: "en",
+          preferredPlatforms: ["Kindle"],
+          readingMethods: ["Print Books", "E-books", "Audiobooks"],
+        },
+      }
+      localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+      
+      // Redirect to home
+      setTimeout(() => {
+        const timestamp = Date.now()
+        window.location.replace(`/?_t=${timestamp}`)
+      }, 150)
+    } catch (err) {
+      console.error("Social login exception:", err)
+      setError(`Failed to sign in with ${provider}. Please try again.`)
       setSocialLoading(null)
-      setError(`${provider} login not yet implemented`)
-    }, 1000)
+    }
   }
 
   return (
