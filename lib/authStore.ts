@@ -78,7 +78,12 @@ export function registerUser(fullName: string, email: string, password: string) 
   writeUsers(users)
   setCurrentUserEmail(key) // Use normalized key
 
+  // Verify the user was saved
+  const verifyUsers = readUsers()
   console.log("User registered:", { email: key, fullName })
+  console.log("All users after registration:", Object.keys(verifyUsers))
+  console.log("Total users:", Object.keys(verifyUsers).length)
+  
   return { success: true }
 }
 
@@ -91,13 +96,20 @@ export function authenticateUser(email: string, password: string) {
   const key = email.toLowerCase().trim()
   const user = users[key]
 
+  const allUserKeys = Object.keys(users)
   console.log("Authenticating user:", { 
     key, 
     userExists: !!user, 
     storedPasswordLength: user?.password?.length, 
     providedPasswordLength: password?.length,
-    allUserKeys: Object.keys(users)
+    allUserKeys,
+    totalUsers: allUserKeys.length
   })
+  
+  // Log all user emails for debugging
+  if (allUserKeys.length > 0) {
+    console.log("Available user emails:", allUserKeys)
+  }
 
   if (!user) {
     console.log("User not found. Available users:", Object.keys(users))
