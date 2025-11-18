@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Loader2, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signIn } from "@/lib/actions"
+import { authenticateUser } from "@/lib/authStore"
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -48,16 +48,20 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
-    setError("")
-    // Clear any localStorage errors that might persist
-    localStorage.removeItem("auth_error")
+    // Check for persisted error on mount
+    const persistedError = localStorage.getItem("auth_error")
+    if (persistedError) {
+      setError(persistedError)
+      localStorage.removeItem("auth_error")
+    }
   }, [])
 
   useEffect(() => {
-    const handleFocus = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement) {
+    const handleFocus = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLInputElement) {
         setTimeout(() => {
-          e.target.scrollIntoView({ behavior: "smooth", block: "center" })
+          target.scrollIntoView({ behavior: "smooth", block: "center" })
         }, 300)
       }
     }
@@ -73,16 +77,37 @@ export default function LoginForm() {
 
     try {
       const formData = new FormData(e.currentTarget)
-      const result = await signIn(null, formData)
+      const email = (formData.get("email") as string)?.trim().toLowerCase()
+      const password = (formData.get("password") as string)?.trim()
+
+      console.log("Login attempt:", { email, passwordLength: password?.length })
+
+      if (!email || !password) {
+        setError("Email and password are required")
+        setLoading(false)
+        return
+      }
+
+      const result = authenticateUser(email, password)
+      console.log("Authentication result:", result)
 
       if (result.error) {
         setError(result.error)
         localStorage.setItem("auth_error", result.error)
+        console.error("Login error:", result.error)
       } else if (result.success) {
         localStorage.removeItem("auth_error")
-        router.push("/")
+        console.log("Login successful, redirecting...")
+        // Use window.location for more reliable redirect
+        window.location.href = "/"
+        return // Don't set loading to false, let the redirect happen
+      } else {
+        // Fallback error if neither error nor success
+        setError("Login failed. Please try again.")
+        console.error("Unexpected authentication result:", result)
       }
     } catch (err) {
+      console.error("Login exception:", err)
       setError("An unexpected error occurred. Please try again.")
     }
 
@@ -161,6 +186,7 @@ export default function LoginForm() {
                   name="email"
                   type="email"
                   placeholder="you@example.com"
+                  autoComplete="email"
                   required
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:border-white/40"
                 />
@@ -174,6 +200,7 @@ export default function LoginForm() {
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                     required
                     className="bg-white/10 border-white/20 text-white focus:border-white/40 pr-10"
                   />

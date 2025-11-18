@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Filter, X, Search, ChevronDown, ChevronUp } from "lucide-react"
+import { Filter, X, Search, ChevronDown, ChevronUp, Heart } from "lucide-react"
 import type { Book } from "../lib/types"
 import AdvancedFilters, { defaultAdvancedFilters } from "./AdvancedFilters"
 import type { AdvancedFilterState } from "../lib/types"
@@ -33,6 +33,9 @@ interface BookFiltersProps {
   recommendedAuthors?: Set<string>
   isFiltersOpen: boolean
   setIsFiltersOpen: (open: boolean) => void
+  bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
+  showHeartedBooks: boolean
+  setShowHeartedBooks: (show: boolean) => void
 }
 
 export default function BookFilters({
@@ -54,6 +57,9 @@ export default function BookFilters({
   recommendedAuthors,
   isFiltersOpen,
   setIsFiltersOpen,
+  bookRatings,
+  showHeartedBooks,
+  setShowHeartedBooks,
 }: BookFiltersProps) {
   const safeAuthors = Array.isArray(authors) ? authors : []
   const safeBooks = Array.isArray(books) ? books : []
@@ -109,6 +115,27 @@ export default function BookFilters({
         )}
       </div>
 
+      {/* Hearted Books Filter */}
+      <div className="space-y-3 mb-6">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showHeartedBooks}
+            onChange={(e) => setShowHeartedBooks(e.target.checked)}
+            className="w-4 h-4 text-orange-600 border-orange-300 rounded focus:ring-orange-500 focus:ring-2"
+          />
+          <div className="flex items-center gap-2">
+            <Heart className="w-4 h-4 text-pink-600 fill-pink-600" />
+            <span className="text-base font-semibold text-red-700">Show only hearted books</span>
+          </div>
+        </label>
+        {showHeartedBooks && (
+          <p className="text-sm text-orange-600">
+            Showing only books you've marked with a ❤️
+          </p>
+        )}
+      </div>
+
       {/* Sort By */}
       <div className="space-y-3">
         <h4 className="text-base font-semibold text-red-700">Sort By</h4>
@@ -144,13 +171,13 @@ export default function BookFilters({
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {safeAuthors.map((authorName) => {
+            {Array.from(new Set(safeAuthors)).map((authorName, index) => {
               const isSelected = selectedAuthors.includes(authorName)
               const bookCount = bookCountByAuthor[authorName] || 0
               const isRecommended = recommendedAuthors?.has(authorName)
               return (
                 <Badge
-                  key={authorName}
+                  key={`${authorName}-${index}`}
                   variant={isSelected ? "default" : "outline"}
                   className={`cursor-pointer transition-colors relative ${
                     isSelected

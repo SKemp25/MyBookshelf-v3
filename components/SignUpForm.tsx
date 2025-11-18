@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Loader2, UserPlus, AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signUp } from "@/lib/actions"
+import { registerUser } from "@/lib/authStore"
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -54,10 +54,11 @@ export default function SignUpForm() {
   }, [])
 
   useEffect(() => {
-    const handleFocus = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement) {
+    const handleFocus = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLInputElement) {
         setTimeout(() => {
-          e.target.scrollIntoView({ behavior: "smooth", block: "center" })
+          target.scrollIntoView({ behavior: "smooth", block: "center" })
         }, 300)
       }
     }
@@ -74,16 +75,11 @@ export default function SignUpForm() {
 
     try {
       const formData = new FormData(e.currentTarget)
-      console.log("SignUp form submitted with:", {
-        email: formData.get("email"),
-        fullName: formData.get("fullName"),
-        password: formData.get("password") ? "***" : "empty"
-      })
-      
-      const result = await signUp(null, formData)
+      const fullName = (formData.get("fullName") as string)?.trim()
+      const email = (formData.get("email") as string)?.trim().toLowerCase()
+      const password = formData.get("password") as string
+      const result = registerUser(fullName, email, password)
       console.log("SignUp result:", result)
-      console.log("SignUp result.success:", result.success)
-      console.log("SignUp result.error:", result.error)
 
       if (result.error) {
         console.log("SignUp form: Error path taken")
@@ -92,50 +88,52 @@ export default function SignUpForm() {
       } else if (result.success) {
         console.log("SignUp form: Success path taken")
         // Account created successfully - redirect immediately
-        const email = formData.get("email") as string
-        const fullName = formData.get("fullName") as string
-
         // Set login state in localStorage
         localStorage.setItem("bookshelf_is_logged_in", "true")
         localStorage.setItem("bookshelf_current_user", email)
 
-        // Save user profile data
+        // Save user profile data with all required fields
         const userPrefsKey = `bookshelf_user_${email}`
         const userProfile = {
           name: fullName,
           email: email,
           phone: "",
-          location: "",
+          country: "",
+          cityState: "",
           preferredLanguages: ["en"],
           preferredGenres: [],
+          preferredAgeRange: [],
           ageRange: "",
           readingMethod: ["Print Books", "E-books", "Audiobooks"],
           publicationTypePreferences: [],
           suggestNewAuthors: false,
+          dateOfBirth: "",
+          preferredReadingTime: "",
+          readingGoal: 0,
+          memoryAids: ["Show book covers"], // Default to showing book covers
+          diagnosedWithMemoryIssues: false,
+          settings: {
+            defaultLanguage: "en",
+            preferredPlatforms: ["Kindle"],
+            readingMethods: ["Print Books", "E-books", "Audiobooks"],
+          },
         }
         localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+        console.log("User profile saved:", userProfile)
+        
+        // Verify the data was saved
+        const verify = localStorage.getItem(userPrefsKey)
+        console.log("Verification - profile in localStorage:", verify ? "✓ Saved" : "✗ Not saved")
 
-        // Clear form and redirect immediately
-        console.log("SignUp form: About to redirect")
+        // Clear form
         e.currentTarget.reset()
-        console.log("SignUp form: Form reset, now redirecting")
         
-        // Try multiple redirect methods
-        try {
-          router.push("/")
-          console.log("SignUp form: Router.push called")
-        } catch (routerError) {
-          console.log("SignUp form: Router failed, trying window.location")
-          window.location.href = "/"
-        }
-        
-        // Also try a direct navigation as backup
+        // Small delay to ensure localStorage is written, then redirect
         setTimeout(() => {
-          console.log("SignUp form: Backup redirect")
+          console.log("SignUp form: Redirecting to home page")
           window.location.href = "/"
-        }, 100)
+        }, 50)
         
-        console.log("SignUp form: Redirect command sent")
         return // Exit early to prevent setLoading(false)
       } else {
         console.log("SignUp form: Neither error nor success path taken")
@@ -150,11 +148,54 @@ export default function SignUpForm() {
 
   const handleSocialLogin = async (provider: "google" | "apple") => {
     setSocialLoading(provider)
-    // TODO: Implement actual social login logic
-    setTimeout(() => {
+    setError("")
+    
+    try {
+      // Simulate OAuth flow - in production, this would redirect to OAuth provider
+      // For now, we'll create a demo account with social provider info
+      const demoEmail = `${provider}_${Date.now()}@demo.bookshelf.app`
+      const demoName = provider === "google" ? "Google User" : "Apple User"
+      
+      // Register user with a generated password (not used for social login)
+      const result = registerUser(demoName, demoEmail, `social_${Date.now()}`)
+      
+      if (result.error) {
+        setError(result.error)
+        setSocialLoading(null)
+        return
+      }
+      
+      // Set login state
+      localStorage.setItem("bookshelf_is_logged_in", "true")
+      localStorage.setItem("bookshelf_current_user", demoEmail)
+      localStorage.setItem("bookshelf_auth_provider", provider)
+      
+      // Save user profile data
+      const userPrefsKey = `bookshelf_user_${demoEmail}`
+      const userProfile = {
+        name: demoName,
+        email: demoEmail,
+        phone: "",
+        location: "",
+        preferredLanguages: ["en"],
+        preferredGenres: [],
+        ageRange: "",
+        readingMethod: ["Print Books", "E-books", "Audiobooks"],
+        publicationTypePreferences: [],
+        suggestNewAuthors: false,
+        authProvider: provider,
+      }
+      localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+      
+      // Redirect to home
+      router.push("/")
+      setTimeout(() => {
+        window.location.href = "/"
+      }, 100)
+    } catch (err) {
+      setError(`Failed to sign in with ${provider}. Please try again.`)
       setSocialLoading(null)
-      setError(`${provider} login not yet implemented`)
-    }, 1000)
+    }
   }
 
   return (
@@ -222,6 +263,7 @@ export default function SignUpForm() {
                   name="fullName"
                   type="text"
                   placeholder="John Smith"
+                  autoComplete="name"
                   required
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:border-white/40"
                 />
@@ -235,6 +277,7 @@ export default function SignUpForm() {
                   name="email"
                   type="email"
                   placeholder="you@example.com"
+                  autoComplete="email"
                   required
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:border-white/40"
                 />
@@ -248,6 +291,7 @@ export default function SignUpForm() {
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                     required
                     className="bg-white/10 border-white/20 text-white focus:border-white/40 pr-10"
                   />

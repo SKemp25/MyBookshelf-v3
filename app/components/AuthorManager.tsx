@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Plus, Trash2, Search, Upload } from "lucide-react"
 import type { Book } from "@/lib/types"
 import AuthorImport from "./AuthorImport"
@@ -12,6 +12,13 @@ import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { deduplicateBooks } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
+
+// Helper function to convert HTTP URLs to HTTPS
+function ensureHttps(url: string): string {
+  if (!url) return url
+  return url.replace(/^http:\/\//, "https://")
+}
+import { Card, CardContent } from "@/components/ui/card"
 
 interface AuthorManagerProps {
   authors: string[]
@@ -78,6 +85,9 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
   const [showImport, setShowImport] = useState(false)
   const [isAddingAuthor, setIsAddingAuthor] = useState(false)
   const [foundBooks, setFoundBooks] = useState<Book[]>([])
+  const [showAuthorVerification, setShowAuthorVerification] = useState(false)
+  const [authorCandidates, setAuthorCandidates] = useState<Array<{name: string, sampleBooks: Book[], allBooks: Book[], bookCount: number}>>([])
+  const [pendingAuthorName, setPendingAuthorName] = useState<string>("")
   const { toast } = useToast()
 
   // Clear found books when user manually clears the search field
@@ -92,60 +102,143 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       setIsAddingAuthor(true)
 
       const normalizedName = normalizeAuthorName(newAuthor)
-
-      const updatedAuthors = [...authors, normalizedName].sort((a, b) => getLastName(a).localeCompare(getLastName(b)))
-      setAuthors(updatedAuthors)
-      setNewAuthor("")
+      const searchedNameLower = normalizedName.toLowerCase()
 
       try {
-        if (userId) {
-          await saveUserAuthors(userId, updatedAuthors)
-
-          await trackEvent(userId, {
-            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-            event_data: {
-              author_name: normalizedName,
-              total_authors: updatedAuthors.length,
-              timestamp: new Date().toISOString(),
-            },
-          })
-        }
-      } catch (error) {
-        console.error("Error saving authors to database:", error)
-      }
-
-      try {
-        // Use cached API call
+        // Use cached API call to check for multiple authors BEFORE adding
         const apiResults = await fetchAuthorBooksWithCache(normalizedName)
         
-        const allBooks = apiResults
-          .filter((item: any) => {
-            // Handle both raw API data and processed Book objects
-            const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
-            const searchedAuthor = normalizedName.toLowerCase()
-            const bookAuthor = apiAuthor.toLowerCase()
+        // Filter out books where author name appears in title but author is different
+        // Only include books where the author field actually matches
+        const validBooks = apiResults.filter((item: any) => {
+          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
+          if (!apiAuthor) return false
+          
+          const bookTitle = (item.volumeInfo?.title || item.title || "").toLowerCase()
+          const bookAuthor = normalizeAuthorName(apiAuthor).toLowerCase()
+          
+          // Exclude books where the searched name appears in title but author is different
+          if (bookTitle.includes(searchedNameLower) && bookAuthor !== searchedNameLower) {
+            return false
+          }
+          
+          // Only include books where author actually matches
+          // Use more flexible matching - check if all words from searched name appear in book author
+          if (bookAuthor === searchedNameLower) return true
+          
+          // Check if the searched name is contained in the book author (for cases like "David Nicholls" matching "David Nicholls, Jr.")
+          if (bookAuthor.includes(searchedNameLower)) return true
+          
+          // Word-by-word matching - all words from searched name must appear in book author
+          const searchedWords = searchedNameLower
+            .split(/[\s,]+/)
+            .filter((word: string) => word.length > 1)
+          const bookWords = bookAuthor
+            .split(/[\s,]+/)
+            .filter((word: string) => word.length > 1)
+          
+          // Check if all searched words appear in book author (order doesn't matter)
+          const allWordsMatch = searchedWords.every((searchedWord: string) => 
+            bookWords.some((bookWord: string) => bookWord === searchedWord || bookWord.includes(searchedWord))
+          )
+          
+          return allWordsMatch
+        })
+        
+        // Group books by author name to detect multiple authors with same name
+        // Only include books where the author field matches, not where name appears in title
+        const authorGroups = new Map<string, Book[]>()
+        
+        validBooks.forEach((item: any) => {
+          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
+          if (!apiAuthor) return
+          
+          const normalizedApiAuthor = normalizeAuthorName(apiAuthor)
+          const normalizedApiAuthorLower = normalizedApiAuthor.toLowerCase()
+          
+          // Only group books where the author field actually matches (already filtered by validBooks)
+          // Group by the exact author name from the author field
+          if (!authorGroups.has(normalizedApiAuthor)) {
+            authorGroups.set(normalizedApiAuthor, [])
+          }
+          authorGroups.get(normalizedApiAuthor)!.push(item)
+        })
+        
+        // If multiple distinct authors found, show verification dialog WITHOUT adding author yet
+        if (authorGroups.size > 1) {
+          const candidates = Array.from(authorGroups.entries()).map(([name, books]) => ({
+            name,
+            sampleBooks: books.slice(0, 3),
+            allBooks: books, // Store all books for this candidate
+            bookCount: books.length
+          }))
+          setAuthorCandidates(candidates)
+          setShowAuthorVerification(true)
+          setIsAddingAuthor(false)
+          // Store the pending author name for later use
+          setPendingAuthorName(normalizedName)
+          return
+        }
+        
+        // Only one author found - proceed with adding (deduplicate first)
+        const uniqueAuthors = Array.from(new Set([...authors, normalizedName]))
+        const updatedAuthors = uniqueAuthors.sort((a, b) => getLastName(a).localeCompare(getLastName(b)))
+        setAuthors(updatedAuthors)
+        setNewAuthor("")
 
-            // Check for exact match first
-            if (bookAuthor === searchedAuthor) return true
+        try {
+          if (userId) {
+            await saveUserAuthors(userId, updatedAuthors)
 
-            const searchedWords = searchedAuthor
-              .split(/[\s,]+/)
-              .filter((word) => word.length > 1)
-              .sort()
-            const bookWords = bookAuthor
-              .split(/[\s,]+/)
-              .filter((word) => word.length > 1)
-              .sort()
+            await trackEvent(userId, {
+              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+              event_data: {
+                author_name: normalizedName,
+                total_authors: updatedAuthors.length,
+                timestamp: new Date().toISOString(),
+              },
+            })
+          }
+        } catch (error) {
+          console.error("Error saving authors to database:", error)
+        }
+        
+        // Use the already-filtered validBooks instead of re-filtering apiResults
+        // This ensures we get all books that matched the author, not just exact matches
+        // First, process raw API data into Book format if needed
+        const processedBooks = validBooks.map((item: any) => {
+          // If already processed (has title directly), return as-is
+          if (item.title && !item.volumeInfo) {
+            return item
+          }
+          
+          // Process raw API data
+          const volumeInfo = item.volumeInfo || {}
+          let publishedDate = volumeInfo.publishedDate
+          if (publishedDate && publishedDate.length === 4) {
+            publishedDate = `${publishedDate}-01-01`
+          }
+          
+          return {
+            id: item.id,
+            title: volumeInfo.title || "Unknown Title",
+            author: volumeInfo.authors?.[0] || "Unknown Author",
+            authors: volumeInfo.authors || [],
+            publishedDate: publishedDate || "Unknown Date",
+            description: volumeInfo.description || "",
+            categories: volumeInfo.categories || [],
+            language: volumeInfo.language || "en",
+            pageCount: volumeInfo.pageCount || 0,
+            imageUrl: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
+            thumbnail: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
+            previewLink: ensureHttps(volumeInfo.previewLink || ""),
+            infoLink: ensureHttps(volumeInfo.infoLink || ""),
+            canonicalVolumeLink: ensureHttps(volumeInfo.canonicalVolumeLink || ""),
+          }
+        })
 
-            if (searchedWords.length !== bookWords.length) return false
-
-            return searchedWords.every((word, index) => word === bookWords[index])
-          })
-          // fetchAuthorBooksWithCache now returns processed Book objects, so we can use them directly
-
-
-        const filteredBooks = allBooks.filter((book) => {
-          const title = book.title.toLowerCase()
+        const filteredBooks = processedBooks.filter((book) => {
+          const title = (book.title || "").toLowerCase()
           const description = (book.description || "").toLowerCase()
 
           const unwantedKeywords = [
@@ -297,14 +390,20 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           return true
         })
 
-        const deduplicatedBooks = deduplicateBooks(filteredBooks)
-
-        const upcomingBooks = deduplicatedBooks.filter((book) => {
-          if (!book.publishedDate) return false
-          const bookDate = new Date(book.publishedDate)
-          const now = new Date()
-          return bookDate > now
-        })
+        // Get user country from localStorage if available, default to US
+        let userCountry = "US"
+        try {
+          const userPrefsKey = `bookshelf_user_${userId}`
+          const userPrefsData = localStorage.getItem(userPrefsKey)
+          if (userPrefsData) {
+            const userPrefs = JSON.parse(userPrefsData)
+            userCountry = userPrefs.country || "US"
+          }
+        } catch (error) {
+          // Default to US if unable to get user country
+        }
+        
+        const deduplicatedBooks = deduplicateBooks(filteredBooks, userCountry)
 
         onBooksFound(deduplicatedBooks)
         
@@ -709,11 +808,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         <div className="border-t border-orange-200 pt-6">
           <h4 className="font-semibold text-orange-800 mb-4">Your Authors ({authors.length})</h4>
           <div className="space-y-2">
-            {authors
+            {Array.from(new Set(authors))
               .sort((a, b) => getLastName(a).localeCompare(getLastName(b)))
-              .map((author) => (
+              .map((author, index) => (
                 <div
-                  key={author}
+                  key={`${author}-${index}`}
                   className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
                 >
                   <span className="font-medium text-orange-900">{author}</span>
@@ -730,6 +829,141 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           </div>
         </div>
       )}
+
+      {/* Author Verification Dialog */}
+      <Dialog open={showAuthorVerification} onOpenChange={(open) => {
+        setShowAuthorVerification(open)
+        if (!open) {
+          // Clear pending author name when dialog is closed without selection
+          setPendingAuthorName("")
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl bg-white border-orange-200 rounded-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-orange-800 font-display text-xl">Multiple Authors Found</DialogTitle>
+            <DialogDescription>
+              We found multiple authors with similar names. Please select the correct author:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {authorCandidates.map((candidate, index) => (
+              <Card key={index} className="border-orange-200 hover:border-orange-400 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-lg text-orange-900 mb-2">{candidate.name}</h4>
+                      <p className="text-sm text-orange-600 mb-3">{candidate.bookCount} books found</p>
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-orange-700">Sample books:</p>
+                        {candidate.sampleBooks.map((book: any, bookIndex: number) => (
+                          <div key={bookIndex} className="text-xs text-orange-600 pl-2 border-l-2 border-orange-200">
+                            • {book.title || book.volumeInfo?.title || 'Unknown Title'} ({book.publishedDate ? new Date(book.publishedDate).getFullYear() : 'Unknown year'})
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        const selectedAuthor = candidate.name
+                        setShowAuthorVerification(false)
+                        setIsAddingAuthor(true)
+                        
+                        try {
+                          // Check if author already exists (in case user clicked add before verification)
+                          if (authors.some((author) => author.toLowerCase() === selectedAuthor.toLowerCase())) {
+                            toast({
+                              title: "Author Already Exists",
+                              description: `${selectedAuthor} is already in your authors list.`,
+                            })
+                            setIsAddingAuthor(false)
+                            setPendingAuthorName("")
+                            return
+                          }
+                          
+                          // Deduplicate authors before adding
+                          const uniqueAuthors = Array.from(new Set([...authors, selectedAuthor]))
+                          const updatedAuthors = uniqueAuthors.sort((a, b) => getLastName(a).localeCompare(getLastName(b)))
+                          setAuthors(updatedAuthors)
+                          setNewAuthor("") // Clear the input field
+                          setPendingAuthorName("") // Clear pending name
+                          
+                          if (userId) {
+                            await saveUserAuthors(userId, updatedAuthors)
+                            await trackEvent(userId, {
+                              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                              event_data: {
+                                author_name: selectedAuthor,
+                                total_authors: updatedAuthors.length,
+                                timestamp: new Date().toISOString(),
+                              },
+                            })
+                          }
+                          
+                          // Use the books that were already grouped for this specific candidate author
+                          // This ensures we only get books by the selected author, not from cache of broader search
+                          const candidateBooks = candidate.allBooks || []
+                          
+                          // Process the books to ensure they're in the correct format
+                          const processedBooks = candidateBooks.map((item: any) => {
+                            // Handle both raw API data and processed Book objects
+                            if (item.volumeInfo) {
+                              // Raw API data - convert to Book format
+                              let publishedDate = item.volumeInfo.publishedDate
+                              if (publishedDate && publishedDate.length === 4) {
+                                publishedDate = `${publishedDate}-01-01`
+                              }
+                              return {
+                                id: item.id,
+                                title: item.volumeInfo.title || "Unknown Title",
+                                author: item.volumeInfo.authors?.[0] || "Unknown Author",
+                                authors: item.volumeInfo.authors || [],
+                                publishedDate: publishedDate || "Unknown Date",
+                                description: item.volumeInfo.description || "",
+                                categories: item.volumeInfo.categories || [],
+                                language: item.volumeInfo.language || "en",
+                                pageCount: item.volumeInfo.pageCount || 0,
+                                imageUrl: item.volumeInfo.imageLinks?.thumbnail || "",
+                                thumbnail: item.volumeInfo.imageLinks?.thumbnail || "",
+                                previewLink: item.volumeInfo.previewLink || "",
+                                infoLink: item.volumeInfo.infoLink || "",
+                                canonicalVolumeLink: item.volumeInfo.canonicalVolumeLink || "",
+                              }
+                            } else {
+                              // Already processed Book object
+                              return item
+                            }
+                          })
+                          
+                          if (processedBooks && processedBooks.length > 0) {
+                            onBooksFound(processedBooks)
+                          }
+                          
+                          toast({
+                            title: "Author Added",
+                            description: `${selectedAuthor} has been added to your authors list.`,
+                          })
+                        } catch (error) {
+                          console.error("Error adding author:", error)
+                          toast({
+                            title: "Error",
+                            description: "Failed to add author. Please try again.",
+                            variant: "destructive",
+                          })
+                        } finally {
+                          setIsAddingAuthor(false)
+                        }
+                      }}
+                      className="bg-orange-500 hover:bg-orange-600 text-white ml-4"
+                    >
+                      Select
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Import Dialog */}
       <Dialog open={showImport} onOpenChange={setShowImport}>
@@ -756,11 +990,17 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                 }
                 
                 // Track analytics
-                trackEvent(ANALYTICS_EVENTS.AUTHOR_ADDED, {
-                  method: 'bulk_import',
-                  count: importedAuthors.length,
-                  books_count: books.length
-                })
+                if (userId) {
+                  await trackEvent(userId, {
+                    event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                    event_data: {
+                      method: 'bulk_import',
+                      count: importedAuthors.length,
+                      books_count: books.length,
+                      timestamp: new Date().toISOString(),
+                    },
+                  })
+                }
                 
                 toast({
                   title: "Import Successful!",

@@ -82,7 +82,8 @@ export interface User {
   name: string
   email: string
   phone?: string
-  location?: string
+  country?: string
+  cityState?: string
   preferredLanguages: string[]
   preferredGenres: string[]
   preferredAgeRange?: string[]
@@ -91,6 +92,11 @@ export interface User {
   ageRange: string
   suggestNewAuthors?: boolean // Added suggestNewAuthors property for author recommendations
   createdAt?: string
+  dateOfBirth?: string
+  preferredReadingTime?: string
+  readingGoal?: number
+  memoryAids?: string[]
+  diagnosedWithMemoryIssues?: boolean // Track if user has been diagnosed with memory issues
   settings: {
     defaultLanguage: string
     preferredPlatforms: string[]

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Calendar, User } from "lucide-react"
@@ -12,6 +12,7 @@ interface BookRecommendationsProps {
   books: Book[]
   readBooks: Set<string>
   wantToReadBooks: Set<string>
+  bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
   user: any
   onBookClick?: (book: Book) => void
   onAuthorClick?: (authorName: string) => void
@@ -22,6 +23,7 @@ export default function BookRecommendations({
   books,
   readBooks,
   wantToReadBooks,
+  bookRatings = new Map(),
   user,
   onBookClick,
   onAuthorClick,
@@ -208,6 +210,31 @@ export default function BookRecommendations({
   const generateAuthorRecommendations = () => {
     if (!user?.suggestNewAuthors || !authors.length) return []
 
+    // Only use authors from books that have been marked as "loved" (heart icon)
+    const lovedBookIds = new Set<string>()
+    bookRatings.forEach((rating, bookId) => {
+      if (rating === "loved") {
+        lovedBookIds.add(bookId)
+      }
+    })
+
+    // Get authors only from loved books
+    const lovedBookAuthors = new Set<string>()
+    books.forEach((book) => {
+      const bookId = `${book.title}-${book.author}`
+      if (lovedBookIds.has(bookId)) {
+        const authorName = getAuthorName(book)
+        if (authorName && authorName !== "Unknown Author") {
+          lovedBookAuthors.add(authorName)
+        }
+      }
+    })
+
+    // If no loved books, return empty (don't recommend based on other books)
+    if (lovedBookAuthors.size === 0) {
+      return []
+    }
+
     const existingAuthors = authors.map((author) => {
       if (typeof author === "string") {
         return author
@@ -218,18 +245,10 @@ export default function BookRecommendations({
       }
     })
 
-    // Get authors from want list to improve recommendations
-    const wantListAuthors = new Set<string>()
-    wantToReadBooks.forEach((bookId) => {
-      const book = books.find((b) => `${b.title}-${b.author}` === bookId)
-      if (book) {
-        wantListAuthors.add(book.author)
-      }
-    })
+    // Only use authors from loved books for recommendations
+    const allRelevantAuthors = Array.from(lovedBookAuthors)
 
-    // Combine existing authors with want list authors for better recommendations
-    const allRelevantAuthors = [...existingAuthors, ...Array.from(wantListAuthors)]
-
+    // Shared author recommendation map
     const authorMap: { [key: string]: string[] } = {
       "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Stephen Fry"],
       "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith"],
@@ -261,16 +280,74 @@ export default function BookRecommendations({
 
     setTimeout(() => {
       try {
+        // Only use books that have been marked as "loved" (heart icon) as the basis for recommendations
+        const lovedBookIds = new Set<string>()
+        bookRatings.forEach((rating, bookId) => {
+          if (rating === "loved") {
+            lovedBookIds.add(bookId)
+          }
+        })
+
+        // If no loved books, don't show recommendations
+        if (lovedBookIds.size === 0) {
+          setRecommendations([])
+          setAuthorRecommendations([])
+          setLoading(false)
+          return
+        }
+
+        // Get authors from loved books
+        const lovedBookAuthors = new Set<string>()
+        books.forEach((book) => {
+          const bookId = `${book.title}-${book.author}`
+          if (lovedBookIds.has(bookId)) {
+            const authorName = getAuthorName(book)
+            if (authorName && authorName !== "Unknown Author") {
+              lovedBookAuthors.add(authorName)
+            }
+          }
+        })
+
         const existingBookIds = new Set(books.map((book) => book.id))
         const existingBookTitles = new Set(
           books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
         )
 
+        // Get recommended authors based on loved book authors
+        const recommendedAuthors = new Set<string>()
+        const authorMap: { [key: string]: string[] } = {
+          "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Stephen Fry"],
+          "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith"],
+          "Kristin Hannah": ["Jodi Picoult", "Liane Moriarty", "Taylor Jenkins Reid"],
+          "Daniel Mason": ["Anthony Doerr", "Hanya Yanagihara", "Colson Whitehead"],
+          "Philip Pullman": ["Neil Gaiman", "Terry Pratchett", "Susanna Clarke"],
+          "Madeline Miller": ["Pat Barker", "Jennifer Saint", "Stephen Fry"],
+          "Jennifer Saint": ["Pat Barker", "Madeline Miller", "Stephen Fry"],
+          "Ali Smith": ["Kate Atkinson", "Sarah Waters", "Zadie Smith"],
+          "Sarah Waters": ["Kate Atkinson", "Ali Smith", "Zadie Smith"],
+          "Zadie Smith": ["Kate Atkinson", "Ali Smith", "Sarah Waters"],
+        }
+        
+        // Get recommended authors based on loved book authors
+        Array.from(lovedBookAuthors).forEach((author) => {
+          if (authorMap[author]) {
+            authorMap[author].forEach((rec) => recommendedAuthors.add(rec))
+          }
+        })
+
+        // Filter recommendations based on authors from loved books
         const filteredRecommendations = curatedRecommendations.filter((book) => {
           if (existingBookIds.has(book.id)) return false
           const bookKey = `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`
           if (existingBookTitles.has(bookKey)) return false
           if (passedBooks.has(book.id)) return false
+
+          // Only recommend books by authors similar to loved book authors
+          const bookAuthor = getAuthorName(book)
+          // Check if this book's author is in the recommended authors list
+          if (recommendedAuthors.size > 0 && !recommendedAuthors.has(bookAuthor)) {
+            return false
+          }
 
           // Filter by user language preferences
           if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
@@ -338,15 +415,29 @@ export default function BookRecommendations({
     }
   }
 
+  // Create a string representation of loved book IDs to track changes
+  const lovedBooksKey = useMemo(() => {
+    const lovedIds = Array.from(bookRatings.entries())
+      .filter(([_, rating]) => rating === "loved")
+      .map(([bookId]) => bookId)
+      .sort()
+      .join(",")
+    return lovedIds
+  }, [bookRatings])
+
   useEffect(() => {
-    if (authors.length > 0) {
+    // Only generate recommendations if there are loved books
+    const hasLovedBooks = lovedBooksKey.length > 0
+    
+    if (hasLovedBooks && authors.length > 0) {
       setRefreshCounter(0) // Reset refresh counter when dependencies change
       generateNewRecommendations()
     } else {
       setRecommendations([])
       setAuthorRecommendations([])
     }
-  }, [authors.length, books.length, readBooks.size, wantToReadBooks.size])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authors.length, books.length, readBooks.size, wantToReadBooks.size, lovedBooksKey])
 
   return (
     <div className="space-y-4">
@@ -380,17 +471,31 @@ export default function BookRecommendations({
 
           {recommendations.length === 0 ? (
             <div className="text-center py-6">
-              {authors.length === 0 ? (
-                <>
-                  <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
-                  <p className="text-blue-500 text-xs">Add your favorite authors to get book suggestions!</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-blue-600 text-sm mb-1">Generating recommendations...</p>
-                  <p className="text-blue-500 text-xs">Based on your favorite authors</p>
-                </>
-              )}
+              {(() => {
+                const hasLovedBooks = Array.from(bookRatings.values()).some(rating => rating === "loved")
+                if (!hasLovedBooks) {
+                  return (
+                    <>
+                      <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
+                      <p className="text-blue-500 text-xs">Mark books you loved with a ❤️ to get personalized recommendations!</p>
+                    </>
+                  )
+                }
+                if (authors.length === 0) {
+                  return (
+                    <>
+                      <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
+                      <p className="text-blue-500 text-xs">Add your favorite authors to get book suggestions!</p>
+                    </>
+                  )
+                }
+                return (
+                  <>
+                    <p className="text-blue-600 text-sm mb-1">Generating recommendations...</p>
+                    <p className="text-blue-500 text-xs">Based on books you loved ❤️</p>
+                  </>
+                )
+              })()}
             </div>
           ) : (
             <div className="space-y-3">

@@ -38,25 +38,69 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [readBooks, setReadBooks] = useState<Set<string>>(new Set())
   const [wantToReadBooks, setWantToReadBooks] = useState<Set<string>>(new Set())
   const [dontWantBooks, setDontWantBooks] = useState<Set<string>>(new Set())
+  const [bookRatings, setBookRatings] = useState<Map<string, "loved" | "liked" | "didnt-like">>(new Map())
   const [friends, setFriends] = useState<string[]>([])
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<string>("newest")
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["en"])
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState<string>("")
+  const [showHeartedBooks, setShowHeartedBooks] = useState<boolean>(false)
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(defaultAdvancedFilters)
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
 
-  // Handle hydration
+  // Handle hydration and check login state
   useEffect(() => {
     setIsHydrated(true)
-    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-    const user = localStorage.getItem("bookshelf_current_user") || ""
-    setIsLoggedIn(loggedIn)
-    setCurrentUser(user)
+    const checkLoginState = () => {
+      const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+      const user = localStorage.getItem("bookshelf_current_user") || ""
+      console.log("Checking login state:", { loggedIn, user })
+      setIsLoggedIn(loggedIn)
+      setCurrentUser(user)
+    }
+    
+    // Check immediately
+    checkLoginState()
+    
+    // Listen for storage changes (in case login happens in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "bookshelf_is_logged_in" || e.key === "bookshelf_current_user") {
+        console.log("Storage changed, re-checking login state")
+        checkLoginState()
+      }
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+    
+    // Also check on window focus (in case login happened and page was redirected)
+    const handleFocus = () => {
+      checkLoginState()
+    }
+    window.addEventListener("focus", handleFocus)
+    
+    // Re-check after a short delay to catch any race conditions
+    const timeoutId = setTimeout(() => {
+      checkLoginState()
+    }, 200)
+    
+    // Also check when the page becomes visible (handles tab switching)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkLoginState()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      clearTimeout(timeoutId)
+    }
   }, [])
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
   const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false) // Added recently viewed section state
@@ -77,7 +121,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     name: "My Bookshelf",
     email: "",
     phone: "",
-    location: "",
+    country: "",
+    cityState: "",
     preferredLanguages: ["en"],
     preferredGenres: [],
     preferredAgeRange: [],
@@ -90,6 +135,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     readingMethod: ["Print Books", "E-books", "Audiobooks"],
     ageRange: "",
     suggestNewAuthors: false,
+    dateOfBirth: "",
+    preferredReadingTime: "",
+    readingGoal: 0,
+    memoryAids: ["Show book covers"], // Default to showing book covers
+    diagnosedWithMemoryIssues: false,
   })
 
   // Fetch books for all existing authors when component loads
@@ -112,7 +162,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           }
         }
         if (allBooks.length > 0) {
-          const deduplicatedBooks = deduplicateBooks(allBooks)
+          const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
           setBooks(deduplicatedBooks)
         }
       } catch (error) {
@@ -135,15 +185,23 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             name: userPrefs.name || currentUser,
             email: userPrefs.email || currentUser,
             phone: userPrefs.phone || "",
-            location: userPrefs.location || "",
+            country: userPrefs.country || "",
+            cityState: userPrefs.cityState || "",
             preferredLanguages: userPrefs.preferredLanguages || ["en"],
             preferredGenres: userPrefs.preferredGenres || [],
+            preferredAgeRange: userPrefs.preferredAgeRange || [],
             ageRange: userPrefs.ageRange || "",
             readingMethod: userPrefs.readingMethod || ["Print Books", "E-books", "Audiobooks"],
             publicationTypePreferences: userPrefs.publicationTypePreferences || [],
             suggestNewAuthors: userPrefs.suggestNewAuthors || false,
+            dateOfBirth: userPrefs.dateOfBirth || "",
+            preferredReadingTime: userPrefs.preferredReadingTime || "",
+            readingGoal: userPrefs.readingGoal || 0,
+            memoryAids: userPrefs.memoryAids && userPrefs.memoryAids.length > 0 ? userPrefs.memoryAids : ["Show book covers"], // Default to showing book covers if not set
+            diagnosedWithMemoryIssues: userPrefs.diagnosedWithMemoryIssues || false,
             settings: userPrefs.settings || prev.settings, // Preserve settings
           }))
+          console.log("User profile loaded:", { name: userPrefs.name, email: userPrefs.email })
         } catch (error) {
           console.error("Error loading user preferences:", error)
         }
@@ -174,13 +232,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             author: b?.author || (Array.isArray(b?.authors) ? b.authors[0] : b?.author) || "Unknown",
             authors: Array.isArray(b?.authors) && b.authors.length > 0 ? b.authors : (b?.author ? [b.author] : []),
           }))
-          setBooks(deduplicateBooks(normalizedBooks))
+          setBooks(deduplicateBooks(normalizedBooks, userState.country || "US"))
           setReadBooks(new Set(parsedData.readBooks || []))
           setWantToReadBooks(new Set(parsedData.wantToReadBooks || []))
           setDontWantBooks(new Set(parsedData.dontWantBooks || []))
           setFriends(parsedData.friends || [])
           setPlatforms(parsedData.platforms || platforms)
           setRecommendedAuthors(new Set(parsedData.recommendedAuthors || []))
+          // Load book ratings
+          if (parsedData.bookRatings) {
+            setBookRatings(new Map(Object.entries(parsedData.bookRatings)))
+          }
         }
         setIsDataLoaded(true)
       } catch (error) {
@@ -202,6 +264,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       readBooks: Array.from(readBooks),
       wantToReadBooks: Array.from(wantToReadBooks),
       dontWantBooks: Array.from(dontWantBooks),
+      bookRatings: Object.fromEntries(bookRatings),
       user: userState,
       platforms,
       friends,
@@ -215,6 +278,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     readBooks,
     wantToReadBooks,
     dontWantBooks,
+    bookRatings,
     userState,
     platforms,
     friends,
@@ -289,25 +353,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         "first love",
         "school drama",
       ],
-      "Adult (18+)": [
-        "adult",
-        "mature",
-        "fiction",
-        "non-fiction",
-        "romance",
-        "mystery",
-        "thriller",
-        "literary",
-        "contemporary",
-        "historical",
-        "biography",
-        "memoir",
-        "business",
-        "self-help",
-        "philosophy",
-        "science",
-        "politics",
-      ],
     }
     return keywords[ageRange] || []
   }
@@ -315,23 +360,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const matchesAgeRange = (book: Book, ageRange: string) => {
     if (!ageRange) return true
 
+    // For 18+, show all books (no filtering)
+    if (ageRange === "Adult (18+)") {
+      return true
+    }
+
     const keywords = getAgeRangeKeywords(ageRange)
     const searchText = `${book.title || ""} ${book.description || ""} ${(book.categories || []).join(" ")}`.toLowerCase()
 
+    // For children's books (0-12), only match if explicitly children's content
     if (ageRange === "Children (0-12)") {
       return keywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
     }
 
+    // For teen books (13-17), only match if explicitly teen/YA content
     if (ageRange === "Young Adult (13-17)") {
       return keywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
-    }
-
-    if (ageRange === "Adult (18+)") {
-      const childKeywords = getAgeRangeKeywords("Children (0-12)")
-      const yaKeywords = getAgeRangeKeywords("Young Adult (13-17)")
-      const isChildrens = childKeywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
-      const isYA = yaKeywords.some((keyword: string) => searchText.includes(keyword.toLowerCase()))
-      return !isChildrens && !isYA
     }
 
     return true
@@ -473,34 +517,98 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return false
     }
 
+    // Age range filtering: Only filter for 0-12 and 13-17, 18+ shows all books
     if (userState.ageRange && !matchesAgeRange(book, userState.ageRange)) {
       return false
     }
 
     // Only show books by authors in your authors list
     const bookAuthor = getBookAuthor(book)
-    if (!authors.includes(bookAuthor)) {
+    // Use case-insensitive matching to handle normalization differences
+    const authorMatches = authors.some(author => 
+      author.toLowerCase().trim() === bookAuthor.toLowerCase().trim() ||
+      normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
+    )
+    if (!authorMatches) {
       return false
     }
 
     // Filter by selected authors if any are selected
     if (selectedAuthors.length > 0) {
-      if (!selectedAuthors.includes(bookAuthor)) {
-        return false
-      }
-    }
-
-    if ((selectedGenres || []).length > 0) {
-      const bookGenres = book.categories || []
-      const hasMatchingGenre = selectedGenres.some((genre) =>
-        bookGenres.some((bookGenre) => bookGenre.toLowerCase().includes(genre.toLowerCase())),
+      const selectedAuthorMatches = selectedAuthors.some(selectedAuthor =>
+        selectedAuthor.toLowerCase().trim() === bookAuthor.toLowerCase().trim() ||
+        normalizeAuthorName(selectedAuthor).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
       )
-      if (!hasMatchingGenre) {
+      if (!selectedAuthorMatches) {
         return false
       }
     }
 
     const safeAdvancedFilters = advancedFilters || defaultAdvancedFilters
+
+    // Genre filtering - check both selectedGenres and advancedFilters.genre
+    const genreFilters: string[] = []
+    if ((selectedGenres || []).length > 0) {
+      genreFilters.push(...selectedGenres)
+    }
+    if (safeAdvancedFilters.genre && safeAdvancedFilters.genre !== "all") {
+      genreFilters.push(safeAdvancedFilters.genre)
+    }
+
+    if (genreFilters.length > 0) {
+      const bookGenres = (book.categories || []).map(g => g.toLowerCase())
+      const bookGenre = (book.genre || "").toLowerCase()
+      const bookDescription = (book.description || "").toLowerCase()
+      
+      // More precise genre matching - avoid substring matches that cause false positives
+      const hasMatchingGenre = genreFilters.some((filterGenre) => {
+        const filterLower = filterGenre.toLowerCase()
+        
+        // Exact match in categories
+        if (bookGenres.some(bg => bg === filterLower)) return true
+        
+        // Check for "Fiction" vs "Non-Fiction" distinction
+        if (filterLower === "fiction") {
+          // Fiction should NOT match if book has "non-fiction", "biography", "history", etc.
+          const nonFictionIndicators = ["non-fiction", "nonfiction", "biography", "autobiography", "history", "biographical", "reference", "academic", "scholarly"]
+          if (nonFictionIndicators.some(indicator => 
+            bookGenres.some(bg => bg.includes(indicator)) || 
+            bookDescription.includes(indicator) ||
+            bookGenre.includes(indicator)
+          )) {
+            return false
+          }
+          // Fiction should match if it has fiction-related categories
+          const fictionIndicators = ["fiction", "novel", "literary fiction"]
+          return fictionIndicators.some(indicator => 
+            bookGenres.some(bg => bg.includes(indicator)) || 
+            bookDescription.includes(indicator) ||
+            bookGenre.includes(indicator)
+          )
+        }
+        
+        if (filterLower === "non-fiction" || filterLower === "nonfiction") {
+          // Non-fiction should match if it has non-fiction indicators
+          const nonFictionIndicators = ["non-fiction", "nonfiction", "biography", "autobiography", "history", "biographical", "reference", "academic", "scholarly", "essay", "memoir"]
+          return nonFictionIndicators.some(indicator => 
+            bookGenres.some(bg => bg.includes(indicator)) || 
+            bookDescription.includes(indicator) ||
+            bookGenre.includes(indicator)
+          )
+        }
+        
+        // For other genres, use substring matching but be more careful
+        return bookGenres.some((bookGenre) => {
+          const normalizedBookGenre = bookGenre.replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
+          const normalizedFilter = filterLower.replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
+          return normalizedBookGenre.includes(normalizedFilter) || normalizedFilter.includes(normalizedBookGenre)
+        }) || bookGenre.includes(filterLower) || bookDescription.includes(filterLower)
+      })
+      
+      if (!hasMatchingGenre) {
+        return false
+      }
+    }
 
 
     if (safeAdvancedFilters.upcomingOnly) {
@@ -541,6 +649,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     if (safeAdvancedFilters.description && book.description) {
       if (!book.description.toLowerCase().includes(safeAdvancedFilters.description.toLowerCase())) {
+        return false
+      }
+    }
+
+    // Filter by hearted books (loved rating)
+    if (showHeartedBooks) {
+      const bookId = `${book.title}-${getBookAuthor(book)}`
+      const rating = bookRatings.get(bookId)
+      if (rating !== "loved") {
         return false
       }
     }
@@ -675,31 +792,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       
       const allBooks = [...prevBooks, ...uniqueNewBooks]
       
-      // Deduplicate by title + author, keeping the most recent publication date
-      const deduplicatedBooks = allBooks.reduce((acc: Book[], currentBook) => {
-        const bookKey = `${(currentBook.title || "").toLowerCase().trim()}-${getBookAuthor(currentBook).toLowerCase().trim()}`
-        
-        const existingIndex = acc.findIndex(existingBook => {
-          const existingKey = `${(existingBook.title || "").toLowerCase().trim()}-${getBookAuthor(existingBook).toLowerCase().trim()}`
-          return existingKey === bookKey
-        })
-        
-        if (existingIndex === -1) {
-          // No duplicate found, add the book
-          acc.push(currentBook)
-        } else {
-          // Duplicate found, keep the one with the most recent publication date
-          const existingBook = acc[existingIndex]
-          const currentDate = new Date(currentBook.publishedDate || "1900-01-01")
-          const existingDate = new Date(existingBook.publishedDate || "1900-01-01")
-          
-          if (currentDate > existingDate) {
-            acc[existingIndex] = currentBook
-          }
-        }
-        
-        return acc
-      }, [])
+      // Deduplicate using the improved deduplicateBooks function
+      const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
       
       return deduplicatedBooks
     })
@@ -864,6 +958,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 books={books}
                 isFiltersOpen={isFiltersOpen}
                 setIsFiltersOpen={setIsFiltersOpen}
+                bookRatings={bookRatings}
+                showHeartedBooks={showHeartedBooks}
+                setShowHeartedBooks={setShowHeartedBooks}
               />
             </div>
 
@@ -876,13 +973,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </h2>
                   <div className="bg-white border-2 border-black rounded-lg px-2 py-0.5">
                     <span className="text-black font-black text-xs">
-                      READING PROGRESS {readBooks.size} OF {books.length}
+                      READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
                     </span>
                   </div>
                 </div>
                 <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
                   <span className="text-orange-800 font-medium text-xs">
-                    {filteredAndLimitedBooks.length} of {books.length} books
+                    {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
                   </span>
                 </div>
               </div>
@@ -900,6 +997,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 onBookClick={trackRecentlyViewed}
                 highContrast={highContrast}
                 recommendedAuthors={recommendedAuthors}
+                memoryAids={userState.memoryAids || []}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
@@ -972,6 +1070,32 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     })
                   }
                 }}
+                onSetBookRating={(bookId, rating) => {
+                  setBookRatings((prev) => {
+                    const newMap = new Map(prev)
+                    if (rating) {
+                      newMap.set(bookId, rating)
+                    } else {
+                      newMap.delete(bookId)
+                    }
+                    return newMap
+                  })
+                  
+                  if (isLoggedIn && currentUser) {
+                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+                    trackEvent(currentUser, {
+                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_READ,
+                      book_id: bookId,
+                      book_title: book?.title || "",
+                      book_author: book?.author || "",
+                      event_data: {
+                        rating: rating,
+                        timestamp: new Date().toISOString(),
+                      },
+                    }).catch(err => console.error("Error tracking rating:", err))
+                  }
+                }}
+                bookRatings={bookRatings}
                 onMarkAsWant={(bookId, title, author) => {
                   setWantToReadBooks((prev) => new Set([...prev, bookId]))
                   setReadBooks((prev) => {
@@ -1072,29 +1196,31 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               )}
             </div>
 
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
-              <button
-                data-tour="recommendations"
-                onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  RECOMMENDATIONS
-                </div>
-                {isRecommendationsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
+            {userState.suggestNewAuthors && (
+              <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
+                <button
+                  data-tour="recommendations"
+                  onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-3 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    RECOMMENDATIONS
+                  </div>
+                  {isRecommendationsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
 
-              {isRecommendationsOpen && (
-                <Card className="bg-white border-orange-200">
-                  <CardContent className="p-4">
-                    <APIErrorBoundary>
-                      <ComponentErrorBoundary componentName="Book Recommendations">
-                        <BookRecommendations
+                {isRecommendationsOpen && (
+                  <Card className="bg-white border-orange-200">
+                    <CardContent className="p-4">
+                      <APIErrorBoundary>
+                        <ComponentErrorBoundary componentName="Book Recommendations">
+                          <BookRecommendations
                       authors={authors.map(name => ({ id: name, name }))}
                   books={books}
                   readBooks={readBooks}
                   wantToReadBooks={wantToReadBooks}
+                  bookRatings={bookRatings}
                   user={userState}
                   onBookClick={async (book) => {
                     // Add the single book and include the author with just this one book
@@ -1198,12 +1324,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     }
                   }}
                 />
-                      </ComponentErrorBoundary>
-                    </APIErrorBoundary>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                        </ComponentErrorBoundary>
+                      </APIErrorBoundary>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
 
             <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
@@ -1225,10 +1352,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Account Information</h3>
                     <div className="space-y-2">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Full Name</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={userState.name}
+                          required
                           onChange={(e) => {
                             const capitalizedValue = e.target.value
                               .split(" ")
@@ -1240,10 +1368,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
                         <input
                           type="email"
                           value={userState.email}
+                          required
                           onChange={(e) => setUserState((prev) => ({ ...prev, email: e.target.value }))}
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
@@ -1258,13 +1387,63 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">City and State</label>
                         <input
                           type="text"
-                          value={userState.location}
-                          onChange={(e) => setUserState((prev) => ({ ...prev, location: e.target.value }))}
+                          value={userState.cityState || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, cityState: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          placeholder="e.g., New York, NY"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Country</label>
+                        <input
+                          type="text"
+                          value={userState.country || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, country: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          placeholder="e.g., United States"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={userState.dateOfBirth || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Memory Aid Preferences</label>
+                        <div className="space-y-1 mt-1">
+                          <label className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={userState.diagnosedWithMemoryIssues || false}
+                              onChange={(e) => setUserState((prev) => ({ ...prev, diagnosedWithMemoryIssues: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Have you been diagnosed with memory issues?
+                          </label>
+                          <label className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={(userState.memoryAids || []).includes("Show book covers")}
+                              onChange={(e) => {
+                                const currentAids = userState.memoryAids || []
+                                if (e.target.checked) {
+                                  setUserState((prev) => ({ ...prev, memoryAids: [...currentAids, "Show book covers"] }))
+                                } else {
+                                  setUserState((prev) => ({ ...prev, memoryAids: currentAids.filter((a) => a !== "Show book covers") }))
+                                }
+                              }}
+                              className="mr-2"
+                            />
+                            Show book covers
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1302,18 +1481,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </div>
 
                   <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Age Range</h3>
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Age Range</h3>
                     <div className="space-y-1">
-                      {["Adult (18+)", "Young Adult (13-17)", "Children (0-12)"].map((range) => (
-                        <label key={range} className="flex items-center text-xs">
+                      {[
+                        { label: "0-12", value: "Children (0-12)" },
+                        { label: "13-17", value: "Young Adult (13-17)" },
+                        { label: "18+", value: "Adult (18+)" },
+                      ].map(({ label, value }) => (
+                        <label key={value} className="flex items-center text-xs">
                           <input
                             type="radio"
                             name="ageRange"
-                            checked={userState.ageRange === range}
-                            onChange={() => setUserState((prev) => ({ ...prev, ageRange: range }))}
+                            checked={userState.ageRange === value}
+                            onChange={() => setUserState((prev) => ({ ...prev, ageRange: value }))}
                             className="mr-2"
                           />
-                          {range}
+                          {label}
                         </label>
                       ))}
                     </div>
@@ -1330,19 +1513,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         "Fantasy",
                         "Thriller",
                         "Historical Fiction",
-                        "Biography",
-                        "Non-fiction",
-                        "Self-help",
-                        "Business",
-                        "Health",
-                        "Travel",
-                        "Cooking",
-                        "Art",
-                        "Religion",
-                        "Philosophy",
-                        "Science",
-                        "Technology",
-                        "Politics",
+                        "Memoir/Biography",
                       ].map((genre) => (
                         <label key={genre} className="flex items-center text-xs">
                           <input
@@ -1563,8 +1734,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           placeholder="https://www.worldcat.org"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          Enter your library's website URL (e.g., worldcat.org, yourlibrary.overdrive.com, or yourlibrary.org). 
-                          When you click "Library" on a book, we'll search for that book at your library!
+                          For OverDrive/Libby libraries: Enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
+                          If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
+                          For other libraries: Enter your library's catalog URL.
                         </p>
                       </div>
                     </div>

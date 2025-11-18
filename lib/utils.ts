@@ -15,14 +15,15 @@ export function cn(...inputs: (string | undefined | null | boolean | Record<stri
     .trim()
 }
 
-export function deduplicateBooks(books: any[]) {
+export function deduplicateBooks(books: any[], userCountry: string = "US") {
   const bookGroups = new Map<string, any[]>()
 
-  // First, filter out free preview editions and group books by normalized title+author
+  // First, filter out unwanted editions and group books by normalized title+author
   books.forEach((book) => {
     const title = book.title?.toLowerCase() || ""
     const description = book.description?.toLowerCase() || ""
 
+    // Filter out free previews, samples
     if (
       title.includes("free preview") ||
       title.includes("sample") ||
@@ -32,13 +33,73 @@ export function deduplicateBooks(books: any[]) {
       return
     }
 
-    // Create unique key from normalized title and author
+    // Filter out special editions, reprints, and media tie-ins
+    const unwantedIndicators = [
+      "netflix",
+      "tv tie-in",
+      "movie tie-in",
+      "film tie-in",
+      "television tie-in",
+      "streaming tie-in",
+      "now a major motion picture",
+      "now a netflix series",
+      "now a tv series",
+      "now streaming",
+      "coming soon to",
+      "movie edition",
+      "tv edition",
+      "film edition",
+      "netflix edition",
+      "streaming edition",
+      "television edition",
+      "anniversary edition",
+      "special edition",
+      "collector's edition",
+      "deluxe edition",
+      "premium edition",
+      "limited edition",
+      "commemorative edition",
+      "reissue",
+      "reprint",
+      "new edition",
+      "revised edition",
+      "updated edition",
+      "expanded edition",
+      "enhanced edition",
+      "movie cover",
+      "tv cover",
+      "film cover",
+      "netflix cover",
+      "media tie-in",
+      "adaptation",
+      "based on the",
+      "inspiration for",
+      "soon to be a",
+      "major motion picture",
+      "blockbuster film",
+      "hit series",
+      "popular series",
+      "bestselling series",
+      "award-winning series",
+    ]
+
+    const hasUnwantedIndicator = unwantedIndicators.some(
+      (indicator) => title.includes(indicator) || description.includes(indicator)
+    )
+
+    if (hasUnwantedIndicator) {
+      return
+    }
+
+    // Create unique key from normalized title and author (without publication year to group all editions)
     const normalizedTitle = title
-      .replace(/[^\w\s]/g, "")
+      .replace(/[^\w\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-    const author = book.authors?.[0] || book.author || "unknown"
-    const key = `${normalizedTitle}-${author}`.toLowerCase()
+      .toLowerCase()
+    const author = (book.authors?.[0] || book.author || "unknown").toLowerCase().trim()
+    // Don't include publication year in key - we want to group all editions together
+    const key = `${normalizedTitle}|${author}`
 
     if (!bookGroups.has(key)) {
       bookGroups.set(key, [])
@@ -48,7 +109,7 @@ export function deduplicateBooks(books: any[]) {
 
   // For each group, select the best version (original publication)
   const result: any[] = []
-  
+
   bookGroups.forEach((bookGroup) => {
     if (bookGroup.length === 1) {
       result.push(bookGroup[0])
@@ -56,11 +117,52 @@ export function deduplicateBooks(books: any[]) {
     }
 
     // Sort books to prioritize original publications
+    // Default to US if no country specified
+    const targetCountry = userCountry || "US"
+    const countryCodes: Record<string, string> = {
+      "united states": "US",
+      "usa": "US",
+      "us": "US",
+      "united kingdom": "UK",
+      "uk": "UK",
+      "canada": "CA",
+      "australia": "AU",
+      "new zealand": "NZ",
+      "ireland": "IE",
+    }
+    const normalizedCountry = countryCodes[targetCountry.toLowerCase()] || targetCountry.toUpperCase()
+
     const sortedBooks = bookGroup.sort((a, b) => {
-      // Priority 1: Earlier publication date
-      const dateA = a.publishedDate ? new Date(a.publishedDate) : new Date('9999-12-31')
-      const dateB = b.publishedDate ? new Date(b.publishedDate) : new Date('9999-12-31')
+      // Priority 1: Filter out special editions, reprints, and media tie-ins
+      const unwantedIndicators = [
+        "netflix", "tv tie-in", "movie tie-in", "film tie-in", "television tie-in",
+        "streaming tie-in", "now a major motion picture", "now a netflix series",
+        "now a tv series", "now streaming", "movie edition", "tv edition",
+        "film edition", "netflix edition", "streaming edition", "television edition",
+        "anniversary edition", "special edition", "collector's edition",
+        "deluxe edition", "premium edition", "limited edition", "commemorative edition",
+        "reissue", "reprint", "new edition", "revised edition", "updated edition",
+        "expanded edition", "enhanced edition", "movie cover", "tv cover", "film cover",
+        "netflix cover", "media tie-in", "adaptation", "based on the",
+        "inspiration for", "soon to be a", "major motion picture", "blockbuster film",
+        "hit series", "popular series", "bestselling series", "award-winning series",
+      ]
       
+      const titleA = (a.title || "").toLowerCase()
+      const descA = (a.description || "").toLowerCase()
+      const titleB = (b.title || "").toLowerCase()
+      const descB = (b.description || "").toLowerCase()
+      
+      const hasUnwantedA = unwantedIndicators.some(ind => titleA.includes(ind) || descA.includes(ind))
+      const hasUnwantedB = unwantedIndicators.some(ind => titleB.includes(ind) || descB.includes(ind))
+      
+      if (hasUnwantedA && !hasUnwantedB) return 1
+      if (!hasUnwantedA && hasUnwantedB) return -1
+
+      // Priority 2: Earlier publication date (original publication)
+      const dateA = a.publishedDate ? new Date(a.publishedDate) : new Date("9999-12-31")
+      const dateB = b.publishedDate ? new Date(b.publishedDate) : new Date("9999-12-31")
+
       if (dateA.getTime() !== dateB.getTime()) {
         return dateA.getTime() - dateB.getTime()
       }
@@ -68,48 +170,66 @@ export function deduplicateBooks(books: any[]) {
       // Priority 2: Prefer original publishers over reprints
       const publisherA = a.publisher?.toLowerCase() || ""
       const publisherB = b.publisher?.toLowerCase() || ""
-      
+
       // Common original publishers (prioritize these)
       const originalPublishers = [
-        "faber and faber", "faber & faber", "faber",
-        "vintage", "vintage books",
-        "penguin", "penguin books", "penguin random house",
-        "harpercollins", "harper collins",
-        "simon & schuster", "simon and schuster",
-        "macmillan", "st. martin's press", "st martin's press",
-        "little, brown", "little brown",
-        "doubleday", "knopf", "random house",
-        "houghton mifflin", "houghton mifflin harcourt",
-        "fsg", "farrar, straus and giroux", "farrar straus giroux",
-        "grove press", "atlantic monthly press",
-        "w. w. norton", "ww norton", "norton"
+        "faber and faber",
+        "faber & faber",
+        "faber",
+        "vintage",
+        "vintage books",
+        "penguin",
+        "penguin books",
+        "penguin random house",
+        "harpercollins",
+        "harper collins",
+        "simon & schuster",
+        "simon and schuster",
+        "macmillan",
+        "st. martin's press",
+        "st martin's press",
+        "little, brown",
+        "little brown",
+        "doubleday",
+        "knopf",
+        "random house",
+        "houghton mifflin",
+        "houghton mifflin harcourt",
+        "fsg",
+        "farrar, straus and giroux",
+        "farrar straus giroux",
+        "grove press",
+        "atlantic monthly press",
+        "w. w. norton",
+        "ww norton",
+        "norton",
       ]
 
-      const isOriginalA = originalPublishers.some(pub => publisherA.includes(pub))
-      const isOriginalB = originalPublishers.some(pub => publisherB.includes(pub))
+      const isOriginalA = originalPublishers.some((pub) => publisherA.includes(pub))
+      const isOriginalB = originalPublishers.some((pub) => publisherB.includes(pub))
 
       if (isOriginalA && !isOriginalB) return -1
       if (!isOriginalA && isOriginalB) return 1
 
-      // Priority 3: Prefer books with more complete information
-      const completenessA = (a.description ? 1 : 0) + (a.pageCount ? 1 : 0) + (a.thumbnail ? 1 : 0)
-      const completenessB = (b.description ? 1 : 0) + (b.pageCount ? 1 : 0) + (b.thumbnail ? 1 : 0)
-      
-      if (completenessA !== completenessB) {
-        return completenessB - completenessA
-      }
-
-      // Priority 4: Prefer books without special edition indicators
-      const specialIndicators = ["edition", "reprint", "reissue", "anniversary", "special", "collector", "deluxe"]
-      const hasSpecialA = specialIndicators.some(indicator => 
-        a.title?.toLowerCase().includes(indicator) || a.description?.toLowerCase().includes(indicator)
+      // Priority 3: Prefer books without special edition indicators (already filtered above, but double-check)
+      const specialIndicators = ["edition", "reprint", "reissue", "anniversary", "special", "collector", "deluxe", "premium", "limited", "commemorative"]
+      const hasSpecialA = specialIndicators.some(
+        (indicator) => a.title?.toLowerCase().includes(indicator) || a.description?.toLowerCase().includes(indicator),
       )
-      const hasSpecialB = specialIndicators.some(indicator => 
-        b.title?.toLowerCase().includes(indicator) || b.description?.toLowerCase().includes(indicator)
+      const hasSpecialB = specialIndicators.some(
+        (indicator) => b.title?.toLowerCase().includes(indicator) || b.description?.toLowerCase().includes(indicator),
       )
 
       if (hasSpecialA && !hasSpecialB) return 1
       if (!hasSpecialA && hasSpecialB) return -1
+
+      // Priority 4: Prefer books with more complete information (including ISBN)
+      const completenessA = (a.description ? 1 : 0) + (a.pageCount ? 1 : 0) + (a.thumbnail ? 1 : 0) + (a.isbn ? 1 : 0)
+      const completenessB = (b.description ? 1 : 0) + (b.pageCount ? 1 : 0) + (b.thumbnail ? 1 : 0) + (b.isbn ? 1 : 0)
+
+      if (completenessA !== completenessB) {
+        return completenessB - completenessA
+      }
 
       return 0
     })

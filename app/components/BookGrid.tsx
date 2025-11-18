@@ -16,6 +16,9 @@ import {
   Send,
   BookOpen,
   User,
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react"
 import type { Book, Platform } from "@/lib/types"
 import { updateBookStatus } from "@/lib/database"
@@ -33,11 +36,14 @@ interface BookGridProps {
   onMarkAsRead: (bookId: string, title: string, author: string) => void
   onMarkAsWant: (bookId: string, title: string, author: string) => void
   onToggleDontWant: (bookId: string, title: string, author: string) => void
+  onSetBookRating?: (bookId: string, rating: "loved" | "liked" | "didnt-like" | null) => void
+  bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
   userId?: string // Added userId for database operations
   onBookClick?: (bookId: string) => void // Track recently viewed
   highContrast?: boolean // High contrast mode
   recommendedAuthors?: Set<string> // Authors that came from recommendations
   onAddAuthor?: (authorName: string) => void // Add all books by an author
+  memoryAids?: string[] // Memory aid preferences
 }
 
 export default function BookGrid({
@@ -52,12 +58,16 @@ export default function BookGrid({
   onMarkAsRead,
   onMarkAsWant,
   onToggleDontWant,
+  onSetBookRating,
+  bookRatings = new Map(),
   userId,
   onBookClick,
   highContrast = false,
   recommendedAuthors = new Set(),
   onAddAuthor,
+  memoryAids = [],
 }: BookGridProps) {
+  const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
   const { toast } = useToast()
@@ -262,12 +272,32 @@ export default function BookGrid({
             // Smart detection for common library platforms
             const urlLower = platform.url.toLowerCase()
             
-            if (urlLower.includes("libbyapp.com") || urlLower.includes("libby")) {
-              // Libby - use title and author separately for better results
-              url = `https://libbyapp.com/search/library?q=${encodedTitle}&author=${encodedAuthor}`
-            } else if (urlLower.includes("overdrive.com")) {
-              // OverDrive - use combined search with quotes for exact matching
-              url = `https://www.overdrive.com/search?q=${encodedQuery}`
+            if (urlLower.includes("libbyapp.com") || urlLower.includes("libby") || urlLower.includes("overdrive.com")) {
+              // Libby/OverDrive - convert Libby URL to OverDrive base URL if needed
+              let overdriveBase = platform.url
+              
+              // If it's a Libby URL, extract library code and convert to OverDrive format
+              // Example: https://libbyapp.com/library/mcplmd -> https://mcplmd.overdrive.com
+              if (urlLower.includes("libbyapp.com/library/")) {
+                const libraryMatch = platform.url.match(/library\/([^\/\?]+)/i)
+                if (libraryMatch && libraryMatch[1]) {
+                  const libraryCode = libraryMatch[1]
+                  overdriveBase = `https://${libraryCode}.overdrive.com`
+                } else {
+                  // Fallback if library code not found
+                  overdriveBase = "https://www.overdrive.com"
+                }
+              } else if (urlLower.includes("overdrive.com") && !urlLower.includes("www.overdrive.com")) {
+                // Already an OverDrive base URL, use as-is
+                overdriveBase = platform.url
+              } else if (urlLower.includes("www.overdrive.com")) {
+                // Generic OverDrive, try to extract library code from Libby URL if available
+                // For now, use generic OverDrive
+                overdriveBase = "https://www.overdrive.com"
+              }
+              
+              // Construct OverDrive search URL: {overdriveBase}/search/title?query={bookTitle}
+              url = `${overdriveBase}/search/title?query=${encodedTitle}`
             } else if (urlLower.includes("hoopladigital.com") || urlLower.includes("hoopla")) {
               // Hoopla - use title search first
               url = `https://www.hoopladigital.com/search?q=${encodedTitle}`
@@ -428,8 +458,8 @@ export default function BookGrid({
               <CardContent className="p-6">
                 <div className="space-y-4">
 
-                  {/* Book Cover */}
-                  {book.thumbnail && (
+                  {/* Book Cover - only show if memory aid preference is enabled */}
+                  {book.thumbnail && showCovers && (
                     <div className="flex justify-center mt-4">
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
@@ -509,53 +539,101 @@ export default function BookGrid({
 
                   {/* Action Buttons */}
                   <div className="space-y-3">
-                    <div className="flex gap-1 justify-center">
-                      <Button
-                        variant={status === "read" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
-                        disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 ${
-                          status === "read"
-                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                        }`}
-                        title={status === "read" ? "Mark as unread" : "Mark as read"}
-                      >
-                        <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                        Read
-                      </Button>
-                      <Button
-                        variant={status === "want" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
-                        disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 ${
-                          status === "want"
-                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                        }`}
-                        title={status === "want" ? "Remove from want to read" : "Add to want to read"}
-                      >
-                        <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                        Want
-                      </Button>
-                      <Button
-                        variant={status === "pass" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
-                        disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 ${
-                          status === "pass"
-                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                        }`}
-                        title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
-                      >
-                        <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                        Pass
-                      </Button>
-                    </div>
+                    {status === "read" ? (
+                      // Show rating buttons for read books - icon only, no borders
+                      <div className="flex gap-3 justify-center">
+                        <button
+                          onClick={() => {
+                            const currentRating = bookRatings.get(bookId)
+                            const newRating = currentRating === "loved" ? null : "loved"
+                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                          }}
+                          className={`p-2 rounded transition-colors ${
+                            bookRatings.get(bookId) === "loved"
+                              ? "bg-pink-100 text-pink-600"
+                              : "text-gray-400 hover:text-pink-600 hover:bg-pink-50"
+                          }`}
+                          title="I loved this book"
+                        >
+                          <Heart className={`w-5 h-5 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const currentRating = bookRatings.get(bookId)
+                            const newRating = currentRating === "liked" ? null : "liked"
+                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                          }}
+                          className={`p-2 rounded transition-colors ${
+                            bookRatings.get(bookId) === "liked"
+                              ? "bg-blue-100 text-blue-600"
+                              : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          }`}
+                          title="I liked this book"
+                        >
+                          <ThumbsUp className={`w-5 h-5 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const currentRating = bookRatings.get(bookId)
+                            const newRating = currentRating === "didnt-like" ? null : "didnt-like"
+                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                          }}
+                          className={`p-2 rounded transition-colors ${
+                            bookRatings.get(bookId) === "didnt-like"
+                              ? "bg-gray-100 text-gray-600"
+                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                          }`}
+                          title="I didn't like this book or gave up on it"
+                        >
+                          <ThumbsDown className={`w-5 h-5 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
+                        </button>
+                      </div>
+                    ) : (
+                      // Show Read/Want/Pass buttons for unread books
+                      <div className="flex gap-1 justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
+                          disabled={isBookUpdating}
+                          className="h-8 px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                          title="Mark as read"
+                        >
+                          <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          Read
+                        </Button>
+                        <Button
+                          variant={status === "want" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
+                          disabled={isBookUpdating}
+                          className={`h-8 px-3 text-xs font-bold border-2 ${
+                            status === "want"
+                              ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                              : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                          }`}
+                          title={status === "want" ? "Remove from want to read" : "Add to want to read"}
+                        >
+                          <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          Want
+                        </Button>
+                        <Button
+                          variant={status === "pass" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
+                          disabled={isBookUpdating}
+                          className={`h-8 px-3 text-xs font-bold border-2 ${
+                            status === "pass"
+                              ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                              : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                          }`}
+                          title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
+                        >
+                          <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          Pass
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Platform Links */}
                     {platforms.length > 0 && (

@@ -1,6 +1,7 @@
 "use client"
 
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
+import { authenticateUser, registerUser, clearCurrentUser } from "./authStore"
 
 // Simple localStorage-based authentication
 export async function signIn(prevState: any, formData: FormData) {
@@ -16,30 +17,9 @@ export async function signIn(prevState: any, formData: FormData) {
   }
 
   try {
-    // Check if user exists in localStorage
-    const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
-    const userKey = email.toString().toLowerCase()
+    const result = authenticateUser(email.toString(), password.toString())
+    if (result.error) return result
 
-    if (!users[userKey]) {
-      return { error: "User not found. Please sign up first." }
-    }
-
-    if (users[userKey].password !== password.toString()) {
-      return { error: "Invalid password" }
-    }
-
-    // Set current user
-    localStorage.setItem("bookshelf_current_user", email.toString())
-    localStorage.setItem("bookshelf_is_logged_in", "true")
-
-    // Update login metadata
-    try {
-      users[userKey].loginCount = (users[userKey].loginCount || 0) + 1
-      users[userKey].lastLoginAt = new Date().toISOString()
-      localStorage.setItem("bookshelf_users", JSON.stringify(users))
-    } catch (_) {}
-
-    // Track login event
     try {
       await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.LOGIN })
     } catch (_) {}
@@ -75,27 +55,9 @@ export async function signUp(prevState: any, formData: FormData) {
       return { error: "Authentication not available" }
     }
 
-    // Check if user already exists
-    const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
-    const userKey = email.toString().toLowerCase()
+    const result = registerUser(fullName.toString(), email.toString(), password.toString())
+    if (result.error) return result
 
-    if (users[userKey]) {
-      return { error: "An account with this email already exists. Please sign in instead." }
-    }
-
-    // Create new user
-    users[userKey] = {
-      email: email.toString(),
-      password: password.toString(),
-      fullName: fullName.toString(),
-      createdAt: new Date().toISOString(),
-      loginCount: 1,
-      lastLoginAt: new Date().toISOString(),
-    }
-
-    localStorage.setItem("bookshelf_users", JSON.stringify(users))
-
-    // Create user profile
     const userPrefsKey = `bookshelf_user_${email.toString()}`
     const userProfile = {
       name: fullName.toString(),
@@ -109,11 +71,6 @@ export async function signUp(prevState: any, formData: FormData) {
     }
     localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
 
-    // Auto sign in the new user
-    localStorage.setItem("bookshelf_current_user", email.toString())
-    localStorage.setItem("bookshelf_is_logged_in", "true")
-
-    // Track signup + login events
     try {
       await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.SIGNUP })
       await trackEvent(email.toString(), { event_type: ANALYTICS_EVENTS.LOGIN })
@@ -129,8 +86,7 @@ export async function signUp(prevState: any, formData: FormData) {
 
 export async function signOut() {
   try {
-    localStorage.removeItem("bookshelf_current_user")
-    localStorage.setItem("bookshelf_is_logged_in", "false")
+    clearCurrentUser()
     window.location.href = "/"
   } catch (error) {
     console.error("Sign out error:", error)

@@ -2,7 +2,7 @@
 // Helper function to convert HTTP URLs to HTTPS
 function ensureHttps(url: string): string {
   if (!url) return url
-  return url.replace(/^http:\/\//, 'https://')
+  return url.replace(/^http:\/\//, "https://")
 }
 
 // Simple in-memory cache for API responses
@@ -39,6 +39,12 @@ class APICache {
     this.cache.clear()
   }
 
+  // Clear cache for a specific author
+  clearAuthor(authorName: string): void {
+    const key = getAuthorBooksCacheKey(authorName)
+    this.cache.delete(key)
+  }
+
   // Clear expired entries
   cleanup(): void {
     const now = Date.now()
@@ -60,6 +66,11 @@ class APICache {
 
 // Global cache instance
 export const apiCache = new APICache()
+
+// Export clearAuthor function for use in components
+export function clearAuthorCache(authorName: string): void {
+  apiCache.clearAuthor(authorName)
+}
 
 // Cache key generators
 export const getAuthorBooksCacheKey = (authorName: string): string => 
@@ -93,9 +104,9 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
     let allBooks: any[] = []
 
     for (const query of queries) {
-      const response = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=relevance&printType=books`,
-      )
+    const response = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
+    )
       
       if (!response.ok) continue
       

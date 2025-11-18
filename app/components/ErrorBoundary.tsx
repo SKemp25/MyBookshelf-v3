@@ -88,7 +88,7 @@ function DefaultErrorFallback({ error, resetError }: { error: Error; resetError:
         <div className="space-y-3">
           <Button 
             onClick={resetError}
-            className="w-full bg-penguin-orange-500 hover:bg-penguin-orange-600 text-white"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Try Again
