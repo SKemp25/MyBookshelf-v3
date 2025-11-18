@@ -131,8 +131,10 @@ export default function SignUpForm() {
         // Small delay to ensure localStorage is written, then redirect
         setTimeout(() => {
           console.log("SignUp form: Redirecting to home page")
-          window.location.href = "/"
-        }, 50)
+          // Add a timestamp to force a fresh load and bypass cache
+          const timestamp = Date.now()
+          window.location.replace(`/?_t=${timestamp}`)
+        }, 150)
         
         return // Exit early to prevent setLoading(false)
       } else {

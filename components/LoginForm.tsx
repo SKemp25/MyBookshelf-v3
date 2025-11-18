@@ -98,8 +98,19 @@ export default function LoginForm() {
       } else if (result.success) {
         localStorage.removeItem("auth_error")
         console.log("Login successful, redirecting...")
-        // Use window.location for more reliable redirect
-        window.location.href = "/"
+        
+        // Verify login state is set before redirecting
+        const verifyLogin = localStorage.getItem("bookshelf_is_logged_in")
+        const verifyUser = localStorage.getItem("bookshelf_current_user")
+        console.log("Verification before redirect:", { verifyLogin, verifyUser })
+        
+        // Small delay to ensure localStorage is written, then force a hard reload
+        setTimeout(() => {
+          // Add a timestamp to force a fresh load and bypass cache
+          const timestamp = Date.now()
+          // Use window.location.replace to avoid adding to history and force a fresh load
+          window.location.replace(`/?_t=${timestamp}`)
+        }, 150)
         return // Don't set loading to false, let the redirect happen
       } else {
         // Fallback error if neither error nor success
