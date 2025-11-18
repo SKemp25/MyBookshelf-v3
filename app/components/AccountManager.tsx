@@ -238,70 +238,224 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
             )}
 
             {authMode === "signup" && (
-              <form action={signUpAction} className="space-y-4">
-                <div>
-                  <Label htmlFor="fullName" className="text-orange-700">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    className="border-orange-200 focus:border-orange-400"
-                    required
-                  />
+              <>
+                {/* Social Login Buttons */}
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                    onClick={async () => {
+                      setSocialLoading("google")
+                      try {
+                        const demoEmail = "google@demo.bookshelf.app"
+                        const demoName = "Google User"
+                        const socialPassword = "social_google_password"
+                        
+                        const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
+                        const existingUser = users[demoEmail.toLowerCase()]
+                        
+                        if (existingUser) {
+                          const loginResult = authenticateUser(demoEmail, socialPassword)
+                          if (loginResult.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                        } else {
+                          const result = registerUser(demoName, demoEmail, socialPassword)
+                          if (result.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                          const userPrefsKey = `bookshelf_user_${demoEmail}`
+                          const userProfile = {
+                            name: demoName,
+                            email: demoEmail,
+                            phone: "",
+                            country: "",
+                            cityState: "",
+                            preferredLanguages: ["en"],
+                            preferredGenres: [],
+                            preferredAgeRange: [],
+                            ageRange: "",
+                            readingMethod: ["Print Books", "E-books", "Audiobooks"],
+                            publicationTypePreferences: [],
+                            suggestNewAuthors: false,
+                            dateOfBirth: "",
+                            memoryAids: ["Show book covers"],
+                            diagnosedWithMemoryIssues: false,
+                            authProvider: "google",
+                            settings: {
+                              defaultLanguage: "en",
+                              preferredPlatforms: ["Kindle"],
+                              readingMethods: ["Print Books", "E-books", "Audiobooks"],
+                            },
+                          }
+                          localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+                        }
+                        
+                        localStorage.setItem("bookshelf_is_logged_in", "true")
+                        localStorage.setItem("bookshelf_current_user", demoEmail)
+                        localStorage.setItem("bookshelf_auth_provider", "google")
+                        
+                        setTimeout(() => {
+                          window.location.replace(`/?_t=${Date.now()}`)
+                        }, 150)
+                      } catch (err) {
+                        setSocialLoading(null)
+                      }
+                    }}
+                    disabled={socialLoading === "google"}
+                  >
+                    {socialLoading === "google" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                    <span className="ml-2">Continue with Google</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full bg-black hover:bg-gray-900 text-white border-gray-700"
+                    onClick={async () => {
+                      setSocialLoading("apple")
+                      try {
+                        const demoEmail = "apple@demo.bookshelf.app"
+                        const demoName = "Apple User"
+                        const socialPassword = "social_apple_password"
+                        
+                        const users = JSON.parse(localStorage.getItem("bookshelf_users") || "{}")
+                        const existingUser = users[demoEmail.toLowerCase()]
+                        
+                        if (existingUser) {
+                          const loginResult = authenticateUser(demoEmail, socialPassword)
+                          if (loginResult.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                        } else {
+                          const result = registerUser(demoName, demoEmail, socialPassword)
+                          if (result.error) {
+                            setSocialLoading(null)
+                            return
+                          }
+                          const userPrefsKey = `bookshelf_user_${demoEmail}`
+                          const userProfile = {
+                            name: demoName,
+                            email: demoEmail,
+                            phone: "",
+                            country: "",
+                            cityState: "",
+                            preferredLanguages: ["en"],
+                            preferredGenres: [],
+                            preferredAgeRange: [],
+                            ageRange: "",
+                            readingMethod: ["Print Books", "E-books", "Audiobooks"],
+                            publicationTypePreferences: [],
+                            suggestNewAuthors: false,
+                            dateOfBirth: "",
+                            memoryAids: ["Show book covers"],
+                            diagnosedWithMemoryIssues: false,
+                            authProvider: "apple",
+                            settings: {
+                              defaultLanguage: "en",
+                              preferredPlatforms: ["Kindle"],
+                              readingMethods: ["Print Books", "E-books", "Audiobooks"],
+                            },
+                          }
+                          localStorage.setItem(userPrefsKey, JSON.stringify(userProfile))
+                        }
+                        
+                        localStorage.setItem("bookshelf_is_logged_in", "true")
+                        localStorage.setItem("bookshelf_current_user", demoEmail)
+                        localStorage.setItem("bookshelf_auth_provider", "apple")
+                        
+                        setTimeout(() => {
+                          window.location.replace(`/?_t=${Date.now()}`)
+                        }, 150)
+                      } catch (err) {
+                        setSocialLoading(null)
+                      }
+                    }}
+                    disabled={socialLoading === "apple"}
+                  >
+                    {socialLoading === "apple" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AppleIcon />}
+                    <span className="ml-2">Continue with Apple</span>
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor="email" className="text-orange-700">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full bg-orange-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-orange-600">Or continue with email</span>
+                  </div>
+                </div>
+
+                <form action={signUpAction} className="space-y-4">
+                  <div>
+                    <Label htmlFor="fullName" className="text-orange-700">
+                      Full Name
+                    </Label>
                     <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      className="border-orange-200 focus:border-orange-400 pl-10"
+                      id="fullName"
+                      name="fullName"
+                      type="text"
+                      placeholder="Enter your full name"
+                      className="border-orange-200 focus:border-orange-400"
                       required
                     />
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor="password" className="text-orange-700">
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      className="border-orange-200 focus:border-orange-400 pl-10"
-                      onChange={(e) => handlePasswordChange(e.target.value)}
-                      required
-                    />
-                  </div>
-                  {passwordStrength.message && (
-                    <div className="mt-2 flex items-center gap-2">
-                      {passwordStrength.score >= 4 ? (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-orange-500" />
-                      )}
-                      <span className={`text-sm ${passwordStrength.score >= 4 ? "text-green-600" : "text-orange-600"}`}>
-                        {passwordStrength.message}
-                      </span>
+                  <div>
+                    <Label htmlFor="email" className="text-orange-700">
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        required
+                      />
                     </div>
-                  )}
-                </div>
-                <SubmitButton>
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  Create Account
-                </SubmitButton>
-              </form>
+                  </div>
+                  <div>
+                    <Label htmlFor="password" className="text-orange-700">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-400" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="Enter your password"
+                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        onChange={(e) => handlePasswordChange(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {passwordStrength.message && (
+                      <div className="mt-2 flex items-center gap-2">
+                        {passwordStrength.score >= 4 ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-orange-500" />
+                        )}
+                        <span className={`text-sm ${passwordStrength.score >= 4 ? "text-green-600" : "text-orange-600"}`}>
+                          {passwordStrength.message}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <SubmitButton>
+                    <UserPlus className="w-5 h-5 mr-2" />
+                    Create Account
+                  </SubmitButton>
+                </form>
+              </>
             )}
 
             {authMode === "signin" && (
