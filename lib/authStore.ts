@@ -58,25 +58,27 @@ export function clearCurrentUser() {
 
 export function registerUser(fullName: string, email: string, password: string) {
   const users = readUsers()
-  const key = email.toLowerCase()
+  const key = email.toLowerCase().trim()
 
   if (users[key]) {
     return { error: "An account with this email already exists. Please sign in instead." }
   }
 
   const now = new Date().toISOString()
+  // Store password as-is (don't trim on storage, but trim on comparison)
   users[key] = {
-    email,
-    fullName,
-    password,
+    email: email.trim(),
+    fullName: fullName.trim(),
+    password: password, // Store as-is to preserve user's exact input
     createdAt: now,
     lastLoginAt: now,
     loginCount: 1,
   }
 
   writeUsers(users)
-  setCurrentUserEmail(email)
+  setCurrentUserEmail(key) // Use normalized key
 
+  console.log("User registered:", { email: key, fullName })
   return { success: true }
 }
 
@@ -89,16 +91,30 @@ export function authenticateUser(email: string, password: string) {
   const key = email.toLowerCase().trim()
   const user = users[key]
 
-  console.log("Authenticating user:", { key, userExists: !!user, storedPasswordLength: user?.password?.length, providedPasswordLength: password?.length })
+  console.log("Authenticating user:", { 
+    key, 
+    userExists: !!user, 
+    storedPasswordLength: user?.password?.length, 
+    providedPasswordLength: password?.length,
+    allUserKeys: Object.keys(users)
+  })
 
   if (!user) {
     console.log("User not found. Available users:", Object.keys(users))
     return { error: "User not found. Please sign up first." }
   }
 
-  // Trim password for comparison to handle whitespace issues
-  if (user.password.trim() !== password.trim()) {
-    console.log("Password mismatch")
+  // Compare passwords - trim both to handle whitespace issues
+  const storedPassword = (user.password || "").trim()
+  const providedPassword = (password || "").trim()
+  
+  if (storedPassword !== providedPassword) {
+    console.log("Password mismatch:", { 
+      storedLength: storedPassword.length, 
+      providedLength: providedPassword.length,
+      storedFirstChar: storedPassword[0],
+      providedFirstChar: providedPassword[0]
+    })
     return { error: "Invalid password" }
   }
 
@@ -107,7 +123,7 @@ export function authenticateUser(email: string, password: string) {
   writeUsers(users)
   setCurrentUserEmail(key) // Use lowercase key for consistency
 
-  console.log("Authentication successful")
+  console.log("Authentication successful for:", key)
   return { success: true }
 }
 
