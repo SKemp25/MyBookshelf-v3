@@ -54,13 +54,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
   // Handle hydration and check login state
   useEffect(() => {
+    // Set hydrated immediately to prevent infinite loading
     setIsHydrated(true)
+    
     const checkLoginState = () => {
-      const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-      const user = localStorage.getItem("bookshelf_current_user") || ""
-      console.log("Checking login state:", { loggedIn, user })
-      setIsLoggedIn(loggedIn)
-      setCurrentUser(user)
+      try {
+        const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+        const user = localStorage.getItem("bookshelf_current_user") || ""
+        console.log("Checking login state:", { loggedIn, user })
+        setIsLoggedIn(loggedIn)
+        setCurrentUser(user)
+      } catch (error) {
+        console.error("Error checking login state:", error)
+        // Still set hydrated even if there's an error
+        setIsHydrated(true)
+      }
     }
     
     // Check immediately
@@ -95,11 +103,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
     document.addEventListener("visibilitychange", handleVisibilityChange)
     
+    // Safety timeout - force hydration after 2 seconds even if something goes wrong
+    const safetyTimeout = setTimeout(() => {
+      setIsHydrated(true)
+    }, 2000)
+    
     return () => {
       window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       clearTimeout(timeoutId)
+      clearTimeout(safetyTimeout)
     }
   }, [])
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
