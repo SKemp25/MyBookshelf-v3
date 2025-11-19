@@ -122,9 +122,17 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
   useEffect(() => {
     if (signInState?.success) {
       setShowAuth(false)
-      router.refresh()
+      // Close modal immediately and prevent it from reopening
+      // The redirect will handle the page refresh
     }
-  }, [signInState, router])
+  }, [signInState])
+
+  // Prevent modal from showing if user is logged in
+  useEffect(() => {
+    if (isLoggedIn && showAuth) {
+      setShowAuth(false)
+    }
+  }, [isLoggedIn, showAuth])
 
   const resetForm = () => {
     setPasswordStrength({ score: 0, message: "" })

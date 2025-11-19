@@ -18,6 +18,8 @@ interface AdvancedFiltersProps {
   onFiltersChange: (filters: AdvancedFilterState) => void
   books: Book[]
   authors: Author[]
+  showHeartedBooks?: boolean
+  setShowHeartedBooks?: (show: boolean) => void
 }
 
 export const defaultAdvancedFilters: AdvancedFilterState = {
@@ -30,7 +32,6 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
     start: "",
     end: "",
   },
-  minPages: "",
   hasCover: false,
   titleContains: "",
   excludeWords: [],
@@ -38,7 +39,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   showPassedBooks: false,
 }
 
-export default function AdvancedFilters({ filters, onFiltersChange, books, authors }: AdvancedFiltersProps) {
+export default function AdvancedFilters({ filters, onFiltersChange, books, authors, showHeartedBooks, setShowHeartedBooks }: AdvancedFiltersProps) {
   const [newExcludeWord, setNewExcludeWord] = useState("")
   const [isCollapsed, setIsCollapsed] = useState(true)
 
@@ -47,6 +48,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
     ...filters,
     excludeWords: Array.isArray(filters?.excludeWords) ? filters.excludeWords : [],
     readingStatus: Array.isArray(filters?.readingStatus) ? filters.readingStatus : [],
+    yearRange: filters?.yearRange || { start: "", end: "" },
   }
 
   const updateFilter = (key: keyof AdvancedFilterState, value: any) => {
@@ -218,8 +220,22 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Hide (select to hide)</Label>
+            <Label className="text-sm text-orange-700">Show/Hide</Label>
             <div className="space-y-2">
+              {/* Show only Loved books */}
+              {setShowHeartedBooks && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="show-loved-books"
+                    checked={showHeartedBooks || false}
+                    onCheckedChange={(checked) => setShowHeartedBooks(checked as boolean)}
+                    className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  />
+                  <Label htmlFor="show-loved-books" className="text-sm text-orange-700">
+                    Show only Loved books
+                  </Label>
+                </div>
+              )}
               {[
                 { value: "read", label: "Hide Read books" },
                 { value: "unread", label: "Hide Unread books" },
@@ -319,21 +335,6 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                 />
               </div>
             </div>
-          </div>
-
-          {/* Minimum Pages */}
-          <div className="space-y-2">
-            <Label htmlFor="min-pages" className="text-sm text-orange-700">
-              Minimum Pages
-            </Label>
-            <Input
-              id="min-pages"
-              type="number"
-              placeholder="0"
-              value={safeFilters.minPages}
-              onChange={(e) => updateFilter("minPages", e.target.value)}
-              className="border-orange-200 focus:border-orange-400 h-8 text-sm"
-            />
           </div>
 
           {/* Title Contains */}

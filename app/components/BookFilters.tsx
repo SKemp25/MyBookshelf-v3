@@ -93,120 +93,98 @@ export default function BookFilters({
       </button>
 
       {isFiltersOpen && (
-        <div>
-
-      {/* Search Box */}
-      <div className="space-y-3 mb-6">
-        <h4 className="text-base font-semibold text-red-700">Search Books</h4>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            type="text"
-            placeholder="Search by title or author..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-200"
-          />
-        </div>
-        {searchQuery && (
-          <p className="text-sm text-orange-600">
-            Searching for: "{searchQuery}"
-          </p>
-        )}
-      </div>
-
-      {/* Hearted Books Filter */}
-      <div className="space-y-3 mb-6">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showHeartedBooks}
-            onChange={(e) => setShowHeartedBooks(e.target.checked)}
-            className="w-4 h-4 text-orange-600 border-orange-300 rounded focus:ring-orange-500 focus:ring-2"
-          />
-          <div className="flex items-center gap-2">
-            <Heart className="w-4 h-4 text-pink-600 fill-pink-600" />
-            <span className="text-base font-semibold text-red-700">Show only hearted books</span>
-          </div>
-        </label>
-        {showHeartedBooks && (
-          <p className="text-sm text-orange-600">
-            Showing only books you've marked with a ❤️
-          </p>
-        )}
-      </div>
-
-      {/* Sort By */}
-      <div className="space-y-3">
-        <h4 className="text-base font-semibold text-red-700">Sort By</h4>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="border-orange-200 focus:border-orange-400">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-            <SelectItem value="title">Title A-Z</SelectItem>
-            <SelectItem value="author">Author (Last Name)</SelectItem>
-            <SelectItem value="pages">Page Count</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Author Filter */}
-      {safeAuthors.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-base font-semibold text-gray-800">Filter by Author</h4>
-            {(selectedAuthors.length > 0 || searchQuery) && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={clearAllFilters}
-                className="text-orange-600 hover:text-orange-800 h-auto p-1"
-              >
-                <X className="w-4 h-4 mr-1" />
-                Clear All
-              </Button>
+        <div className="space-y-4">
+          {/* Search Box */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-orange-700">Search Books</h4>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search by title or author..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-200 h-9"
+              />
+            </div>
+            {searchQuery && (
+              <p className="text-xs text-orange-600">
+                Searching for: "{searchQuery}"
+              </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {Array.from(new Set(safeAuthors)).map((authorName, index) => {
-              const isSelected = selectedAuthors.includes(authorName)
-              const bookCount = bookCountByAuthor[authorName] || 0
-              const isRecommended = recommendedAuthors?.has(authorName)
-              return (
-                <Badge
-                  key={`${authorName}-${index}`}
-                  variant={isSelected ? "default" : "outline"}
-                  className={`cursor-pointer transition-colors relative ${
-                    isSelected
-                      ? "bg-orange-500 hover:bg-orange-600 text-white"
-                      : "border-orange-300 text-orange-700 hover:bg-orange-50"
-                  }`}
-                  onClick={() => {
-                    if (isSelected) {
-                      setSelectedAuthors(selectedAuthors.filter(a => a !== authorName))
-                    } else {
-                      setSelectedAuthors([...selectedAuthors, authorName])
-                    }
-                  }}
-                >
-                  {authorName} ({bookCount})
-                  {isRecommended && (
-                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-blue-600 text-white rounded-full">R</span>
-                  )}
-                </Badge>
-              )
-            })}
+
+          {/* Sort By */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-orange-700">Sort By</h4>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="border-orange-200 focus:border-orange-400 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="title">Title A-Z</SelectItem>
+                <SelectItem value="author">Author (Last Name)</SelectItem>
+                <SelectItem value="pages">Page Count</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          {selectedAuthors.length > 0 && (
-            <p className="text-sm text-orange-600">
-              Showing books by {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} authors`}
-            </p>
+
+          {/* Author Filter */}
+          {safeAuthors.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-orange-700">Filter by Author</h4>
+                {(selectedAuthors.length > 0 || searchQuery) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={clearAllFilters}
+                    className="text-orange-600 hover:text-orange-800 h-auto p-1 text-xs"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(new Set(safeAuthors)).map((authorName, index) => {
+                  const isSelected = selectedAuthors.includes(authorName)
+                  const bookCount = bookCountByAuthor[authorName] || 0
+                  const isRecommended = recommendedAuthors?.has(authorName)
+                  return (
+                    <Badge
+                      key={`${authorName}-${index}`}
+                      variant={isSelected ? "default" : "outline"}
+                      className={`cursor-pointer transition-colors text-xs ${
+                        isSelected
+                          ? "bg-orange-500 hover:bg-orange-600 text-white"
+                          : "border-orange-300 text-orange-700 hover:bg-orange-50"
+                      }`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedAuthors(selectedAuthors.filter(a => a !== authorName))
+                        } else {
+                          setSelectedAuthors([...selectedAuthors, authorName])
+                        }
+                      }}
+                    >
+                      {authorName} ({bookCount})
+                      {isRecommended && (
+                        <span className="ml-1 inline-flex items-center justify-center w-3 h-3 text-[10px] font-bold bg-blue-600 text-white rounded-full">R</span>
+                      )}
+                    </Badge>
+                  )
+                })}
+              </div>
+              {selectedAuthors.length > 0 && (
+                <p className="text-xs text-orange-600">
+                  Showing books by {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} authors`}
+                </p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
           {/* Advanced Filters */}
           <AdvancedFilters
@@ -214,6 +192,8 @@ export default function BookFilters({
             onFiltersChange={onFiltersChange}
             books={safeBooks}
             authors={safeAuthors.map(name => ({ id: name, name }))}
+            showHeartedBooks={showHeartedBooks}
+            setShowHeartedBooks={setShowHeartedBooks}
           />
         </div>
       )}
