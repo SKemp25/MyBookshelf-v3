@@ -655,18 +655,18 @@ export default function BookGrid({
                         {onUnmarkAsRead && (
                           <div className="flex justify-center">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleUnmarkAsRead(bookId, book.title, getAuthorName(book))
                               }}
                               disabled={isBookUpdating}
-                              className="h-7 px-2 text-xs font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 bg-white"
+                              className="h-6 px-1.5 text-[10px] font-normal border-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100 bg-transparent"
                               title="Unmark as read"
                             >
-                              <RotateCcw className="w-3 h-3 mr-1" />
-                              Unmark as Read
+                              <RotateCcw className="w-3 h-3 mr-0.5" />
+                              Unmark
                             </Button>
                           </div>
                         )}
