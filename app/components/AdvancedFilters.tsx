@@ -352,7 +352,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Exclude Words */}
           <div className="space-y-2">
-            <Label className="text-sm font-bold text-orange-700">Titles do NOT contain</Label>
+            <Label className="text-sm font-bold text-orange-700">Title Do Not Contain</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Word to exclude..."
