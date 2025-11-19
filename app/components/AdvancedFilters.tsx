@@ -130,11 +130,11 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="flex items-center gap-2 hover:bg-orange-50 p-2 -m-2 rounded transition-colors flex-1"
           >
-            {isCollapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+            {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600" /> : <ChevronUp className="w-3 h-3 text-orange-600" />}
             <Filter className="w-4 h-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-700">Advanced Filters</span>
+            <span className="text-sm font-medium text-orange-700 leading-none">Advanced Filters</span>
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs">
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs leading-none">
                 {activeFiltersCount}
               </Badge>
             )}
@@ -144,7 +144,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
               variant="ghost"
               size="sm"
               onClick={resetFilters}
-              className="text-orange-600 hover:text-orange-800 h-5 px-2 text-xs"
+              className="text-orange-600 hover:text-orange-800 h-auto px-2 py-1 text-xs leading-none"
             >
               <X className="w-3 h-3 mr-1" />
               Reset
@@ -156,66 +156,67 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
         <CardContent className="space-y-4 pt-0">
           {/* Publication Settings */}
           <div className="space-y-3">
-            <h4 className="text-sm font-medium text-orange-800">Publication Settings</h4>
+            <Label className="text-sm font-bold text-orange-700">Publication Settings</Label>
+            <div className="space-y-2.5">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="upcoming-only"
+                  checked={safeFilters.upcomingOnly}
+                  onCheckedChange={(checked) => updateFilter("upcomingOnly", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="upcoming-only" className="text-sm text-orange-700">
+                  Show upcoming releases only
+                </Label>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="upcoming-only" className="text-sm text-orange-700">
-                Show upcoming releases only
-              </Label>
-              <Switch
-                id="upcoming-only"
-                checked={safeFilters.upcomingOnly}
-                onCheckedChange={(checked) => updateFilter("upcomingOnly", checked)}
-                className="data-[state=checked]:bg-orange-500"
-              />
-            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="single-author"
+                  checked={safeFilters.singleAuthorOnly}
+                  onCheckedChange={(checked) => updateFilter("singleAuthorOnly", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="single-author" className="text-sm text-orange-700">
+                  Single author only
+                </Label>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="single-author" className="text-sm text-orange-700">
-                Single author only
-              </Label>
-              <Switch
-                id="single-author"
-                checked={safeFilters.singleAuthorOnly}
-                onCheckedChange={(checked) => updateFilter("singleAuthorOnly", checked)}
-                className="data-[state=checked]:bg-orange-500"
-              />
-            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="has-description"
+                  checked={safeFilters.hasDescription}
+                  onCheckedChange={(checked) => updateFilter("hasDescription", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="has-description" className="text-sm text-orange-700">
+                  Has description
+                </Label>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-description" className="text-sm text-orange-700">
-                Has description
-              </Label>
-              <Switch
-                id="has-description"
-                checked={safeFilters.hasDescription}
-                onCheckedChange={(checked) => updateFilter("hasDescription", checked)}
-                className="data-[state=checked]:bg-orange-500"
-              />
-            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="series-only"
+                  checked={safeFilters.seriesOnly}
+                  onCheckedChange={(checked) => updateFilter("seriesOnly", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="series-only" className="text-sm text-orange-700">
+                  Series books only
+                </Label>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="series-only" className="text-sm text-orange-700">
-                Series books only
-              </Label>
-              <Switch
-                id="series-only"
-                checked={safeFilters.seriesOnly}
-                onCheckedChange={(checked) => updateFilter("seriesOnly", checked)}
-                className="data-[state=checked]:bg-orange-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-cover" className="text-sm text-orange-700">
-                Has cover image
-              </Label>
-              <Switch
-                id="has-cover"
-                checked={safeFilters.hasCover}
-                onCheckedChange={(checked) => updateFilter("hasCover", checked)}
-                className="data-[state=checked]:bg-orange-500"
-              />
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="has-cover"
+                  checked={safeFilters.hasCover}
+                  onCheckedChange={(checked) => updateFilter("hasCover", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="has-cover" className="text-sm text-orange-700">
+                  Has cover image
+                </Label>
+              </div>
             </div>
           </div>
 
@@ -270,7 +271,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Genre Filter */}
           <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Genre</Label>
+            <Label className="text-sm font-bold text-orange-700">Genre</Label>
             <Select value={safeFilters.genre} onValueChange={(value) => updateFilter("genre", value)}>
               <SelectTrigger className="border-orange-200 focus:border-orange-400 h-8">
                 <SelectValue />
@@ -303,7 +304,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Year Range */}
           <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Publication Year Range</Label>
+            <Label className="text-sm font-bold text-orange-700">Publication Year</Label>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor="year-start" className="text-xs text-orange-600">
@@ -336,7 +337,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Title Contains */}
           <div className="space-y-2">
-            <Label htmlFor="title-contains" className="text-sm text-orange-700">
+            <Label htmlFor="title-contains" className="text-sm font-bold text-orange-700">
               Title Contains
             </Label>
             <Input
@@ -350,7 +351,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Exclude Words */}
           <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Exclude Words from Titles</Label>
+            <Label className="text-sm font-bold text-orange-700">Titles do NOT contain</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Word to exclude..."
