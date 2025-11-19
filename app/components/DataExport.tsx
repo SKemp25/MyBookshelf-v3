@@ -27,44 +27,6 @@ export default function DataExport({
   const [isOpen, setIsOpen] = useState(false)
   const { toast } = useToast()
 
-  const exportToJSON = () => {
-    const exportData = {
-      exportDate: new Date().toISOString(),
-      userProfile,
-      authors,
-      books: books.map(book => ({
-        ...book,
-        readingStatus: readBooks.has(`${book.title}-${book.author}`) ? 'read' :
-                      wantToReadBooks.has(`${book.title}-${book.author}`) ? 'want-to-read' :
-                      dontWantBooks.has(`${book.title}-${book.author}`) ? 'dont-want' : 'unread'
-      })),
-      statistics: {
-        totalBooks: books.length,
-        readBooks: readBooks.size,
-        wantToReadBooks: wantToReadBooks.size,
-        dontWantBooks: dontWantBooks.size,
-        totalAuthors: authors.length
-      }
-    }
-
-    const dataStr = JSON.stringify(exportData, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
-    
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `mybookshelf-export-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-
-    toast({
-      title: "Export Successful!",
-      description: "Your bookshelf data has been downloaded as JSON.",
-    })
-  }
-
   const getReadingStatus = (book: Book): string => {
     const bookId = `${book.title}-${book.author}`
     if (readBooks.has(bookId)) return 'Read'
