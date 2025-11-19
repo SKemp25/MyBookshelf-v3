@@ -28,6 +28,34 @@ const getBookAuthor = (book: any): string => {
   return book.author || book.authors?.[0] || "Unknown"
 }
 
+// Define platform options by category (outside component to prevent recreation on every render)
+const platformCategories = {
+  Print: [
+    { name: "Amazon Books", defaultUrl: "https://www.amazon.com/s?k={title}&i=stripbooks", placeholder: "https://www.amazon.com/s?k={title}&i=stripbooks" },
+    { name: "Barnes & Noble", defaultUrl: "https://www.barnesandnoble.com/s/{title}", placeholder: "https://www.barnesandnoble.com/s/{title}" },
+    { name: "Bookshop.org", defaultUrl: "https://bookshop.org/books?keywords={title}", placeholder: "https://bookshop.org/books?keywords={title}" },
+    { name: "IndieBound", defaultUrl: "https://www.indiebound.org/search/book?keys={title}", placeholder: "https://www.indiebound.org/search/book?keys={title}" },
+  ],
+  Audio: [
+    { name: "Audible", defaultUrl: "https://www.audible.com/search?keywords={title}", placeholder: "https://www.audible.com/search?keywords={title}" },
+    { name: "Libro.fm", defaultUrl: "https://libro.fm/search?q={title}", placeholder: "https://libro.fm/search?q={title}" },
+    { name: "Spotify", defaultUrl: "https://open.spotify.com/search/{title}", placeholder: "https://open.spotify.com/search/{title}" },
+    { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
+  ],
+  Ebook: [
+    { name: "Kindle", defaultUrl: "https://read.amazon.com/kindle-library", placeholder: "https://read.amazon.com/kindle-library" },
+    { name: "Kobo", defaultUrl: "https://www.kobo.com/us/en/search?query={title}", placeholder: "https://www.kobo.com/us/en/search?query={title}" },
+    { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
+    { name: "Google Play Books", defaultUrl: "https://play.google.com/store/books/search?q={title}", placeholder: "https://play.google.com/store/books/search?q={title}" },
+  ],
+  Library: [
+    { name: "WorldCat", defaultUrl: "https://www.worldcat.org/search?q={title}", placeholder: "https://www.worldcat.org/search?q={title}" },
+    { name: "OverDrive/Libby", defaultUrl: "", placeholder: "https://yourlibrary.overdrive.com or https://libbyapp.com/library/yourlibrary" },
+    { name: "Hoopla", defaultUrl: "https://www.hoopladigital.com/search?q={title}", placeholder: "https://www.hoopladigital.com/search?q={title}" },
+    { name: "Local Library", defaultUrl: "", placeholder: "Enter your library's catalog URL" },
+  ],
+}
+
 export default function BookshelfClient({ user, userProfile }: BookshelfClientProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState("")
@@ -121,34 +149,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
   const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
   const [recommendedAuthors, setRecommendedAuthors] = useState<Set<string>>(new Set())
-  // Define platform options by category
-  const platformCategories = {
-    Print: [
-      { name: "Amazon Books", defaultUrl: "https://www.amazon.com/s?k={title}&i=stripbooks", placeholder: "https://www.amazon.com/s?k={title}&i=stripbooks" },
-      { name: "Barnes & Noble", defaultUrl: "https://www.barnesandnoble.com/s/{title}", placeholder: "https://www.barnesandnoble.com/s/{title}" },
-      { name: "Bookshop.org", defaultUrl: "https://bookshop.org/books?keywords={title}", placeholder: "https://bookshop.org/books?keywords={title}" },
-      { name: "IndieBound", defaultUrl: "https://www.indiebound.org/search/book?keys={title}", placeholder: "https://www.indiebound.org/search/book?keys={title}" },
-    ],
-    Audio: [
-      { name: "Audible", defaultUrl: "https://www.audible.com/search?keywords={title}", placeholder: "https://www.audible.com/search?keywords={title}" },
-      { name: "Libro.fm", defaultUrl: "https://libro.fm/search?q={title}", placeholder: "https://libro.fm/search?q={title}" },
-      { name: "Spotify", defaultUrl: "https://open.spotify.com/search/{title}", placeholder: "https://open.spotify.com/search/{title}" },
-      { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
-    ],
-    Ebook: [
-      { name: "Kindle", defaultUrl: "https://read.amazon.com/kindle-library", placeholder: "https://read.amazon.com/kindle-library" },
-      { name: "Kobo", defaultUrl: "https://www.kobo.com/us/en/search?query={title}", placeholder: "https://www.kobo.com/us/en/search?query={title}" },
-      { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
-      { name: "Google Play Books", defaultUrl: "https://play.google.com/store/books/search?q={title}", placeholder: "https://play.google.com/store/books/search?q={title}" },
-    ],
-    Library: [
-      { name: "WorldCat", defaultUrl: "https://www.worldcat.org/search?q={title}", placeholder: "https://www.worldcat.org/search?q={title}" },
-      { name: "OverDrive/Libby", defaultUrl: "", placeholder: "https://yourlibrary.overdrive.com or https://libbyapp.com/library/yourlibrary" },
-      { name: "Hoopla", defaultUrl: "https://www.hoopladigital.com/search?q={title}", placeholder: "https://www.hoopladigital.com/search?q={title}" },
-      { name: "Local Library", defaultUrl: "", placeholder: "Enter your library's catalog URL" },
-    ],
-  }
-
+  
   // Initialize platforms state - will be loaded from localStorage in useEffect
   const [platforms, setPlatforms] = useState<Platform[]>([
     { name: "Kindle", url: "https://read.amazon.com/kindle-library", enabled: true, category: "Ebook" },
@@ -256,27 +257,35 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
   }, [userState, isLoggedIn, currentUser])
 
-  // Load platforms from localStorage
+  // Load platforms from localStorage (only once when user logs in)
+  const [platformsLoaded, setPlatformsLoaded] = useState(false)
   useEffect(() => {
-    if (isLoggedIn && currentUser) {
+    if (isLoggedIn && currentUser && !platformsLoaded) {
       const savedPlatforms = localStorage.getItem(`platforms_${currentUser}`)
       if (savedPlatforms) {
         try {
           const parsed = JSON.parse(savedPlatforms)
           if (Array.isArray(parsed) && parsed.length > 0) {
             setPlatforms(parsed)
+            setPlatformsLoaded(true)
           }
         } catch (e) {
           console.error("Error parsing saved platforms:", e)
+          setPlatformsLoaded(true)
         }
+      } else {
+        setPlatformsLoaded(true)
       }
     }
-  }, [isLoggedIn, currentUser])
+  }, [isLoggedIn, currentUser, platformsLoaded])
 
-  // Save platforms to localStorage
+  // Save platforms to localStorage (with debounce to prevent excessive saves)
   useEffect(() => {
     if (isLoggedIn && currentUser && platforms.length > 0) {
-      localStorage.setItem(`platforms_${currentUser}`, JSON.stringify(platforms))
+      const timeoutId = setTimeout(() => {
+        localStorage.setItem(`platforms_${currentUser}`, JSON.stringify(platforms))
+      }, 300)
+      return () => clearTimeout(timeoutId)
     }
   }, [platforms, isLoggedIn, currentUser])
 
