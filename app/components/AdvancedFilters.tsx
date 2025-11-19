@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Filter, X, Plus, ChevronDown, ChevronUp } from "lucide-react"
+import { Filter, X, Plus, ChevronDown, ChevronUp, Heart } from "lucide-react"
 import type { Book, Author, AdvancedFilterState } from "../lib/types"
 
 // Define AdvancedFiltersProps interface directly in this file
@@ -219,10 +219,10 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm text-orange-700">Show/Hide</Label>
-            <div className="space-y-2">
-              {/* Show only Loved books */}
+          <div className="space-y-3">
+            <Label className="text-sm font-bold text-orange-700">Show/Hide</Label>
+            <div className="space-y-2.5">
+              {/* Show heart books only */}
               {setShowHeartedBooks && (
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -231,11 +231,23 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                     onCheckedChange={(checked) => setShowHeartedBooks(checked as boolean)}
                     className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                   />
-                  <Label htmlFor="show-loved-books" className="text-sm text-orange-700">
-                    Show only Loved books
+                  <Label htmlFor="show-loved-books" className="text-sm text-orange-700 flex items-center gap-1.5">
+                    Show <Heart className="w-4 h-4 text-pink-600 fill-pink-600" /> books only
                   </Label>
                 </div>
               )}
+              {/* Show Passed Books */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="show-passed-books"
+                  checked={safeFilters.showPassedBooks || false}
+                  onCheckedChange={(checked) => updateFilter("showPassedBooks", checked)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <Label htmlFor="show-passed-books" className="text-sm text-orange-700">
+                  Show Passed books
+                </Label>
+              </div>
               {[
                 { value: "read", label: "Hide Read books" },
                 { value: "unread", label: "Hide Unread books" },
@@ -253,21 +265,6 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                   </Label>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Show Passed Books */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="show-passed-books"
-                checked={safeFilters.showPassedBooks || false}
-                onCheckedChange={(checked) => updateFilter("showPassedBooks", checked)}
-                className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-              />
-              <Label htmlFor="show-passed-books" className="text-sm text-orange-700">
-                Show Passed books
-              </Label>
             </div>
           </div>
 
