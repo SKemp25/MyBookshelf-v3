@@ -154,11 +154,11 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
       {/* Content - inside the card */}
       {!isCollapsed && (
         <Card className="bg-white border-orange-200">
-          <CardContent className="space-y-4 pt-4">
+          <CardContent className="space-y-3 pt-2">
           {/* Publication Settings */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="text-sm font-bold text-orange-700">Publication Settings</Label>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="upcoming-only"
@@ -221,9 +221,9 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
             </div>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-sm font-bold text-orange-700">Show/Hide</Label>
-            <div className="space-y-2.5">
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold text-orange-700">Show/Hide</Label>
+                  <div className="space-y-2">
               {/* Show heart books only */}
               {setShowHeartedBooks && (
                 <div className="flex items-center space-x-2">

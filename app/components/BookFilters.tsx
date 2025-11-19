@@ -83,7 +83,7 @@ export default function BookFilters({
       <button
         data-tour="filters"
         onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-        className="w-full flex items-center justify-between mb-4 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+        className="w-full flex items-center justify-between mb-2 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
       >
         <div className="flex items-center gap-3">
           <Filter className="w-6 h-6 text-orange-600" />
@@ -93,9 +93,9 @@ export default function BookFilters({
       </button>
 
       {isFiltersOpen && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Search Box */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <h4 className="text-sm font-semibold text-orange-700">Search Books</h4>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
