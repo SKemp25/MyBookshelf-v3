@@ -121,11 +121,37 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
   const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
   const [recommendedAuthors, setRecommendedAuthors] = useState<Set<string>>(new Set())
+  // Define platform options by category
+  const platformCategories = {
+    Print: [
+      { name: "Amazon Books", defaultUrl: "https://www.amazon.com/s?k={title}&i=stripbooks", placeholder: "https://www.amazon.com/s?k={title}&i=stripbooks" },
+      { name: "Barnes & Noble", defaultUrl: "https://www.barnesandnoble.com/s/{title}", placeholder: "https://www.barnesandnoble.com/s/{title}" },
+      { name: "Bookshop.org", defaultUrl: "https://bookshop.org/books?keywords={title}", placeholder: "https://bookshop.org/books?keywords={title}" },
+      { name: "IndieBound", defaultUrl: "https://www.indiebound.org/search/book?keys={title}", placeholder: "https://www.indiebound.org/search/book?keys={title}" },
+    ],
+    Audio: [
+      { name: "Audible", defaultUrl: "https://www.audible.com/search?keywords={title}", placeholder: "https://www.audible.com/search?keywords={title}" },
+      { name: "Libro.fm", defaultUrl: "https://libro.fm/search?q={title}", placeholder: "https://libro.fm/search?q={title}" },
+      { name: "Spotify", defaultUrl: "https://open.spotify.com/search/{title}", placeholder: "https://open.spotify.com/search/{title}" },
+      { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
+    ],
+    Ebook: [
+      { name: "Kindle", defaultUrl: "https://read.amazon.com/kindle-library", placeholder: "https://read.amazon.com/kindle-library" },
+      { name: "Kobo", defaultUrl: "https://www.kobo.com/us/en/search?query={title}", placeholder: "https://www.kobo.com/us/en/search?query={title}" },
+      { name: "Apple Books", defaultUrl: "https://books.apple.com/us/search?term={title}", placeholder: "https://books.apple.com/us/search?term={title}" },
+      { name: "Google Play Books", defaultUrl: "https://play.google.com/store/books/search?q={title}", placeholder: "https://play.google.com/store/books/search?q={title}" },
+    ],
+    Library: [
+      { name: "WorldCat", defaultUrl: "https://www.worldcat.org/search?q={title}", placeholder: "https://www.worldcat.org/search?q={title}" },
+      { name: "OverDrive/Libby", defaultUrl: "", placeholder: "https://yourlibrary.overdrive.com or https://libbyapp.com/library/yourlibrary" },
+      { name: "Hoopla", defaultUrl: "https://www.hoopladigital.com/search?q={title}", placeholder: "https://www.hoopladigital.com/search?q={title}" },
+      { name: "Local Library", defaultUrl: "", placeholder: "Enter your library's catalog URL" },
+    ],
+  }
+
+  // Initialize platforms state - will be loaded from localStorage in useEffect
   const [platforms, setPlatforms] = useState<Platform[]>([
-    { name: "Kindle", url: "", enabled: true },
-    { name: "Audible", url: "", enabled: false },
-    { name: "Books", url: "", enabled: false },
-    { name: "Library", url: "https://www.worldcat.org", enabled: false },
+    { name: "Kindle", url: "https://read.amazon.com/kindle-library", enabled: true, category: "Ebook" },
   ])
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -229,6 +255,30 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       localStorage.setItem(userPrefsKey, JSON.stringify(userState))
     }
   }, [userState, isLoggedIn, currentUser])
+
+  // Load platforms from localStorage
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
+      const savedPlatforms = localStorage.getItem(`platforms_${currentUser}`)
+      if (savedPlatforms) {
+        try {
+          const parsed = JSON.parse(savedPlatforms)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPlatforms(parsed)
+          }
+        } catch (e) {
+          console.error("Error parsing saved platforms:", e)
+        }
+      }
+    }
+  }, [isLoggedIn, currentUser])
+
+  // Save platforms to localStorage
+  useEffect(() => {
+    if (isLoggedIn && currentUser && platforms.length > 0) {
+      localStorage.setItem(`platforms_${currentUser}`, JSON.stringify(platforms))
+    }
+  }, [platforms, isLoggedIn, currentUser])
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -1670,125 +1720,91 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Platform</h3>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="flex items-center text-xs mb-1">
-                          <input
-                            type="checkbox"
-                            checked={platforms.find((p) => p.name === "Kindle")?.enabled || false}
-                            onChange={(e) => {
-                              setPlatforms((prev) =>
-                                prev.map((p) => (p.name === "Kindle" ? { ...p, enabled: e.target.checked } : p)),
-                              )
-                            }}
-                            className="mr-2"
-                          />
-                          Kindle
-                        </label>
-                        <input
-                          type="url"
-                          value={platforms.find((p) => p.name === "Kindle")?.url || "https://read.amazon.com/kindle"}
-                          onChange={(e) => {
-                            setPlatforms((prev) =>
-                              prev.map((p) => (p.name === "Kindle" ? { ...p, url: e.target.value } : p)),
+                  <div className="space-y-4">
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Platforms</h3>
+                    <p className="text-xs text-gray-600 mb-3">Select your preferred platforms for each reading format. You can choose multiple options per category.</p>
+                    
+                    {Object.entries(platformCategories).map(([category, options]) => (
+                      <div key={category} className="space-y-2 border-l-2 border-orange-200 pl-3">
+                        <h4 className="text-orange-700 font-semibold text-xs uppercase tracking-wide">{category}</h4>
+                        <div className="space-y-2">
+                          {options.map((option) => {
+                            const platform = platforms.find((p) => p.name === option.name && p.category === category)
+                            const isEnabled = platform?.enabled || false
+                            const url = platform?.url || option.defaultUrl
+
+                            return (
+                              <div key={option.name} className="space-y-1">
+                                <label className="flex items-center text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={isEnabled}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        // Add or enable platform
+                                        const existing = platforms.find((p) => p.name === option.name && p.category === category)
+                                        if (existing) {
+                                          setPlatforms((prev) =>
+                                            prev.map((p) =>
+                                              p.name === option.name && p.category === category
+                                                ? { ...p, enabled: true }
+                                                : p
+                                            )
+                                          )
+                                        } else {
+                                          setPlatforms((prev) => [
+                                            ...prev,
+                                            {
+                                              name: option.name,
+                                              url: option.defaultUrl,
+                                              enabled: true,
+                                              category: category as "Print" | "Audio" | "Ebook" | "Library",
+                                            },
+                                          ])
+                                        }
+                                      } else {
+                                        // Disable platform
+                                        setPlatforms((prev) =>
+                                          prev.map((p) =>
+                                            p.name === option.name && p.category === category
+                                              ? { ...p, enabled: false }
+                                              : p
+                                          )
+                                        )
+                                      }
+                                    }}
+                                    className="mr-2"
+                                  />
+                                  {option.name}
+                                </label>
+                                {isEnabled && (
+                                  <input
+                                    type="url"
+                                    value={url}
+                                    onChange={(e) => {
+                                      setPlatforms((prev) =>
+                                        prev.map((p) =>
+                                          p.name === option.name && p.category === category
+                                            ? { ...p, url: e.target.value }
+                                            : p
+                                        )
+                                      )
+                                    }}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                    placeholder={option.placeholder || option.defaultUrl}
+                                  />
+                                )}
+                              </div>
                             )
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://read.amazon.com/kindle"
-                        />
+                          })}
+                        </div>
                       </div>
-                      <div>
-                        <label className="flex items-center text-xs mb-1">
-                          <input
-                            type="checkbox"
-                            checked={platforms.find((p) => p.name === "Audible")?.enabled || false}
-                            onChange={(e) => {
-                              setPlatforms((prev) =>
-                                prev.map((p) => (p.name === "Audible" ? { ...p, enabled: e.target.checked } : p)),
-                              )
-                            }}
-                            className="mr-2"
-                          />
-                          Audible
-                        </label>
-                        <input
-                          type="url"
-                          value={platforms.find((p) => p.name === "Audible")?.url || "https://www.audible.com/"}
-                          onChange={(e) => {
-                            setPlatforms((prev) =>
-                              prev.map((p) => (p.name === "Audible" ? { ...p, url: e.target.value } : p)),
-                            )
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://www.audible.com/"
-                        />
-                      </div>
-                      <div>
-                        <label className="flex items-center text-xs mb-1">
-                          <input
-                            type="checkbox"
-                            checked={platforms.find((p) => p.name === "Books")?.enabled || false}
-                            onChange={(e) => {
-                              setPlatforms((prev) =>
-                                prev.map((p) => (p.name === "Books" ? { ...p, enabled: e.target.checked } : p)),
-                              )
-                            }}
-                            className="mr-2"
-                          />
-                          Print
-                        </label>
-                        <input
-                          type="url"
-                          value={
-                            platforms.find((p) => p.name === "Books")?.url ||
-                            "https://www.amazon.com/s?k={title}&i=stripbooks"
-                          }
-                          onChange={(e) => {
-                            setPlatforms((prev) =>
-                              prev.map((p) => (p.name === "Books" ? { ...p, url: e.target.value } : p)),
-                            )
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://www.amazon.com/s?k={title}&i=stripbooks"
-                        />
-                      </div>
-                      <div>
-                        <label className="flex items-center text-xs mb-1">
-                          <input
-                            type="checkbox"
-                            checked={platforms.find((p) => p.name === "Library")?.enabled || false}
-                            onChange={(e) => {
-                              setPlatforms((prev) =>
-                                prev.map((p) => (p.name === "Library" ? { ...p, enabled: e.target.checked } : p)),
-                              )
-                            }}
-                            className="mr-2"
-                          />
-                          Library
-                        </label>
-                        <input
-                          type="url"
-                          value={
-                            platforms.find((p) => p.name === "Library")?.url ||
-                            "https://www.worldcat.org"
-                          }
-                          onChange={(e) => {
-                            setPlatforms((prev) =>
-                              prev.map((p) => (p.name === "Library" ? { ...p, url: e.target.value } : p)),
-                            )
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="https://www.worldcat.org"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          For OverDrive/Libby libraries: Enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
-                          If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
-                          For other libraries: Enter your library's catalog URL.
-                        </p>
-                      </div>
-                    </div>
+                    ))}
+                    
+                    <p className="text-xs text-gray-500 mt-3">
+                      <strong>Note:</strong> For OverDrive/Libby libraries, enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
+                      If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
+                    </p>
                   </div>
 
                   {/* Data Export Section */}

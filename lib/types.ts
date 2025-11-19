@@ -32,6 +32,19 @@ export interface Platform {
   name: string
   url: string
   enabled: boolean
+  category?: "Print" | "Audio" | "Ebook" | "Library"
+}
+
+export interface PlatformOption {
+  name: string
+  defaultUrl: string
+  placeholder?: string
+}
+
+export interface PlatformCategory {
+  category: "Print" | "Audio" | "Ebook" | "Library"
+  label: string
+  options: PlatformOption[]
 }
 
 export interface BookGroup {
