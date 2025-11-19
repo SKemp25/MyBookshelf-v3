@@ -1215,7 +1215,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
-                className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-1 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
               >
                 <div className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4" />
@@ -1250,7 +1250,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-1 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                  className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4" />
@@ -1386,7 +1386,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
-                className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide mb-1 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
               >
                 <div className="flex items-center gap-2">
                   <Settings className="w-4 h-4" />
@@ -1396,8 +1396,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isPreferencesOpen && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  <div className="space-y-3">
                     <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Account Information</h3>
                     <div className="space-y-2">
                       <div>
