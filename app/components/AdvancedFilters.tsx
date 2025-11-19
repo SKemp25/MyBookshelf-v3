@@ -130,11 +130,11 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="flex items-center gap-2 hover:bg-orange-50 p-2 -m-2 rounded transition-colors flex-1"
           >
-            {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600" /> : <ChevronUp className="w-3 h-3 text-orange-600" />}
-            <Filter className="w-4 h-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-700 leading-none">Advanced Filters</span>
+            {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600 flex-shrink-0" /> : <ChevronUp className="w-3 h-3 text-orange-600 flex-shrink-0" />}
+            <Filter className="w-4 h-4 text-orange-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-orange-700">Advanced Filters</span>
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs leading-none">
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1">
                 {activeFiltersCount}
               </Badge>
             )}
@@ -144,7 +144,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
               variant="ghost"
               size="sm"
               onClick={resetFilters}
-              className="text-orange-600 hover:text-orange-800 h-auto px-2 py-1 text-xs leading-none"
+              className="text-orange-600 hover:text-orange-800 h-auto px-2 py-1 text-xs"
             >
               <X className="w-3 h-3 mr-1" />
               Reset
