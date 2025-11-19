@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Download, FileText, Database, AlertCircle } from "lucide-react"
+import { Download, FileText, Database, AlertCircle, FileDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Book } from "@/lib/types"
 
@@ -65,31 +65,37 @@ export default function DataExport({
     })
   }
 
+  const getReadingStatus = (book: Book): string => {
+    const bookId = `${book.title}-${book.author}`
+    if (readBooks.has(bookId)) return 'Read'
+    if (wantToReadBooks.has(bookId)) return 'Want'
+    if (dontWantBooks.has(bookId)) return 'Pass'
+    return 'Unread'
+  }
+
   const exportToCSV = () => {
     const csvHeaders = [
       'Title',
       'Author', 
+      'Status',
       'Published Date',
       'Page Count',
       'Language',
       'Categories',
-      'Reading Status',
       'Description'
     ].join(',')
 
     const csvRows = books.map(book => {
-      const readingStatus = readBooks.has(`${book.title}-${book.author}`) ? 'Read' :
-                           wantToReadBooks.has(`${book.title}-${book.author}`) ? 'Want to Read' :
-                           dontWantBooks.has(`${book.title}-${book.author}`) ? "Don't Want" : 'Unread'
+      const status = getReadingStatus(book)
       
       return [
         `"${book.title?.replace(/"/g, '""') || ''}"`,
         `"${book.author?.replace(/"/g, '""') || ''}"`,
+        `"${status}"`,
         `"${book.publishedDate || ''}"`,
         book.pageCount || '',
         `"${book.language || ''}"`,
         `"${(book.categories || []).join('; ')}"`,
-        `"${readingStatus}"`,
         `"${(book.description || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 200)}"`
       ].join(',')
     })
@@ -126,7 +132,7 @@ STATISTICS:
 Total Books: ${books.length}
 Read Books: ${readBooks.size}
 Want to Read: ${wantToReadBooks.size}
-Don't Want: ${dontWantBooks.size}
+Pass: ${dontWantBooks.size}
 Total Authors: ${authors.length}
 
 AUTHORS:
@@ -134,10 +140,11 @@ ${authors.map(author => `• ${author}`).join('\n')}
 
 BOOKS:
 ${books.map(book => {
-  const readingStatus = readBooks.has(`${book.title}-${book.author}`) ? '[READ]' :
-                       wantToReadBooks.has(`${book.title}-${book.author}`) ? '[WANT TO READ]' :
-                       dontWantBooks.has(`${book.title}-${book.author}`) ? "[DON'T WANT]" : '[UNREAD]'
-  return `${readingStatus} "${book.title}" by ${book.author} (${book.publishedDate || 'Unknown date'})`
+  const status = getReadingStatus(book)
+  const statusTag = status === 'Read' ? '[READ]' :
+                   status === 'Want' ? '[WANT]' :
+                   status === 'Pass' ? '[PASS]' : '[UNREAD]'
+  return `${statusTag} "${book.title}" by ${book.author} (${book.publishedDate || 'Unknown date'})`
 }).join('\n')}
 `
 
@@ -156,6 +163,179 @@ ${books.map(book => {
       title: "Export Successful!",
       description: "Your bookshelf data has been downloaded as text.",
     })
+  }
+
+  const exportToPDF = async () => {
+    try {
+      // Dynamic import to avoid SSR issues
+      const { jsPDF } = await import('jspdf')
+      
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const margin = 15
+      const lineHeight = 7
+      let yPos = margin
+
+      // Helper function to add a new page if needed
+      const checkPageBreak = (requiredSpace: number) => {
+        if (yPos + requiredSpace > pageHeight - margin) {
+          doc.addPage()
+          yPos = margin
+          return true
+        }
+        return false
+      }
+
+      // Title
+      doc.setFontSize(20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('MY BOOKSHELF', pageWidth / 2, yPos, { align: 'center' })
+      yPos += lineHeight * 1.5
+
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPos, { align: 'center' })
+      yPos += lineHeight * 2
+
+      // User Profile Section
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('USER PROFILE', margin, yPos)
+      yPos += lineHeight
+
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Name: ${userProfile?.name || 'N/A'}`, margin, yPos)
+      yPos += lineHeight
+      doc.text(`Email: ${userProfile?.email || 'N/A'}`, margin, yPos)
+      yPos += lineHeight * 2
+
+      // Statistics Section
+      checkPageBreak(lineHeight * 6)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('STATISTICS', margin, yPos)
+      yPos += lineHeight
+
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Total Books: ${books.length}`, margin, yPos)
+      yPos += lineHeight
+      doc.text(`Read: ${readBooks.size}  |  Want: ${wantToReadBooks.size}  |  Pass: ${dontWantBooks.size}`, margin, yPos)
+      yPos += lineHeight
+      doc.text(`Total Authors: ${authors.length}`, margin, yPos)
+      yPos += lineHeight * 2
+
+      // Authors Section
+      checkPageBreak(lineHeight * 3)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('AUTHORS', margin, yPos)
+      yPos += lineHeight
+
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      authors.forEach(author => {
+        checkPageBreak(lineHeight)
+        doc.text(`• ${author}`, margin + 5, yPos)
+        yPos += lineHeight
+      })
+      yPos += lineHeight
+
+      // Books Section
+      checkPageBreak(lineHeight * 3)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('BOOKS', margin, yPos)
+      yPos += lineHeight
+
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      
+      // Group books by status
+      const booksByStatus = {
+        Read: books.filter(book => getReadingStatus(book) === 'Read'),
+        Want: books.filter(book => getReadingStatus(book) === 'Want'),
+        Pass: books.filter(book => getReadingStatus(book) === 'Pass'),
+        Unread: books.filter(book => getReadingStatus(book) === 'Unread')
+      }
+
+      // Print each status group
+      Object.entries(booksByStatus).forEach(([status, statusBooks]) => {
+        if (statusBooks.length === 0) return
+
+        checkPageBreak(lineHeight * 2)
+        doc.setFontSize(12)
+        doc.setFont('helvetica', 'bold')
+        doc.text(`${status.toUpperCase()} (${statusBooks.length})`, margin, yPos)
+        yPos += lineHeight * 1.2
+
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        
+        statusBooks.forEach(book => {
+          checkPageBreak(lineHeight * 2)
+          const title = book.title || 'Unknown Title'
+          const author = book.author || 'Unknown Author'
+          const date = book.publishedDate || 'Unknown date'
+          
+          // Check if title fits on one line
+          const titleWidth = doc.getTextWidth(title)
+          const maxWidth = pageWidth - margin * 2 - 10
+          
+          if (titleWidth > maxWidth) {
+            // Split title across multiple lines
+            const words = title.split(' ')
+            let currentLine = ''
+            words.forEach((word, index) => {
+              const testLine = currentLine + (currentLine ? ' ' : '') + word
+              if (doc.getTextWidth(testLine) > maxWidth && currentLine) {
+                doc.text(`  ${currentLine}`, margin + 5, yPos)
+                yPos += lineHeight
+                currentLine = word
+              } else {
+                currentLine = testLine
+              }
+              if (index === words.length - 1) {
+                doc.text(`  ${currentLine}`, margin + 5, yPos)
+                yPos += lineHeight
+              }
+            })
+          } else {
+            doc.text(`  ${title}`, margin + 5, yPos)
+            yPos += lineHeight
+          }
+          
+          doc.setFont('helvetica', 'italic')
+          doc.text(`    by ${author} (${date})`, margin + 5, yPos)
+          yPos += lineHeight * 1.2
+          doc.setFont('helvetica', 'normal')
+        })
+        
+        yPos += lineHeight * 0.5
+      })
+
+      // Save the PDF
+      doc.save(`mybookshelf-export-${new Date().toISOString().split('T')[0]}.pdf`)
+
+      toast({
+        title: "Export Successful!",
+        description: "Your bookshelf data has been downloaded as PDF.",
+      })
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast({
+        title: "Export Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -202,12 +382,12 @@ ${books.map(book => {
 
             <div className="grid grid-cols-1 gap-2">
               <Button 
-                onClick={exportToJSON}
+                onClick={exportToPDF}
                 variant="outline"
-                className="justify-start"
+                className="justify-start bg-orange-50 border-orange-300 hover:bg-orange-100"
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Export as JSON (Complete Data)
+                <FileDown className="w-4 h-4 mr-2" />
+                Export as PDF (Print-Friendly)
               </Button>
               
               <Button 
