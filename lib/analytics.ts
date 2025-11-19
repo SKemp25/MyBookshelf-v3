@@ -168,6 +168,7 @@ function getDefaultStats(): ReadingStats {
 // Predefined event types for consistency
 export const ANALYTICS_EVENTS = {
   BOOK_MARKED_READ: "book_marked_read",
+  BOOK_MARKED_UNREAD: "book_marked_unread",
   BOOK_MARKED_WANT: "book_marked_want",
   BOOK_MARKED_PASS: "book_marked_pass",
   BOOK_STATUS_CHANGED: "book_status_changed",

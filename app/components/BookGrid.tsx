@@ -8,6 +8,7 @@ import {
   BookCheck,
   BookmarkPlus,
   BookX,
+  RotateCcw,
   Globe,
   FileText,
   Calendar,
@@ -34,6 +35,7 @@ interface BookGridProps {
   friends: string[]
   platforms: Platform[]
   onMarkAsRead: (bookId: string, title: string, author: string) => void
+  onUnmarkAsRead?: (bookId: string, title: string, author: string) => void
   onMarkAsWant: (bookId: string, title: string, author: string) => void
   onToggleDontWant: (bookId: string, title: string, author: string) => void
   onSetBookRating?: (bookId: string, rating: "loved" | "liked" | "didnt-like" | null) => void
@@ -56,6 +58,7 @@ export default function BookGrid({
   friends,
   platforms,
   onMarkAsRead,
+  onUnmarkAsRead,
   onMarkAsWant,
   onToggleDontWant,
   onSetBookRating,
@@ -88,6 +91,36 @@ export default function BookGrid({
       })
     } catch (error) {
       console.error("Error updating book status to read:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update book status. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdating((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(bookId)
+        return newSet
+      })
+    }
+  }
+
+  const handleUnmarkAsRead = async (bookId: string, title: string, author: string) => {
+    if (isUpdating.has(bookId)) return
+
+    setIsUpdating((prev) => new Set([...prev, bookId]))
+
+    try {
+      if (userId) {
+        await updateBookStatus(userId, bookId, "unread")
+      }
+      onUnmarkAsRead?.(bookId, title, author)
+      toast({
+        title: "Book Unmarked",
+        description: `"${title}" by ${author} is now unread`,
+      })
+    } catch (error) {
+      console.error("Error updating book status to unread:", error)
       toast({
         title: "Error",
         description: "Failed to update book status. Please try again.",
@@ -567,53 +600,76 @@ export default function BookGrid({
                   {/* Action Buttons */}
                   <div className="space-y-3">
                     {status === "read" ? (
-                      // Show rating buttons for read books - icon only, no borders
-                      <div className="flex gap-3 justify-center">
-                        <button
-                          onClick={() => {
-                            const currentRating = bookRatings.get(bookId)
-                            const newRating = currentRating === "loved" ? null : "loved"
-                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                          }}
-                          className={`p-2 rounded transition-colors ${
-                            bookRatings.get(bookId) === "loved"
-                              ? "bg-pink-100 text-pink-600"
-                              : "text-gray-400 hover:text-pink-600 hover:bg-pink-50"
-                          }`}
-                          title="I loved this book"
-                        >
-                          <Heart className={`w-5 h-5 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const currentRating = bookRatings.get(bookId)
-                            const newRating = currentRating === "liked" ? null : "liked"
-                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                          }}
-                          className={`p-2 rounded transition-colors ${
-                            bookRatings.get(bookId) === "liked"
-                              ? "bg-blue-100 text-blue-600"
-                              : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                          }`}
-                          title="I liked this book"
-                        >
-                          <ThumbsUp className={`w-5 h-5 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const currentRating = bookRatings.get(bookId)
-                            const newRating = currentRating === "didnt-like" ? null : "didnt-like"
-                            onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                          }}
-                          className={`p-2 rounded transition-colors ${
-                            bookRatings.get(bookId) === "didnt-like"
-                              ? "bg-gray-100 text-gray-600"
-                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                          }`}
-                          title="I didn't like this book or gave up on it"
-                        >
-                          <ThumbsDown className={`w-5 h-5 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
-                        </button>
+                      // Show rating buttons and unmark button for read books
+                      <div className="space-y-2">
+                        <div className="flex gap-3 justify-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const currentRating = bookRatings.get(bookId)
+                              const newRating = currentRating === "loved" ? null : "loved"
+                              onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                            }}
+                            className={`p-2 rounded transition-colors ${
+                              bookRatings.get(bookId) === "loved"
+                                ? "bg-pink-100 text-pink-600"
+                                : "text-gray-400 hover:text-pink-600 hover:bg-pink-50"
+                            }`}
+                            title="I loved this book"
+                          >
+                            <Heart className={`w-5 h-5 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const currentRating = bookRatings.get(bookId)
+                              const newRating = currentRating === "liked" ? null : "liked"
+                              onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                            }}
+                            className={`p-2 rounded transition-colors ${
+                              bookRatings.get(bookId) === "liked"
+                                ? "bg-blue-100 text-blue-600"
+                                : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                            }`}
+                            title="I liked this book"
+                          >
+                            <ThumbsUp className={`w-5 h-5 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const currentRating = bookRatings.get(bookId)
+                              const newRating = currentRating === "didnt-like" ? null : "didnt-like"
+                              onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                            }}
+                            className={`p-2 rounded transition-colors ${
+                              bookRatings.get(bookId) === "didnt-like"
+                                ? "bg-gray-100 text-gray-600"
+                                : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                            }`}
+                            title="I didn't like this book or gave up on it"
+                          >
+                            <ThumbsDown className={`w-5 h-5 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
+                          </button>
+                        </div>
+                        {onUnmarkAsRead && (
+                          <div className="flex justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleUnmarkAsRead(bookId, book.title, getAuthorName(book))
+                              }}
+                              disabled={isBookUpdating}
+                              className="h-7 px-2 text-xs font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 bg-white"
+                              title="Unmark as read"
+                            >
+                              <RotateCcw className="w-3 h-3 mr-1" />
+                              Unmark as Read
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       // Show Read/Want/Pass buttons for unread books

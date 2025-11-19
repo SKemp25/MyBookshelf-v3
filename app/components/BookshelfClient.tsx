@@ -1098,6 +1098,27 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     })
                   }
                 }}
+                onUnmarkAsRead={(bookId, title, author) => {
+                  setReadBooks((prev) => {
+                    const newSet = new Set(prev)
+                    newSet.delete(bookId)
+                    return newSet
+                  })
+
+                  if (isLoggedIn) {
+                    const book = books.find((b) => `${b.title}-${b.author}` === bookId)
+                    trackEvent(currentUser, {
+                      event_type: ANALYTICS_EVENTS.BOOK_MARKED_UNREAD,
+                      book_id: bookId,
+                      book_title: title,
+                      book_author: author,
+                      event_data: {
+                        genres: book?.categories || [],
+                        timestamp: new Date().toISOString(),
+                      },
+                    })
+                  }
+                }}
                 onSetBookRating={(bookId, rating) => {
                   setBookRatings((prev) => {
                     const newMap = new Map(prev)
