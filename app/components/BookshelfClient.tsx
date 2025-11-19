@@ -1796,7 +1796,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Data Export</h3>
                     <div className="p-3 bg-orange-50 rounded border border-orange-200">
                       <DataExport 
-                books={books}
+                books={filteredAndLimitedBooks}
                         authors={authors}
                         readBooks={readBooks}
                         wantToReadBooks={wantToReadBooks}
