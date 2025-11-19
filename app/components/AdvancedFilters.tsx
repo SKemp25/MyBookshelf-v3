@@ -123,37 +123,38 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
   }).length
 
   return (
-    <Card className="bg-white border-orange-200">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center gap-2 hover:bg-orange-50 p-2 -m-2 rounded transition-colors flex-1"
-          >
-            {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600 flex-shrink-0" /> : <ChevronUp className="w-3 h-3 text-orange-600 flex-shrink-0" />}
-            <Filter className="w-4 h-4 text-orange-600 flex-shrink-0" />
-            <span className="text-sm font-medium text-orange-700 leading-tight">Advanced Filters</span>
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1 leading-tight">
-                {activeFiltersCount}
-              </Badge>
-            )}
-          </button>
+    <div className="space-y-2">
+      {/* Header - outside the card */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex items-center gap-2 hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+        >
+          {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600 flex-shrink-0" /> : <ChevronUp className="w-3 h-3 text-orange-600 flex-shrink-0" />}
+          <Filter className="w-4 h-4 text-orange-600 flex-shrink-0" />
+          <span className="text-sm font-medium text-orange-700">Advanced Filters</span>
           {activeFiltersCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-              className="text-orange-600 hover:text-orange-800 h-auto px-2 py-1 text-xs"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Reset
-            </Button>
+            <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1">
+              {activeFiltersCount}
+            </Badge>
           )}
-        </CardTitle>
-      </CardHeader>
+        </button>
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="text-orange-600 hover:text-orange-800 h-auto px-2 py-1 text-xs"
+          >
+            <X className="w-3 h-3 mr-1" />
+            Reset
+          </Button>
+        )}
+      </div>
+      {/* Content - inside the card */}
       {!isCollapsed && (
-        <CardContent className="space-y-4 pt-0">
+        <Card className="bg-white border-orange-200">
+          <CardContent className="space-y-4 pt-4">
           {/* Publication Settings */}
           <div className="space-y-3">
             <Label className="text-sm font-bold text-orange-700">Publication Settings</Label>
@@ -387,8 +388,9 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
               </div>
             )}
           </div>
-        </CardContent>
+          </CardContent>
+        </Card>
       )}
-    </Card>
+    </div>
   )
 }
