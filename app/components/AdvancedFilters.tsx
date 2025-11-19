@@ -132,9 +132,9 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           >
             {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600 flex-shrink-0" /> : <ChevronUp className="w-3 h-3 text-orange-600 flex-shrink-0" />}
             <Filter className="w-4 h-4 text-orange-600 flex-shrink-0" />
-            <span className="text-sm font-medium text-orange-700">Advanced Filters</span>
+            <span className="text-sm font-medium text-orange-700 leading-tight">Advanced Filters</span>
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1">
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1 leading-tight">
                 {activeFiltersCount}
               </Badge>
             )}
