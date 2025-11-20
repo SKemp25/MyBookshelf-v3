@@ -20,6 +20,8 @@ import {
   Heart,
   ThumbsUp,
   ThumbsDown,
+  List,
+  X,
 } from "lucide-react"
 import type { Book, Platform } from "@/lib/types"
 import { updateBookStatus } from "@/lib/database"
@@ -74,6 +76,7 @@ export default function BookGrid({
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
+  const [showSeriesForBookId, setShowSeriesForBookId] = useState<string | null>(null)
   const { toast } = useToast()
   const isMobile = useIsMobile()
 
@@ -814,26 +817,101 @@ export default function BookGrid({
                       </div>
                     )}
 
-                    {/* Add Author Button for Recommended Authors */}
-                    {!isRecommendedAuthor && onAddAuthor && (
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold text-purple-600 uppercase tracking-wide">More by this author:</div>
-                        <div className="flex justify-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onAddAuthor(bookAuthor)
-                            }}
-                            className="border-2 border-purple-500 text-purple-700 hover:bg-purple-50 bg-white text-xs font-bold h-8 px-3"
-                          >
-                            <User className="w-3 h-3 mr-1" />
-                            Add All Books
-                          </Button>
+                    {/* Series Books Button */}
+                    {book.seriesInfo && (() => {
+                      // Normalize series name for matching (case-insensitive, trim whitespace)
+                      const normalizeSeriesName = (name: string) => name.toLowerCase().trim()
+                      const currentSeriesName = normalizeSeriesName(book.seriesInfo.name)
+                      
+                      const seriesBooks = books
+                        .filter(b => {
+                          if (!b.seriesInfo) return false
+                          const bSeriesName = normalizeSeriesName(b.seriesInfo.name)
+                          return bSeriesName === currentSeriesName && getAuthorName(b) === bookAuthor
+                        })
+                        .sort((a, b) => {
+                          // Sort by series number first, then by publication date
+                          if (a.seriesInfo?.number && b.seriesInfo?.number) {
+                            return a.seriesInfo.number - b.seriesInfo.number
+                          }
+                          const dateA = new Date(a.publishedDate || "1900").getTime()
+                          const dateB = new Date(b.publishedDate || "1900").getTime()
+                          return dateA - dateB
+                        })
+                      
+                      const hasOtherBooksInSeries = seriesBooks.length > 1
+                      
+                      return hasOtherBooksInSeries ? (
+                        <div className="space-y-2">
+                          <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">
+                            {book.seriesInfo.name} Series:
+                          </div>
+                          <div className="flex justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowSeriesForBookId(showSeriesForBookId === book.id ? null : book.id)
+                              }}
+                              className="border-2 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white text-xs font-bold h-8 px-3"
+                            >
+                              <List className="w-3 h-3 mr-1" />
+                              {showSeriesForBookId === book.id ? "Hide" : "Show"} Series ({seriesBooks.length} books)
+                            </Button>
+                          </div>
+                          
+                          {showSeriesForBookId === book.id && (
+                            <div className="mt-3 space-y-2 max-h-64 overflow-y-auto border-t border-blue-200 pt-3">
+                              {seriesBooks.map((seriesBook) => {
+                                const seriesBookId = `${seriesBook.title}-${seriesBook.author}`
+                                const seriesStatus = getReadingStatus(seriesBookId)
+                                const isCurrentBook = seriesBook.id === book.id
+                                
+                                return (
+                                  <div
+                                    key={seriesBook.id}
+                                    className={`p-2 rounded border-2 ${
+                                      isCurrentBook
+                                        ? "border-blue-500 bg-blue-50"
+                                        : "border-gray-200 bg-white hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {seriesBook.seriesInfo?.number && (
+                                            <Badge
+                                              variant="outline"
+                                              className="border-blue-300 text-blue-700 bg-blue-50 text-xs px-1.5 py-0 font-bold"
+                                            >
+                                              #{seriesBook.seriesInfo.number}
+                                            </Badge>
+                                          )}
+                                          <h4 className={`text-sm font-bold ${isCurrentBook ? "text-blue-900" : "text-gray-900"}`}>
+                                            {seriesBook.title}
+                                          </h4>
+                                        </div>
+                                        {seriesBook.publishedDate && (
+                                          <p className="text-xs text-gray-600">
+                                            {seriesBook.publishedDate}
+                                          </p>
+                                        )}
+                                        <Badge
+                                          className={`${getStatusColor(seriesStatus)} border border-gray-300 font-bold uppercase text-xs mt-1`}
+                                        >
+                                          {getStatusText(seriesStatus)}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      ) : null
+                    })()}
 
                   </div>
                 )}
