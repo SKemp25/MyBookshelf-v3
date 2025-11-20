@@ -840,10 +840,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Only show books by authors in your authors list
     const bookAuthor = getBookAuthor(book)
     // Use case-insensitive matching to handle normalization differences
-    const authorMatches = authors.some(author => 
-      author.toLowerCase().trim() === bookAuthor.toLowerCase().trim() ||
-      normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
-    )
+    const authorMatches = authors.some(author => {
+      const directMatch = author.toLowerCase().trim() === bookAuthor.toLowerCase().trim()
+      const normalizedMatch = normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
+      // Also try matching with just last name for cases where first name might differ
+      const authorLast = author.trim().split(/\s+/).pop()?.toLowerCase() || ""
+      const bookAuthorLast = bookAuthor.trim().split(/\s+/).pop()?.toLowerCase() || ""
+      const lastNameMatch = authorLast && bookAuthorLast && authorLast === bookAuthorLast && authorLast.length > 2
+      return directMatch || normalizedMatch || lastNameMatch
+    })
     if (!authorMatches) {
       return false
     }
