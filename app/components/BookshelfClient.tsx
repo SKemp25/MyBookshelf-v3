@@ -1860,6 +1860,34 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       )}
                     </div>
                         </div>
+
+                        {/* Limit Books per Author */}
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            {([3,5,10] as const).map((n) => (
+                              <label key={n} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="showLastNBooks"
+                                  checked={userState.settings?.showLastNBooks === n}
+                                  onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                                />
+                                Last {n}
+                              </label>
+                            ))}
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="showLastNBooks"
+                                checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                                onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                              />
+                              All
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1973,34 +2001,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </button>
                     {isDisplaySettingsOpen && (
                       <div className="space-y-3 pl-2">
-                        {/* Show last N books setting */}
-                        <div className="space-y-3">
-                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
-                          <div className="flex flex-wrap gap-3 text-xs">
-                            {([3,5,10] as const).map((n) => (
-                              <label key={n} className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="showLastNBooks"
-                                  checked={userState.settings?.showLastNBooks === n}
-                                  onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
-                                />
-                                Last {n}
-                              </label>
-                            ))}
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name="showLastNBooks"
-                                checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
-                                onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
-                              />
-                              All
-                            </label>
-                          </div>
-                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
-                        </div>
-
                         {/* Display Settings */}
                         <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Display Settings</h4>
