@@ -1851,36 +1851,20 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  {/* Show last N books setting */}
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Limit Books per Author</h3>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      {([3,5,10] as const).map((n) => (
-                        <label key={n} className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="showLastNBooks"
-                            checked={userState.settings?.showLastNBooks === n}
-                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
-                          />
-                          Last {n}
-                        </label>
-                      ))}
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="showLastNBooks"
-                          checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
-                          onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
-                        />
-                        All
-                      </label>
-                    </div>
-                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
-                        </div>
-                    <p className="text-xs text-gray-600 mb-3">Select your preferred platforms for each reading format. You can choose multiple options per category.</p>
-                    
-                    {Object.entries(platformCategories).map(([category, options]) => (
+                  {/* Reading Platforms - Collapsible */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                    >
+                      <span>Reading Platforms</span>
+                      {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {isReadingPlatformsOpen && (
+                      <div className="space-y-4 pl-2">
+                        <p className="text-xs text-gray-600 mb-3">Select your preferred platforms for each reading format. You can choose multiple options per category.</p>
+                        
+                        {Object.entries(platformCategories).map(([category, options]) => (
                       <div key={category} className="space-y-2 border-l-2 border-orange-200 pl-3">
                         <h4 className="text-orange-700 font-semibold text-xs uppercase tracking-wide">{category}</h4>
                         <div className="space-y-2">
@@ -1957,11 +1941,52 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       </div>
                     ))}
                     
-                    <p className="text-xs text-gray-500 mt-3">
-                      <strong>Note:</strong> For OverDrive/Libby libraries, enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
-                      If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
-                    </p>
+                        <p className="text-xs text-gray-500 mt-3">
+                          <strong>Note:</strong> For OverDrive/Libby libraries, enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
+                          If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
+                        </p>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Display & Settings - Collapsible */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsDisplaySettingsOpen(!isDisplaySettingsOpen)}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                    >
+                      <span>Display & Settings</span>
+                      {isDisplaySettingsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {isDisplaySettingsOpen && (
+                      <div className="space-y-3 pl-2">
+                        {/* Show last N books setting */}
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            {([3,5,10] as const).map((n) => (
+                              <label key={n} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="showLastNBooks"
+                                  checked={userState.settings?.showLastNBooks === n}
+                                  onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                                />
+                                Last {n}
+                              </label>
+                            ))}
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="showLastNBooks"
+                                checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                                onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                              />
+                              All
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                        </div>
 
                         {/* Display Settings */}
                         <div className="space-y-3">
