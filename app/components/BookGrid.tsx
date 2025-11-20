@@ -835,7 +835,7 @@ export default function BookGrid({
                     )}
 
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           )
