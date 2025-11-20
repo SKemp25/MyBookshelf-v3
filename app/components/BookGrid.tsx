@@ -778,6 +778,7 @@ export default function BookGrid({
                         </Button>
                       </div>
                     )}
+                    </div>
 
                     {/* Platform Links */}
                     {platforms.length > 0 && (
