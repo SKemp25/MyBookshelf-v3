@@ -324,16 +324,18 @@ export default function BookGrid({
                   overdriveBase = "https://www.overdrive.com"
                 }
               } else if (urlLower.includes("overdrive.com") && !urlLower.includes("www.overdrive.com")) {
-                // Already an OverDrive base URL, use as-is
-                overdriveBase = platform.url
+                // Already an OverDrive base URL (e.g., https://mclpmd.overdrive.com)
+                // Clean up the URL to ensure it's just the base
+                overdriveBase = platform.url.replace(/\/$/, "").split("?")[0].split("#")[0]
               } else if (urlLower.includes("www.overdrive.com")) {
                 // Generic OverDrive, try to extract library code from Libby URL if available
                 // For now, use generic OverDrive
                 overdriveBase = "https://www.overdrive.com"
               }
               
-              // Construct OverDrive search URL: {overdriveBase}/search/title?query={bookTitle}
-              url = `${overdriveBase}/search/title?query=${encodedTitle}`
+              // Construct OverDrive search URL: {overdriveBase}/search?query={bookTitle}
+              // OverDrive uses /search?query= format, not /search/title?query=
+              url = `${overdriveBase}/search?query=${encodedTitle}`
             } else if (urlLower.includes("hoopladigital.com") || urlLower.includes("hoopla")) {
               // Hoopla - use title search first
               url = `https://www.hoopladigital.com/search?q=${encodedTitle}`
