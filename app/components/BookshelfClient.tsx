@@ -1428,15 +1428,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
             </div>
 
-            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isAuthorsOpen ? 'p-3 md:p-4' : 'p-3 md:p-4 pb-0'}`}>
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isAuthorsOpen ? 'p-2 md:p-4' : 'p-2 md:p-4 pb-0'}`}>
               <button
                 data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
-                className={`w-full flex items-center text-red-600 font-bold text-xs md:text-sm uppercase tracking-wide hover:bg-orange-50 p-3 md:p-4 -m-3 md:-m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <BookOpen className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1.5 md:mr-2" />
-                <span className="flex-1 text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">AUTHORS & BOOKS</span>
-                {isAuthorsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" />}
+                <BookOpen className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
+                <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">AUTHORS & BOOKS</span>
+                {isAuthorsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
               </button>
 
               {isAuthorsOpen && (
@@ -1461,15 +1461,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             </div>
 
             {userState.suggestNewAuthors && (
-              <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isRecommendationsOpen ? 'p-3 md:p-4' : 'p-3 md:p-4 pb-0'}`}>
+              <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isRecommendationsOpen ? 'p-2 md:p-4' : 'p-2 md:p-4 pb-0'}`}>
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                  className={`w-full flex items-center text-red-600 font-bold text-xs md:text-sm uppercase tracking-wide hover:bg-orange-50 p-3 md:p-4 -m-3 md:-m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
+                  className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
-                  <Users className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1.5 md:mr-2" />
-                  <span className="flex-1 text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">RECOMMENDATIONS</span>
-                  {isRecommendationsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" />}
+                  <Users className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
+                  <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">RECOMMENDATIONS</span>
+                  {isRecommendationsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
                 </button>
 
                 {isRecommendationsOpen && (
@@ -1595,15 +1595,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             )}
 
 
-            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isPreferencesOpen ? 'p-3 md:p-4' : 'p-3 md:p-4 pb-0'}`}>
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isPreferencesOpen ? 'p-2 md:p-4' : 'p-2 md:p-4 pb-0'}`}>
               <button
                 data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
-                className={`w-full flex items-center text-red-600 font-bold text-xs md:text-sm uppercase tracking-wide hover:bg-orange-50 p-3 md:p-4 -m-3 md:-m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <Settings className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1.5 md:mr-2" />
-                <span className="flex-1 text-left min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">MY PREFERENCES</span>
-                {isPreferencesOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1.5 md:ml-2" />}
+                <Settings className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
+                <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">MY PREFERENCES</span>
+                {isPreferencesOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
               </button>
 
               {isPreferencesOpen && (
