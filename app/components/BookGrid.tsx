@@ -24,6 +24,7 @@ import {
 import type { Book, Platform } from "@/lib/types"
 import { updateBookStatus } from "@/lib/database"
 import { useToast } from "@/hooks/use-toast"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface BookGridProps {
   books: Book[]
@@ -74,6 +75,7 @@ export default function BookGrid({
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
   const { toast } = useToast()
+  const isMobile = useIsMobile()
 
   const handleMarkAsRead = async (bookId: string, title: string, author: string) => {
     if (isUpdating.has(bookId)) return
@@ -521,70 +523,123 @@ export default function BookGrid({
               onClick={() => onBookClick?.(book.id)}
               style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
-              <CardContent className="p-6">
-                <div className="space-y-4">
-
-                  {/* Book Cover - only show if memory aid preference is enabled */}
-                  {book.thumbnail && showCovers && (
-                    <div className="flex justify-center mt-4">
-                      <img
-                        src={book.thumbnail || "/placeholder.svg"}
-                        alt={book.title}
-                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
-                      />
-                    </div>
-                  )}
-
-                  {/* Book Info */}
+              <CardContent className={isMobile ? "p-4" : "p-6"}>
+                {isMobile ? (
+                  /* Simplified Mobile View - iPhone */
                   <div className="space-y-3">
-                    <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
+                    {/* Title */}
+                    <h3 className="font-black text-black text-base leading-tight uppercase">
                       {book.title}
                     </h3>
-                    <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
+                    
+                    {/* Author */}
+                    <p className="text-red-600 font-bold text-sm uppercase">{getAuthorName(book)}</p>
 
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      {book.publishedDate && (
-                        <div
-                          className={`flex items-center gap-1 ${
-                            isUpcoming
-                              ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
-                              : "text-black"
-                          }`}
-                        >
-                          <Calendar
-                            className={`w-3 h-3 ${
-                              isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
-                            }`}
-                          />
-                          <span className="font-bold">
-                            {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
-                          </span>
-                          {isUpcoming && (
-                            <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
-                          )}
-                        </div>
-                      )}
-                      {book.pageCount && book.pageCount > 0 && (
-                        <div className="flex items-center gap-1 text-black">
-                          <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                          <span className="font-bold">{book.pageCount} pages</span>
-                        </div>
-                      )}
-                      {book.language && book.language !== "en" && (
-                        <div className="flex items-center gap-1 text-black">
-                          <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                          <span className="font-bold">{book.language.toUpperCase()}</span>
-                        </div>
-                      )}
+                    {/* Status Badge */}
+                    <div className="flex justify-center">
+                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
+                        {getStatusText(status)}
+                      </Badge>
                     </div>
-                  </div>
 
-                  {/* Status Badge */}
-                  <div className="flex justify-center">
-                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
-                      {getStatusText(status)}
-                    </Badge>
+                    {/* Platform Links - Simplified */}
+                    {platforms.length > 0 && (
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {platforms.slice(0, 4).map((platform) => (
+                          <Button
+                            key={platform.name}
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openPlatformLink(book, platform)
+                            }}
+                            className="border-2 border-black text-black hover:bg-orange-50 bg-white text-xs font-bold h-7 px-2"
+                          >
+                            {platform.name === "Kindle" && (
+                              <BookCheck className="w-3 h-3 mr-1" />
+                            )}
+                            {platform.name === "Audible" && (
+                              <Headphones className="w-3 h-3 mr-1" />
+                            )}
+                            {platform.name === "Books" && (
+                              <ShoppingCart className="w-3 h-3 mr-1" />
+                            )}
+                            {!["Kindle", "Audible", "Books"].includes(platform.name) && (
+                              <Globe className="w-3 h-3 mr-1" />
+                            )}
+                            {platform.name === "Books" ? "Print" : 
+                             platform.name === "OverDrive/Libby" ? "Library" : 
+                             platform.name}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  /* Full Desktop View */
+                  <div className="space-y-4">
+                    {/* Book Cover - only show if memory aid preference is enabled */}
+                    {book.thumbnail && showCovers && (
+                      <div className="flex justify-center mt-4">
+                        <img
+                          src={book.thumbnail || "/placeholder.svg"}
+                          alt={book.title}
+                          className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
+                        />
+                      </div>
+                    )}
+
+                    {/* Book Info */}
+                    <div className="space-y-3">
+                      <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
+                        {book.title}
+                      </h3>
+                      <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
+
+                      <div className="flex flex-wrap gap-2 text-sm">
+                        {book.publishedDate && (
+                          <div
+                            className={`flex items-center gap-1 ${
+                              isUpcoming
+                                ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
+                                : "text-black"
+                            }`}
+                          >
+                            <Calendar
+                              className={`w-3 h-3 ${
+                                isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
+                              }`}
+                            />
+                            <span className="font-bold">
+                              {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
+                            </span>
+                            {isUpcoming && (
+                              <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
+                            )}
+                          </div>
+                        )}
+                        {book.pageCount && book.pageCount > 0 && (
+                          <div className="flex items-center gap-1 text-black">
+                            <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            <span className="font-bold">{book.pageCount} pages</span>
+                          </div>
+                        )}
+                        {book.language && book.language !== "en" && (
+                          <div className="flex items-center gap-1 text-black">
+                            <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            <span className="font-bold">{book.language.toUpperCase()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex justify-center">
+                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
+                        {getStatusText(status)}
+                      </Badge>
+                    </div>
 
                   {/* Description */}
                   {book.description && (
