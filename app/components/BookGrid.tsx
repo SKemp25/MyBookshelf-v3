@@ -1116,7 +1116,7 @@ export default function BookGrid({
                   </div>
                 )}
               </CardContent>
-              )}
+            )}
             </Card>
           )
         })}
