@@ -157,7 +157,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           <CardContent className="space-y-3 pt-2">
           {/* Publication Settings */}
           <div className="space-y-2">
-            <Label className="text-sm font-bold text-orange-700">Publication Settings</Label>
+            <Label className="text-sm font-extrabold text-orange-700">Publication Settings</Label>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -222,7 +222,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-orange-700">Show/Hide</Label>
+                  <Label className="text-sm font-extrabold text-orange-700">Show/Hide</Label>
                   <div className="space-y-2">
               {/* Show heart books only */}
               {setShowHeartedBooks && (
@@ -272,7 +272,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Genre Filter */}
           <div className="space-y-2">
-            <Label className="text-sm font-bold text-orange-700">Genre</Label>
+            <Label className="text-sm font-extrabold text-orange-700">Genre</Label>
             <Select value={safeFilters.genre} onValueChange={(value) => updateFilter("genre", value)}>
               <SelectTrigger className="border-orange-200 focus:border-orange-400 h-8">
                 <SelectValue />
@@ -305,7 +305,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Year Range */}
           <div className="space-y-2">
-            <Label className="text-sm font-bold text-orange-700">Publication Year</Label>
+            <Label className="text-sm font-extrabold text-orange-700">Publication Year</Label>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor="year-start" className="text-xs text-orange-600">
@@ -338,7 +338,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Title Contains */}
           <div className="space-y-2">
-            <Label htmlFor="title-contains" className="text-sm font-bold text-orange-700">
+            <Label htmlFor="title-contains" className="text-sm font-extrabold text-orange-700">
               Title Contains
             </Label>
             <Input
@@ -352,7 +352,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
           {/* Exclude Words */}
           <div className="space-y-2">
-            <Label className="text-sm font-bold text-orange-700">Title Do Not Contain</Label>
+            <Label className="text-sm font-extrabold text-orange-700">Title Do Not Contain</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Word to exclude..."
