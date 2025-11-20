@@ -668,7 +668,11 @@ export default function BookGrid({
                   ? "shadow-blue-200 ring-2 ring-blue-200 bg-gradient-to-br from-white to-blue-50 text-black"
                   : highContrast ? "bg-white text-black" : "bg-white text-black"
               }`}
-              onClick={viewMode === "cover" ? undefined : () => onBookClick?.(book.id)}
+              onClick={viewMode === "cover" ? (e) => {
+                // Prevent any click handling on the Card itself in cover view
+                e.preventDefault()
+                e.stopPropagation()
+              } : () => onBookClick?.(book.id)}
               style={{ cursor: viewMode === "cover" ? 'default' : (onBookClick ? 'pointer' : 'default') }}
             >
               {viewMode === "cover" ? (
@@ -686,6 +690,7 @@ export default function BookGrid({
                     } else {
                       console.warn("onCoverClick is not defined!")
                     }
+                    return false
                   }}
                 >
                   {book.thumbnail && showCovers ? (
