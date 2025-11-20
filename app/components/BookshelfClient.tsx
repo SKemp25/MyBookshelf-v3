@@ -1163,7 +1163,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 placeholder="Search books..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-full text-sm md:text-base bg-white"
+                className="pl-10 w-full text-sm md:text-base bg-white text-black placeholder:text-gray-500"
               />
             </div>
           </div>
