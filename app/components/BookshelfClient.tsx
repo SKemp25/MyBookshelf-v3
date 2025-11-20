@@ -1807,7 +1807,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "library" ? "bg-white/20" : ""}`}
+            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "library" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "library" ? null : "library")}
           >
             <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -1817,7 +1817,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === null ? "" : ""}`}
+            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
             onClick={() => setShowAuthorsDialog(true)}
           >
             <Users className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -1827,7 +1827,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "favorites" ? "bg-white/20" : ""}`}
+            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "favorites" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "favorites" ? null : "favorites")}
           >
             <Heart className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -1837,7 +1837,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "want-to-read" ? "bg-white/20" : ""}`}
+            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "want-to-read" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "want-to-read" ? null : "want-to-read")}
           >
             <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -1847,7 +1847,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "finished" ? "bg-white/20" : ""}`}
+            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "finished" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "finished" ? null : "finished")}
           >
             <BookCheck className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -1857,7 +1857,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2"
+            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
             onClick={() => setShowExportDialog(true)}
           >
             <FileText className="w-5 h-5 md:w-6 md:h-6 text-white" />
