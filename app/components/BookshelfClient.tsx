@@ -278,7 +278,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [showOnboarding, setShowOnboarding] = useState(false)
   
   // New Apple Books layout state
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "cover">("grid")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
@@ -1385,7 +1385,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white hover:bg-white/20 p-2">
                   {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
                   {viewMode === "list" && <List className="w-4 h-4" />}
-                  {viewMode === "cover" && <ImageIcon className="w-4 h-4" />}
                   <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -1399,10 +1398,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <DropdownMenuItem onClick={() => setViewMode("list")}>
                   <List className="w-4 h-4 mr-2" />
                   List View
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setViewMode("cover")}>
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  Cover Only
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1603,20 +1598,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 memoryAids={userState.memoryAids || []}
                 viewMode={viewMode}
                 onSortChange={setSortBy}
-                onCoverClick={(bookId) => {
-                  console.log("onCoverClick called with bookId:", bookId)
-                  // Find the book by ID
-                  const book = books.find(b => b.id === bookId)
-                  console.log("Found book:", book)
-                  if (book) {
-                    console.log("Switching to grid view and filtering to:", book.title)
-                    // Switch to grid view and filter to show just this book
-                    setViewMode("grid")
-                    setSearchQuery(book.title)
-                    // Clear any other filters that might interfere
-                    setSelectedAuthors([])
-                  }
-                }}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)

@@ -52,9 +52,8 @@ interface BookGridProps {
   recommendedAuthors?: Set<string> // Authors that came from recommendations
   onAddAuthor?: (authorName: string) => void // Add all books by an author
   memoryAids?: string[] // Memory aid preferences
-  viewMode?: "grid" | "list" | "cover" // View mode for displaying books
+  viewMode?: "grid" | "list" // View mode for displaying books
   onSortChange?: (sortBy: string) => void // Callback to change sorting
-  onCoverClick?: (bookId: string) => void // Callback when cover is clicked in cover view
 }
 
 export default function BookGrid({
@@ -80,7 +79,6 @@ export default function BookGrid({
   memoryAids = [],
   viewMode = "grid",
   onSortChange,
-  onCoverClick,
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
