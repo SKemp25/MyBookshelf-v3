@@ -1278,7 +1278,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             </DropdownMenu>
 
             {/* Account Manager */}
-            <div className="scale-75 md:scale-100 origin-right">
+            <div className="flex-shrink-0">
               <AccountManager user={user} isLoggedIn={isLoggedIn} />
             </div>
           </div>

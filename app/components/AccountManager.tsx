@@ -170,10 +170,10 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
           onClick={() => setShowAuth(true)}
           variant="outline"
           size="sm"
-          className="w-full border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 hover:border-orange-300 bg-white"
+          className="border-white/30 text-white hover:bg-white/20 hover:text-white bg-white/10 backdrop-blur-sm"
         >
-          <LogIn className="w-4 h-4 mr-2" />
-          <span>Login</span>
+          <LogIn className="w-4 h-4 mr-1 md:mr-2" />
+          <span className="text-xs md:text-sm font-medium">Login</span>
         </Button>
       )}
 

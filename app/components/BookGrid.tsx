@@ -539,21 +539,10 @@ export default function BookGrid({
               onClick={() => onBookClick?.(book.id)}
               style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
-              <CardContent className={isMobile ? "p-5" : "p-6"}>
+              <CardContent className={isMobile ? "p-4" : "p-6"}>
                 {isMobile ? (
-                  /* Enhanced Mobile View - iPhone */
-                  <div className="space-y-4">
-                    {/* Book Cover - if available */}
-                    {book.thumbnail && showCovers && (
-                      <div className="flex justify-center">
-                        <img
-                          src={book.thumbnail || "/placeholder.svg"}
-                          alt={book.title}
-                          className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black"
-                        />
-                      </div>
-                    )}
-
+                  /* Clean Mobile View - iPhone */
+                  <div className="space-y-3">
                     {/* Title */}
                     <h3 className="font-black text-black text-base leading-tight uppercase">
                       {book.title}
@@ -562,33 +551,15 @@ export default function BookGrid({
                     {/* Author */}
                     <p className="text-red-600 font-bold text-sm uppercase">{getAuthorName(book)}</p>
 
-                    {/* Book Info - Publication Date, Pages, Language */}
-                    <div className="flex flex-wrap gap-2 text-xs">
+                    {/* Book Info - Compact */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
                       {book.publishedDate && (
-                        <div
-                          className={`flex items-center gap-1 ${
-                            isUpcoming
-                              ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          <Calendar className={`w-3 h-3 ${isUpcoming ? "text-emerald-600" : ""}`} />
-                          <span className="font-bold">
-                            {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
-                          </span>
-                        </div>
+                        <span className="font-medium">
+                          {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
+                        </span>
                       )}
                       {book.pageCount && book.pageCount > 0 && (
-                        <div className="flex items-center gap-1 text-gray-700">
-                          <FileText className="w-3 h-3" />
-                          <span className="font-bold">{book.pageCount} pages</span>
-                        </div>
-                      )}
-                      {book.language && book.language !== "en" && (
-                        <div className="flex items-center gap-1 text-gray-700">
-                          <Globe className="w-3 h-3" />
-                          <span className="font-bold">{book.language.toUpperCase()}</span>
-                        </div>
+                        <span className="font-medium">• {book.pageCount} pages</span>
                       )}
                     </div>
 
@@ -599,11 +570,10 @@ export default function BookGrid({
                       </Badge>
                     </div>
 
-                    {/* Reading Status Buttons */}
-                    <div className="flex gap-2 justify-center">
+                    {/* Reading Status Buttons - Compact */}
+                    <div className="flex gap-1 justify-center">
                       {status === "read" ? (
-                        // Show rating buttons for read books
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -611,12 +581,12 @@ export default function BookGrid({
                               const newRating = currentRating === "loved" ? null : "loved"
                               onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
                             }}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 rounded transition-colors ${
                               bookRatings.get(bookId) === "loved"
                                 ? "bg-pink-100 text-pink-600"
                                 : "text-gray-400 hover:text-pink-600 hover:bg-pink-50"
                             }`}
-                            title="I loved this book"
+                            title="Loved"
                           >
                             <Heart className={`w-4 h-4 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
                           </button>
@@ -627,32 +597,18 @@ export default function BookGrid({
                               const newRating = currentRating === "liked" ? null : "liked"
                               onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
                             }}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 rounded transition-colors ${
                               bookRatings.get(bookId) === "liked"
                                 ? "bg-blue-100 text-blue-600"
                                 : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                             }`}
-                            title="I liked this book"
+                            title="Liked"
                           >
                             <ThumbsUp className={`w-4 h-4 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
                           </button>
-                          {onUnmarkAsRead && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleUnmarkAsRead(bookId, book.title, getAuthorName(book))
-                              }}
-                              disabled={isBookUpdating}
-                              className="p-2 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                              title="Unmark as read"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </button>
-                          )}
                         </div>
                       ) : (
-                        // Show Read/Want/Pass buttons for unread books
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 w-full">
                           <Button
                             variant="outline"
                             size="sm"
@@ -661,8 +617,7 @@ export default function BookGrid({
                               handleMarkAsRead(bookId, book.title, getAuthorName(book))
                             }}
                             disabled={isBookUpdating}
-                            className="h-8 px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                            title="Mark as read"
+                            className="flex-1 h-8 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
                           >
                             <BookCheck className="w-3 h-3 mr-1" />
                             Read
@@ -675,8 +630,7 @@ export default function BookGrid({
                               onMarkAsWant(bookId, book.title, getAuthorName(book))
                             }}
                             disabled={isBookUpdating}
-                            className="h-8 px-3 text-xs font-bold border-2 border-blue-400 text-blue-800 hover:bg-blue-50 bg-white"
-                            title="Want to read"
+                            className="flex-1 h-8 text-xs font-bold border-2 border-blue-400 text-blue-800 hover:bg-blue-50 bg-white"
                           >
                             <BookmarkPlus className="w-3 h-3 mr-1" />
                             Want
@@ -689,12 +643,11 @@ export default function BookGrid({
                               onToggleDontWant(bookId, book.title, getAuthorName(book))
                             }}
                             disabled={isBookUpdating}
-                            className={`h-8 px-3 text-xs font-bold border-2 bg-white ${
+                            className={`flex-1 h-8 text-xs font-bold border-2 bg-white ${
                               status === "pass"
                                 ? "border-red-500 text-red-800 hover:bg-red-50"
                                 : "border-gray-400 text-gray-800 hover:bg-gray-50"
                             }`}
-                            title="Pass on this book"
                           >
                             <BookX className="w-3 h-3 mr-1" />
                             Pass
@@ -705,17 +658,17 @@ export default function BookGrid({
 
                     {/* Description - Expandable */}
                     {book.description && (
-                      <div className="space-y-2">
-                        <p className={`text-xs text-gray-700 leading-relaxed ${expandedMobileDescriptions.has(book.id) ? "" : "line-clamp-3"}`}>
+                      <div className="space-y-1">
+                        <p className={`text-xs text-gray-700 leading-relaxed ${expandedMobileDescriptions.has(book.id) ? "" : "line-clamp-2"}`}>
                           {book.description}
                         </p>
-                        {book.description.length > 150 && (
+                        {book.description.length > 100 && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
                               toggleMobileDescription(book.id)
                             }}
-                            className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                            className="text-xs text-orange-600 hover:text-orange-700 font-bold"
                           >
                             {expandedMobileDescriptions.has(book.id) ? "Show less" : "Read more"}
                           </button>
@@ -723,7 +676,7 @@ export default function BookGrid({
                       </div>
                     )}
 
-                    {/* Platform Links */}
+                    {/* Platform Links - Compact */}
                     {platforms.length > 0 && (
                       <div className="flex flex-wrap gap-1 justify-center pt-2 border-t border-gray-200">
                         {platforms.slice(0, 4).map((platform) => (
@@ -735,23 +688,17 @@ export default function BookGrid({
                               e.stopPropagation()
                               openPlatformLink(book, platform)
                             }}
-                            className="border-2 border-black text-black hover:bg-orange-50 bg-white text-xs font-bold h-7 px-2"
+                            className="border border-gray-300 text-gray-700 hover:bg-orange-50 bg-white text-xs h-6 px-2"
                           >
-                            {platform.name === "Kindle" && (
-                              <BookCheck className="w-3 h-3 mr-1" />
-                            )}
-                            {platform.name === "Audible" && (
-                              <Headphones className="w-3 h-3 mr-1" />
-                            )}
-                            {platform.name === "Books" && (
-                              <ShoppingCart className="w-3 h-3 mr-1" />
-                            )}
-                            {!["Kindle", "Audible", "Books"].includes(platform.name) && (
-                              <Globe className="w-3 h-3 mr-1" />
-                            )}
-                            {platform.name === "Books" ? "Print" : 
-                             platform.name === "OverDrive/Libby" ? "Library" : 
-                             platform.name}
+                            {platform.name === "Kindle" && <BookCheck className="w-3 h-3" />}
+                            {platform.name === "Audible" && <Headphones className="w-3 h-3" />}
+                            {platform.name === "Books" && <ShoppingCart className="w-3 h-3" />}
+                            {!["Kindle", "Audible", "Books"].includes(platform.name) && <Globe className="w-3 h-3" />}
+                            <span className="ml-1 hidden sm:inline">
+                              {platform.name === "Books" ? "Print" : 
+                               platform.name === "OverDrive/Libby" ? "Library" : 
+                               platform.name}
+                            </span>
                           </Button>
                         ))}
                       </div>
