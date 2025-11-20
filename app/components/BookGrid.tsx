@@ -1246,146 +1246,366 @@ export default function BookGrid({
         })}
       </div>
 
-      {/* Book Detail Dialog */}
+      {/* Book Detail Dialog - Shows same card as grid view */}
       {selectedBookId && (() => {
         const selectedBook = books.find(b => b.id === selectedBookId)
         if (!selectedBook) return null
         const bookId = `${selectedBook.title}-${selectedBook.author}`
         const status = getReadingStatus(bookId)
-        const bookAuthor = getAuthorName(selectedBook)
+        const isExpanded = expandedDescriptions.has(selectedBook.id)
         const isUpcoming = isUpcomingRelease(selectedBook.publishedDate || "")
+        const isBookUpdating = isUpdating.has(bookId)
+        const bookAuthor = getAuthorName(selectedBook)
+        const isRecommendedAuthor = recommendedAuthors.has(bookAuthor)
 
         return (
           <Dialog open={!!selectedBookId} onOpenChange={(open) => !open && setSelectedBookId(null)}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold">{selectedBook.title}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Cover and Basic Info */}
-                <div className="flex gap-4">
-                  {selectedBook.thumbnail && showCovers && (
-                    <img
-                      src={selectedBook.thumbnail || "/placeholder.svg"}
-                      alt={selectedBook.title}
-                      className="w-32 h-48 object-cover rounded-lg shadow-md flex-shrink-0"
-                    />
-                  )}
-                  <div className="flex-1 space-y-2">
-                    <p className="text-red-600 font-bold text-lg">{bookAuthor}</p>
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      {selectedBook.publishedDate && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{isUpcoming ? formatUpcomingDate(selectedBook.publishedDate) : selectedBook.publishedDate}</span>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+              <Card
+                className={`shadow-lg ${
+                  isUpcoming
+                    ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-white to-yellow-50 text-black"
+                    : isRecommendedAuthor
+                    ? "shadow-blue-200 ring-2 ring-blue-200 bg-gradient-to-br from-white to-blue-50 text-black"
+                    : highContrast ? "bg-white text-black" : "bg-white text-black"
+                }`}
+              >
+                <CardContent className="p-6">
+                  {/* Full Desktop View - Same as grid view */}
+                  <div className="space-y-4">
+                    {/* Book Cover - only show if memory aid preference is enabled */}
+                    {selectedBook.thumbnail && showCovers && (
+                      <div className="flex justify-center mt-4">
+                        <img
+                          src={selectedBook.thumbnail || "/placeholder.svg"}
+                          alt={selectedBook.title}
+                          className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
+                        />
+                      </div>
+                    )}
+
+                    {/* Book Info */}
+                    <div className="space-y-3">
+                      <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
+                        {selectedBook.title}
+                      </h3>
+                      <p className="text-red-600 font-bold text-base uppercase">{bookAuthor}</p>
+
+                      <div className="flex flex-wrap gap-2 text-sm">
+                        {selectedBook.publishedDate && (
+                          <div
+                            className={`flex items-center gap-1 ${
+                              isUpcoming
+                                ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
+                                : "text-black"
+                            }`}
+                          >
+                            <Calendar
+                              className={`w-3 h-3 ${
+                                isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
+                              }`}
+                            />
+                            <span className="font-bold">
+                              {isUpcoming ? formatUpcomingDate(selectedBook.publishedDate) : selectedBook.publishedDate}
+                            </span>
+                            {isUpcoming && (
+                              <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
+                            )}
+                          </div>
+                        )}
+                        {selectedBook.pageCount && selectedBook.pageCount > 0 && (
+                          <div className="flex items-center gap-1 text-black">
+                            <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            <span className="font-bold">{selectedBook.pageCount} pages</span>
+                          </div>
+                        )}
+                        {selectedBook.language && selectedBook.language !== "en" && (
+                          <div className="flex items-center gap-1 text-black">
+                            <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            <span className="font-bold">{selectedBook.language.toUpperCase()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex justify-center">
+                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
+                        {getStatusText(status)}
+                      </Badge>
+                    </div>
+
+                    {/* Description */}
+                    {selectedBook.description && (
+                      <div className="space-y-2">
+                        <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
+                          {selectedBook.description}
+                        </p>
+                        {selectedBook.description.length > 300 && (
+                          <button
+                            onClick={() => toggleDescription(selectedBook.id)}
+                            className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                          >
+                            {isExpanded ? "Show less" : "Read more"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                      {status === "read" ? (
+                        // Show rating buttons and unmark button for read books
+                        <div className="space-y-2">
+                          <div className="flex gap-6 md:gap-8 justify-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const currentRating = bookRatings.get(bookId)
+                                const newRating = currentRating === "loved" ? null : "loved"
+                                onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                              }}
+                              className={`p-2 rounded transition-colors ${
+                                bookRatings.get(bookId) === "loved"
+                                  ? "bg-pink-100 text-pink-600"
+                                  : "text-gray-400 hover:text-pink-600 hover:bg-pink-50"
+                              }`}
+                              title="I loved this book"
+                            >
+                              <Heart className={`w-5 h-5 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const currentRating = bookRatings.get(bookId)
+                                const newRating = currentRating === "liked" ? null : "liked"
+                                onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                              }}
+                              className={`p-2 rounded transition-colors ${
+                                bookRatings.get(bookId) === "liked"
+                                  ? "bg-blue-100 text-blue-600"
+                                  : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                              }`}
+                              title="I liked this book"
+                            >
+                              <ThumbsUp className={`w-5 h-5 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const currentRating = bookRatings.get(bookId)
+                                const newRating = currentRating === "didnt-like" ? null : "didnt-like"
+                                onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                              }}
+                              className={`p-2 rounded transition-colors ${
+                                bookRatings.get(bookId) === "didnt-like"
+                                  ? "bg-gray-100 text-gray-600"
+                                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                              }`}
+                              title="I didn't like this book or gave up on it"
+                            >
+                              <ThumbsDown className={`w-5 h-5 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
+                            </button>
+                          </div>
+                          {onUnmarkAsRead && (
+                            <div className="flex justify-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleUnmarkAsRead(bookId, selectedBook.title, bookAuthor)
+                                }}
+                                disabled={isBookUpdating}
+                                className="h-6 px-1.5 text-[10px] font-normal border-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100 bg-transparent"
+                                title="Unmark as read"
+                              >
+                                <RotateCcw className="w-3 h-3 mr-0.5" />
+                                Unmark
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {selectedBook.pageCount && selectedBook.pageCount > 0 && (
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" />
-                          <span>{selectedBook.pageCount} pages</span>
+                      ) : (
+                        // Show Read/Want/Pass buttons for unread books
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMarkAsRead(bookId, selectedBook.title, bookAuthor)}
+                            disabled={isBookUpdating}
+                            className="h-8 px-2 md:px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white flex-shrink-0"
+                            title="Mark as read"
+                          >
+                            <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            Read
+                          </Button>
+                          <Button
+                            variant={status === "want" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleMarkAsWant(bookId, selectedBook.title, bookAuthor)}
+                            disabled={isBookUpdating}
+                            className={`h-8 px-2 md:px-3 text-xs font-bold border-2 flex-shrink-0 ${
+                              status === "want"
+                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                                : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                            }`}
+                            title={status === "want" ? "Remove from want to read" : "Add to want to read"}
+                          >
+                            <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            Want
+                          </Button>
+                          <Button
+                            variant={status === "pass" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleToggleDontWant(bookId, selectedBook.title, bookAuthor)}
+                            disabled={isBookUpdating}
+                            className={`h-8 px-2 md:px-3 text-xs font-bold border-2 flex-shrink-0 ${
+                              status === "pass"
+                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                                : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                            }`}
+                            title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
+                          >
+                            <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                            Pass
+                          </Button>
                         </div>
                       )}
                     </div>
-                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
-                      {getStatusText(status)}
-                    </Badge>
-                  </div>
-                </div>
 
-                {/* Description */}
-                {selectedBook.description && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-2">Description</h4>
-                    <p className="text-sm text-gray-700 leading-relaxed">{selectedBook.description}</p>
-                  </div>
-                )}
+                    {/* Platform Links */}
+                    {platforms.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold text-red-600 uppercase tracking-wide">Find on:</div>
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {platforms.slice(0, 4).map((platform) => (
+                            <Button
+                              key={platform.name}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPlatformLink(selectedBook, platform)}
+                              className="border-2 border-black text-black hover:bg-orange-50 bg-white text-xs font-bold h-8 px-3"
+                            >
+                              {platform.name === "Kindle" && (
+                                <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Audible" && (
+                                <Headphones className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Books" && (
+                                <ShoppingCart className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {!["Kindle", "Audible", "Books"].includes(platform.name) && (
+                                <Globe className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                              )}
+                              {platform.name === "Books" ? "Print" : 
+                               platform.name === "OverDrive/Libby" ? "Library" : 
+                               platform.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-4 border-t">
-                  {status === "read" ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const currentRating = bookRatings.get(bookId)
-                          const newRating = currentRating === "loved" ? null : "loved"
-                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                        }}
-                        className={bookRatings.get(bookId) === "loved" ? "bg-pink-100 text-pink-600" : ""}
-                      >
-                        <Heart className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
-                        {bookRatings.get(bookId) === "loved" ? "Loved" : "Love"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const currentRating = bookRatings.get(bookId)
-                          const newRating = currentRating === "liked" ? null : "liked"
-                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                        }}
-                        className={bookRatings.get(bookId) === "liked" ? "bg-blue-100 text-blue-600" : ""}
-                      >
-                        <ThumbsUp className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
-                        {bookRatings.get(bookId) === "liked" ? "Liked" : "Like"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const currentRating = bookRatings.get(bookId)
-                          const newRating = currentRating === "didnt-like" ? null : "didnt-like"
-                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
-                        }}
-                        className={bookRatings.get(bookId) === "didnt-like" ? "bg-gray-100 text-gray-600" : ""}
-                      >
-                        <ThumbsDown className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
-                        {bookRatings.get(bookId) === "didnt-like" ? "Didn't Like" : "Didn't Like"}
-                      </Button>
-                      {onUnmarkAsRead && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUnmarkAsRead(bookId, selectedBook.title, bookAuthor)}
-                        >
-                          <RotateCcw className="w-4 h-4 mr-2" />
-                          Unmark as Read
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleMarkAsRead(bookId, selectedBook.title, bookAuthor)}
-                      >
-                        <BookCheck className="w-4 h-4 mr-2" />
-                        Mark as Read
-                      </Button>
-                      <Button
-                        variant={status === "want" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => onMarkAsWant(bookId, selectedBook.title, bookAuthor)}
-                        className={status === "want" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
-                      >
-                        <BookmarkPlus className="w-4 h-4 mr-2" />
-                        {status === "want" ? "Want to Read" : "Want to Read"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onToggleDontWant(bookId, selectedBook.title, bookAuthor)}
-                      >
-                        <BookX className="w-4 h-4 mr-2" />
-                        Pass
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
+                    {/* Series Books Button */}
+                    {selectedBook.seriesInfo && (() => {
+                      // Normalize series name for matching (case-insensitive, trim whitespace)
+                      const normalizeSeriesName = (name: string) => name.toLowerCase().trim()
+                      const currentSeriesName = normalizeSeriesName(selectedBook.seriesInfo.name)
+                      
+                      const seriesBooks = books
+                        .filter(b => {
+                          if (!b.seriesInfo) return false
+                          const bSeriesName = normalizeSeriesName(b.seriesInfo.name)
+                          return bSeriesName === currentSeriesName && getAuthorName(b) === bookAuthor
+                        })
+                        .sort((a, b) => {
+                          // Sort by series number first, then by publication date
+                          if (a.seriesInfo?.number && b.seriesInfo?.number) {
+                            return a.seriesInfo.number - b.seriesInfo.number
+                          }
+                          const dateA = new Date(a.publishedDate || "1900").getTime()
+                          const dateB = new Date(b.publishedDate || "1900").getTime()
+                          return dateA - dateB
+                        })
+                      
+                      const hasOtherBooksInSeries = seriesBooks.length > 1
+                      
+                      return hasOtherBooksInSeries ? (
+                        <div className="space-y-2">
+                          <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">
+                            {selectedBook.seriesInfo.name} Series:
+                          </div>
+                          <div className="flex justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowSeriesForBookId(showSeriesForBookId === selectedBook.id ? null : selectedBook.id)
+                              }}
+                              className="border-2 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white text-xs font-bold h-8 px-3"
+                            >
+                              <List className="w-3 h-3 mr-1" />
+                              {showSeriesForBookId === selectedBook.id ? "Hide" : "Show"} Series ({seriesBooks.length} books)
+                            </Button>
+                          </div>
+                          
+                          {showSeriesForBookId === selectedBook.id && (
+                            <div className="mt-3 space-y-2 max-h-64 overflow-y-auto border-t border-blue-200 pt-3">
+                              {seriesBooks.map((seriesBook) => {
+                                const seriesBookId = `${seriesBook.title}-${seriesBook.author}`
+                                const seriesStatus = getReadingStatus(seriesBookId)
+                                const isCurrentBook = seriesBook.id === selectedBook.id
+                                
+                                return (
+                                  <div
+                                    key={seriesBook.id}
+                                    className={`p-2 rounded border-2 ${
+                                      isCurrentBook
+                                        ? "border-blue-500 bg-blue-50"
+                                        : "border-gray-200 bg-white hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {seriesBook.seriesInfo?.number && (
+                                            <Badge
+                                              variant="outline"
+                                              className="border-blue-300 text-blue-700 bg-blue-50 text-xs px-1.5 py-0 font-bold"
+                                            >
+                                              #{seriesBook.seriesInfo.number}
+                                            </Badge>
+                                          )}
+                                          <h4 className={`text-sm font-bold ${isCurrentBook ? "text-blue-900" : "text-gray-900"}`}>
+                                            {seriesBook.title}
+                                          </h4>
+                                        </div>
+                                        {seriesBook.publishedDate && (
+                                          <p className="text-xs text-gray-600">
+                                            {seriesBook.publishedDate}
+                                          </p>
+                                        )}
+                                        <Badge
+                                          className={`${getStatusColor(seriesStatus)} border border-gray-300 font-bold uppercase text-xs mt-1`}
+                                        >
+                                          {getStatusText(seriesStatus)}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
             </DialogContent>
           </Dialog>
         )
