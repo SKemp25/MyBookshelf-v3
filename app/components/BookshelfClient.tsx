@@ -2380,8 +2380,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </div>
             )}
           </aside>
-        </div>
-      </div>
+        )}
 
       {/* Dialogs for Settings, Authors, Filters */}
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
