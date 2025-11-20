@@ -641,25 +641,25 @@ export default function BookGrid({
                       </Badge>
                     </div>
 
-                  {/* Description */}
-                  {book.description && (
-                    <div className="space-y-2">
-                      <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
-                        {book.description}
-                      </p>
-                      {book.description.length > 300 && (
-                        <button
-                          onClick={() => toggleDescription(book.id)}
-                          className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
-                        >
-                          {isExpanded ? "Show less" : "Read more"}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    {/* Description */}
+                    {book.description && (
+                      <div className="space-y-2">
+                        <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
+                          {book.description}
+                        </p>
+                        {book.description.length > 300 && (
+                          <button
+                            onClick={() => toggleDescription(book.id)}
+                            className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                          >
+                            {isExpanded ? "Show less" : "Read more"}
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Action Buttons */}
-                  <div className="space-y-3">
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
                     {status === "read" ? (
                       // Show rating buttons and unmark button for read books
                       <div className="space-y-2">
