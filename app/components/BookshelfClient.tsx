@@ -158,7 +158,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
-  const [colorTheme, setColorTheme] = useState<ColorTheme>('orange')
+  // Initialize color theme from localStorage if available
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('bookshelf_color_theme') as ColorTheme | null
+      if (savedTheme && colorThemes[savedTheme as ColorTheme]) {
+        return savedTheme as ColorTheme
+      }
+    }
+    return 'orange'
+  })
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
   
   // Collapsible sections for Preferences
