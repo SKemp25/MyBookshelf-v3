@@ -974,7 +974,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       })
       return result
     }
-    return base
+    return deduplicatedBase
   })()
 
   const getDefaultPlatformUrl = (platformName: string) => {
