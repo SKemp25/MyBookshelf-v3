@@ -2106,11 +2106,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <p className="text-xs text-blue-600 mt-2 text-center">
                         Take a guided tour to learn how to use all features
                       </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                </div>
               )}
-              </div>
+            </div>
 
             {/* Recently Viewed Section for Memory Support */}
             {recentlyViewed.length > 0 && (
