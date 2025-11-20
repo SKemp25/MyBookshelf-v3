@@ -1168,14 +1168,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
           {/* Right: Action Buttons */}
           <div className="flex items-center gap-0.5 md:gap-2 flex-shrink-0">
-            {/* View Dropdown - Hide on very small screens */}
+            {/* View Dropdown - Hide on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  {viewMode === "grid" && <Grid3x3 className="w-3 h-3 md:w-4 md:h-4" />}
-                  {viewMode === "list" && <List className="w-3 h-3 md:w-4 md:h-4" />}
-                  {viewMode === "cover" && <ImageIcon className="w-3 h-3 md:w-4 md:h-4" />}
-                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
+                <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white hover:bg-white/20 p-2">
+                  {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
+                  {viewMode === "list" && <List className="w-4 h-4" />}
+                  {viewMode === "cover" && <ImageIcon className="w-4 h-4" />}
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1196,13 +1196,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Sort Dropdown - Hide on very small screens */}
+            {/* Sort Dropdown - Hide on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
+                <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white hover:bg-white/20 p-2">
+                  <ArrowUpDown className="w-4 h-4" />
                   <span className="hidden lg:inline">Sort</span>
-                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1226,13 +1226,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Filter Dropdown - Hide on very small screens */}
+            {/* Filter Dropdown - Always visible */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  <Filter className="w-3 h-3 md:w-4 md:h-4" />
+                  <Filter className="w-4 h-4" />
                   <span className="hidden lg:inline">Filter</span>
-                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
+                  <ChevronDown className="w-3 h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
@@ -1248,8 +1248,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  <Settings className="w-3 h-3 md:w-4 md:h-4" />
-                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
+                  <Settings className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -1275,7 +1275,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Account Manager */}
+            {/* Account Manager - Always visible */}
             <div className="flex-shrink-0">
               <AccountManager user={user} isLoggedIn={isLoggedIn} />
             </div>
