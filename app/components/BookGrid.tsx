@@ -22,6 +22,9 @@ import {
   ThumbsDown,
   List,
   X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 import type { Book, Platform } from "@/lib/types"
 import { updateBookStatus } from "@/lib/database"
@@ -50,6 +53,7 @@ interface BookGridProps {
   onAddAuthor?: (authorName: string) => void // Add all books by an author
   memoryAids?: string[] // Memory aid preferences
   viewMode?: "grid" | "list" | "cover" // View mode for displaying books
+  onSortChange?: (sortBy: string) => void // Callback to change sorting
 }
 
 export default function BookGrid({
@@ -74,6 +78,7 @@ export default function BookGrid({
   onAddAuthor,
   memoryAids = [],
   viewMode = "grid",
+  onSortChange,
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
@@ -515,6 +520,48 @@ export default function BookGrid({
     )
   }
 
+  // Helper function to render sortable header
+  const renderSortableHeader = (label: string, sortKey: string) => {
+    const isActive = sortBy === sortKey
+    const handleClick = () => {
+      if (onSortChange) {
+        // Toggle between ascending and descending if already sorted by this column
+        if (isActive && sortBy === sortKey) {
+          // For now, just set the sort key (can enhance later to toggle direction)
+          onSortChange(sortKey)
+        } else {
+          onSortChange(sortKey)
+        }
+      }
+    }
+
+    return (
+      <th 
+        className={`text-left p-2 text-xs font-bold uppercase text-gray-700 ${
+          onSortChange ? "cursor-pointer hover:bg-gray-200 select-none" : ""
+        } transition-colors`}
+        onClick={handleClick}
+      >
+        <div className="flex items-center gap-1">
+          <span>{label}</span>
+          {onSortChange && (
+            <span className="text-gray-400">
+              {isActive ? (
+                sortKey === "newest" || sortKey === "pages" ? (
+                  <ArrowDown className="w-3 h-3" />
+                ) : (
+                  <ArrowUp className="w-3 h-3" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3" />
+              )}
+            </span>
+          )}
+        </div>
+      </th>
+    )
+  }
+
   // For list view, render as a table
   if (viewMode === "list") {
     return (
@@ -522,12 +569,12 @@ export default function BookGrid({
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 border-b-2 border-gray-300">
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Cover</th>
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Title</th>
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Author</th>
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Published</th>
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Pages</th>
-              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Status</th>
+              <th className="text-left p-2 text-xs font-bold uppercase text-gray-700 w-16">Cover</th>
+              {renderSortableHeader("Title", "title")}
+              {renderSortableHeader("Author", "author")}
+              {renderSortableHeader("Published", "newest")}
+              {renderSortableHeader("Pages", "pages")}
+              <th className="text-left p-2 text-xs font-bold uppercase text-gray-700 w-24">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -547,32 +594,36 @@ export default function BookGrid({
                     isUpcoming ? "bg-yellow-50" : isRecommendedAuthor ? "bg-blue-50" : ""
                   }`}
                 >
-                  <td className="p-3">
+                  <td className="p-2">
                     {book.thumbnail && showCovers ? (
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
-                        className="w-12 h-18 object-cover rounded shadow-sm"
+                        className="w-10 h-15 object-cover rounded shadow-sm"
                       />
                     ) : (
-                      <div className="w-12 h-18 bg-gray-200 rounded flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-gray-400" />
+                      <div className="w-10 h-15 bg-gray-200 rounded flex items-center justify-center">
+                        <BookOpen className="w-5 h-5 text-gray-400" />
                       </div>
                     )}
                   </td>
-                  <td className="p-3">
-                    <div className="font-bold text-sm text-black">{book.title}</div>
+                  <td className="p-2 max-w-[200px]">
+                    <div className="font-bold text-sm text-black truncate" title={book.title}>
+                      {book.title}
+                    </div>
                   </td>
-                  <td className="p-3">
-                    <div className="text-red-600 font-semibold text-sm">{bookAuthor}</div>
+                  <td className="p-2 max-w-[150px]">
+                    <div className="text-red-600 font-semibold text-sm truncate" title={bookAuthor}>
+                      {bookAuthor}
+                    </div>
                   </td>
-                  <td className="p-3">
-                    <div className="text-xs text-gray-600">{book.publishedDate || "-"}</div>
+                  <td className="p-2">
+                    <div className="text-xs text-gray-600 whitespace-nowrap">{book.publishedDate || "-"}</div>
                   </td>
-                  <td className="p-3">
-                    <div className="text-xs text-gray-600">{book.pageCount && book.pageCount > 0 ? `${book.pageCount}` : "-"}</div>
+                  <td className="p-2">
+                    <div className="text-xs text-gray-600 whitespace-nowrap">{book.pageCount && book.pageCount > 0 ? `${book.pageCount}` : "-"}</div>
                   </td>
-                  <td className="p-3">
+                  <td className="p-2">
                     <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
                       {getStatusText(status)}
                     </Badge>

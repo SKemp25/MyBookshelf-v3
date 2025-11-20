@@ -1602,6 +1602,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 recommendedAuthors={recommendedAuthors}
                 memoryAids={userState.memoryAids || []}
                 viewMode={viewMode}
+                onSortChange={setSortBy}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
