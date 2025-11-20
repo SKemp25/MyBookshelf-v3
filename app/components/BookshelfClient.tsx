@@ -2568,8 +2568,493 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             <DialogTitle>My Preferences</DialogTitle>
           </DialogHeader>
           <div className="p-4">
-            {/* TODO: Add full preferences content here */}
-            <p className="text-sm text-gray-600">Settings will be integrated here</p>
+            <div className="space-y-6">
+              {/* Account Information - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsAccountInfoOpen(!isAccountInfoOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <span>Account Information</span>
+                  {isAccountInfoOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isAccountInfoOpen && (
+                  <div className="space-y-2 pl-2">
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={userState.name}
+                          required
+                          onChange={(e) => {
+                            const capitalizedValue = e.target.value
+                              .split(" ")
+                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                              .join(" ")
+                            setUserState((prev) => ({ ...prev, name: capitalizedValue }))
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
+                        <input
+                          type="email"
+                          value={userState.email}
+                          required
+                          onChange={(e) => setUserState((prev) => ({ ...prev, email: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={userState.phone}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, phone: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">City and State</label>
+                        <input
+                          type="text"
+                          value={userState.cityState || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, cityState: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          placeholder="e.g., New York, NY"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Country</label>
+                        <input
+                          type="text"
+                          value={userState.country || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, country: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          placeholder="e.g., United States"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={userState.dateOfBirth || ""}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Memory Aid Preferences</label>
+                        <div className="space-y-1 mt-1">
+                          <label className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={userState.diagnosedWithMemoryIssues || false}
+                              onChange={(e) => setUserState((prev) => ({ ...prev, diagnosedWithMemoryIssues: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Have you been diagnosed with memory issues?
+                          </label>
+                          <label className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={(userState.memoryAids || []).includes("Show book covers")}
+                              onChange={(e) => {
+                                const currentAids = userState.memoryAids || []
+                                if (e.target.checked) {
+                                  setUserState((prev) => ({ ...prev, memoryAids: [...currentAids, "Show book covers"] }))
+                                } else {
+                                  setUserState((prev) => ({ ...prev, memoryAids: currentAids.filter((a) => a !== "Show book covers") }))
+                                }
+                              }}
+                              className="mr-2"
+                            />
+                            Show book covers
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reading Preferences - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsReadingPrefsOpen(!isReadingPrefsOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <span>Reading Preferences</span>
+                  {isReadingPrefsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isReadingPrefsOpen && (
+                  <div className="space-y-3 pl-2">
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
+                      <div className="space-y-1">
+                        {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
+                          const langCode = ["en", "es", "fr", "de", "it", "pt"][index]
+                          return (
+                            <label key={langCode} className="flex items-center text-xs">
+                              <input
+                                type="checkbox"
+                                checked={userState.preferredLanguages.includes(langCode)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setUserState((prev) => ({
+                                      ...prev,
+                                      preferredLanguages: [...prev.preferredLanguages, langCode],
+                                    }))
+                                  } else {
+                                    setUserState((prev) => ({
+                                      ...prev,
+                                      preferredLanguages: prev.preferredLanguages.filter((l) => l !== langCode),
+                                    }))
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              {lang}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
+                      <div className="space-y-1">
+                        {[
+                          { label: "0-12", value: "Children (0-12)" },
+                          { label: "13-17", value: "Young Adult (13-17)" },
+                          { label: "18+", value: "Adult (18+)" },
+                        ].map(({ label, value }) => (
+                          <label key={value} className="flex items-center text-xs">
+                            <input
+                              type="radio"
+                              name="ageRange"
+                              checked={userState.ageRange === value}
+                              onChange={() => setUserState((prev) => ({ ...prev, ageRange: value }))}
+                              className="mr-2"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
+                      <div className="space-y-1">
+                        {[
+                          "Fiction",
+                          "Mystery",
+                          "Romance",
+                          "Science Fiction",
+                          "Fantasy",
+                          "Thriller",
+                          "Historical Fiction",
+                          "Memoir/Biography",
+                        ].map((genre) => (
+                          <label key={genre} className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={userState.preferredGenres.includes(genre)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setUserState((prev) => ({
+                                    ...prev,
+                                    preferredGenres: [...prev.preferredGenres, genre],
+                                  }))
+                                } else {
+                                  setUserState((prev) => ({
+                                    ...prev,
+                                    preferredGenres: prev.preferredGenres.filter((g) => g !== genre),
+                                  }))
+                                }
+                              }}
+                              className="mr-2"
+                            />
+                            {genre}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
+                      <label className="flex items-center text-xs">
+                        <input
+                          type="checkbox"
+                          checked={userState.suggestNewAuthors || false}
+                          onChange={(e) => setUserState((prev) => ({ ...prev, suggestNewAuthors: e.target.checked }))}
+                          className="mr-2"
+                        />
+                        Suggest new authors
+                      </label>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
+                      <div className="space-y-1">
+                        {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
+                          (type) => (
+                            <label key={type} className="flex items-center text-xs">
+                              <input
+                                type="checkbox"
+                                checked={userState.publicationTypePreferences.includes(type)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setUserState((prev) => ({
+                                      ...prev,
+                                      publicationTypePreferences: [...prev.publicationTypePreferences, type],
+                                    }))
+                                  } else {
+                                    setUserState((prev) => ({
+                                      ...prev,
+                                      publicationTypePreferences: prev.publicationTypePreferences.filter(
+                                        (t) => t !== type,
+                                      ),
+                                    }))
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              {type}
+                            </label>
+                          ),
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Limit Books per Author */}
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {([3,5,10] as const).map((n) => (
+                          <label key={n} className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="showLastNBooks"
+                              checked={userState.settings?.showLastNBooks === n}
+                              onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                            />
+                            Last {n}
+                          </label>
+                        ))}
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="showLastNBooks"
+                            checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                          />
+                          All
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reading Platforms - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <span>Reading Platforms</span>
+                  {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isReadingPlatformsOpen && (
+                  <div className="space-y-4 pl-2">
+                    {Object.entries(platformCategories).map(([category, categoryPlatforms]) => (
+                      <div key={category} className="space-y-2">
+                        <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">{category}</h4>
+                        {categoryPlatforms.map((platform) => {
+                          const platformKey = `${category}_${platform.name}`
+                          const isEnabled = platforms.some(p => p.name === platform.name && p.category === category)
+                          const platformData = platforms.find(p => p.name === platform.name && p.category === category)
+                          
+                          return (
+                            <div key={platformKey} className="space-y-2 pl-2">
+                              <label className="flex items-center text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const newPlatform: Platform = {
+                                        name: platform.name,
+                                        url: platform.defaultUrl || "",
+                                        enabled: true,
+                                        category: category as "Print" | "Audio" | "Ebook" | "Library",
+                                      }
+                                      setPlatforms((prev) => [...prev, newPlatform])
+                                    } else {
+                                      setPlatforms((prev) => prev.filter(p => !(p.name === platform.name && p.category === category)))
+                                    }
+                                  }}
+                                  className="mr-2"
+                                />
+                                {platform.name}
+                              </label>
+                              {isEnabled && (
+                                <input
+                                  type="text"
+                                  value={platformData?.url || platform.defaultUrl || ""}
+                                  onChange={(e) => {
+                                    setPlatforms((prev) => prev.map(p => 
+                                      p.name === platform.name && p.category === category
+                                        ? { ...p, url: e.target.value }
+                                        : p
+                                    ))
+                                  }}
+                                  placeholder={platform.placeholder || `Enter URL for ${platform.name}`}
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Display & Settings - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsDisplaySettingsOpen(!isDisplaySettingsOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <span>Display & Settings</span>
+                  {isDisplaySettingsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isDisplaySettingsOpen && (
+                  <div className="space-y-3 pl-2">
+                    {/* Color Theme Selection */}
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Color Theme</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {Object.entries(colorThemes).map(([key, theme]) => {
+                          const isSelected = colorTheme === key
+                          const borderClass = isSelected ? (
+                            key === 'orange' ? 'border-orange-600 bg-orange-50' :
+                            key === 'blue' ? 'border-blue-600 bg-blue-50' :
+                            key === 'green' ? 'border-green-600 bg-green-50' :
+                            key === 'purple' ? 'border-purple-600 bg-purple-50' :
+                            key === 'teal' ? 'border-teal-600 bg-teal-50' :
+                            'border-gray-600 bg-gray-50'
+                          ) : 'border-gray-200 bg-white hover:border-gray-300'
+                          
+                          const textClass = isSelected ? (
+                            key === 'orange' ? 'text-orange-700' :
+                            key === 'blue' ? 'text-blue-700' :
+                            key === 'green' ? 'text-green-700' :
+                            key === 'purple' ? 'text-purple-700' :
+                            key === 'teal' ? 'text-teal-700' :
+                            'text-gray-700'
+                          ) : 'text-gray-700'
+                          
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => setColorTheme(key)}
+                              className={`p-3 rounded-lg border-2 transition-all text-left ${borderClass}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${
+                                  key === 'orange' ? 'from-orange-400 to-orange-600' :
+                                  key === 'blue' ? 'from-blue-400 to-blue-600' :
+                                  key === 'green' ? 'from-green-800 to-green-950' :
+                                  key === 'purple' ? 'from-purple-400 to-purple-600' :
+                                  key === 'teal' ? 'from-teal-400 to-teal-600' :
+                                  'from-gray-300 to-gray-500'
+                                }`} />
+                                <span className={`text-xs font-semibold ${textClass}`}>
+                                  {theme.name}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">{theme.description}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* High Contrast Toggle */}
+                    <div className="flex items-center justify-between space-x-2">
+                      <Label htmlFor="high-contrast" className="text-sm text-orange-700 cursor-pointer">
+                        High Contrast Mode
+                      </Label>
+                      <Switch
+                        id="high-contrast"
+                        checked={highContrast}
+                        onCheckedChange={setHighContrast}
+                        className="data-[state=checked]:bg-orange-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Increases contrast for better visibility
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Data & Support - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsDataSupportOpen(!isDataSupportOpen)}
+                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                >
+                  <span>Data & Support</span>
+                  {isDataSupportOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {isDataSupportOpen && (
+                  <div className="space-y-3 pl-2">
+                    {/* Data Export Section */}
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
+                      <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                        <DataExport 
+                          books={filteredAndLimitedBooks}
+                          authors={authors}
+                          readBooks={readBooks}
+                          wantToReadBooks={wantToReadBooks}
+                          dontWantBooks={dontWantBooks}
+                          userProfile={userState}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Help & Support Section */}
+                    <div className="space-y-3">
+                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
+                      <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                        <button
+                          onClick={() => {
+                            setIsTooltipTourActive(true)
+                            setShowSettingsDialog(false)
+                          }}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors font-medium"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                          Show App Tour
+                        </button>
+                        <p className="text-xs text-blue-600 mt-2 text-center">
+                          Take a guided tour to learn how to use all features
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
