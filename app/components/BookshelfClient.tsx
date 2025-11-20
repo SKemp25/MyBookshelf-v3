@@ -1193,6 +1193,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 bookRatings={bookRatings}
                 showHeartedBooks={showHeartedBooks}
                 setShowHeartedBooks={setShowHeartedBooks}
+                themeTextColor={themeTextColor}
               />
             </div>
 
@@ -1453,7 +1454,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                  className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
+                  className={`w-full flex items-center ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <Users className="w-4 h-4 flex-shrink-0 mr-2" />
                   <span className="flex-1 text-left">RECOMMENDATIONS</span>
@@ -1472,6 +1473,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   wantToReadBooks={wantToReadBooks}
                   bookRatings={bookRatings}
                   user={userState}
+                  themeTextColor={themeTextColor}
                   onBookClick={async (book) => {
                     // Add the single book and include the author with just this one book
                     const bookAuthor = book.author || book.authors?.[0]

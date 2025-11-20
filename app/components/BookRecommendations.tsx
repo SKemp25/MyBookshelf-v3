@@ -16,6 +16,7 @@ interface BookRecommendationsProps {
   user: any
   onBookClick?: (book: Book) => void
   onAuthorClick?: (authorName: string) => void
+  themeTextColor?: string
 }
 
 export default function BookRecommendations({
@@ -27,6 +28,7 @@ export default function BookRecommendations({
   user,
   onBookClick,
   onAuthorClick,
+  themeTextColor = 'text-red-600',
 }: BookRecommendationsProps) {
   const [recommendations, setRecommendations] = useState<Book[]>([])
   const [authorRecommendations, setAuthorRecommendations] = useState<string[]>([])
@@ -450,7 +452,7 @@ export default function BookRecommendations({
         <div className="space-y-4">
           {user?.suggestNewAuthors && authorRecommendations.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide flex items-center gap-1">
+              <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide flex items-center gap-1`}>
                 <User className="w-3 h-3" />
                 New Authors for You
               </h4>
