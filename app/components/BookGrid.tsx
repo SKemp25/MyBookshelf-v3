@@ -563,7 +563,7 @@ export default function BookGrid({
                     <p className="text-red-600 font-bold text-sm uppercase">{getAuthorName(book)}</p>
 
                     {/* Book Info - Compact */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-700">
                       {book.publishedDate && (
                         <span className="font-medium">
                           {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
