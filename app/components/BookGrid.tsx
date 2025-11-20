@@ -1001,7 +1001,7 @@ export default function BookGrid({
                       </div>
                     ) : (
                       // Show Read/Want/Pass buttons for unread books
-                      <div className="flex gap-4 md:gap-6 justify-center">
+                      <div className="flex gap-6 md:gap-8 justify-center">
                         <Button
                           variant="outline"
                         size="sm"

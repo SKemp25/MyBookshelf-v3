@@ -41,7 +41,7 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
 
 export default function AdvancedFilters({ filters, onFiltersChange, books, authors, showHeartedBooks, setShowHeartedBooks }: AdvancedFiltersProps) {
   const [newExcludeWord, setNewExcludeWord] = useState("")
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const safeFilters = {
     ...defaultAdvancedFilters,

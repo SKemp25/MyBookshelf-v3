@@ -191,7 +191,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return 'orange'
   })
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
-  
+
   // Collapsible sections for Preferences
   const [isAccountInfoOpen, setIsAccountInfoOpen] = useState(false)
   const [isReadingPrefsOpen, setIsReadingPrefsOpen] = useState(false)
@@ -206,11 +206,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     
     const checkLoginState = () => {
       try {
-        const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-        const user = localStorage.getItem("bookshelf_current_user") || ""
+    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+    const user = localStorage.getItem("bookshelf_current_user") || ""
         console.log("Checking login state:", { loggedIn, user })
-        setIsLoggedIn(loggedIn)
-        setCurrentUser(user)
+    setIsLoggedIn(loggedIn)
+    setCurrentUser(user)
       } catch (error) {
         console.error("Error checking login state:", error)
         // Still set hydrated even if there's an error
@@ -860,6 +860,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
 
+    if (safeAdvancedFilters.seriesOnly) {
+      // Only show books that are part of a series
+      if (!book.seriesInfo || !book.seriesInfo.name) {
+        return false
+      }
+    }
+
     if (safeAdvancedFilters.upcomingOnly) {
       if (!book.publishedDate) return false
 
@@ -1157,18 +1164,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </Button>
             )}
-            <button 
-              onClick={() => {
-                setSearchQuery("")
-                setSelectedAuthors([])
-                setSelectedGenres([])
-                setAdvancedFilters(defaultAdvancedFilters)
-              }}
+              <button
+                onClick={() => {
+                  setSearchQuery("")
+                  setSelectedAuthors([])
+                  setSelectedGenres([])
+                  setAdvancedFilters(defaultAdvancedFilters)
+                }}
               className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
-            >
+              >
               MY BOOKCASE
-            </button>
-          </div>
+              </button>
+            </div>
 
           {/* Center: Search Bar - More space on mobile */}
           <div className={`flex-1 ${isMobileLayout ? 'mx-2' : 'max-w-xl md:max-w-2xl mx-2 md:mx-8'}`}>
@@ -1403,11 +1410,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             {/* Account Manager - Always visible on desktop */}
             <div className="flex-shrink-0">
-              <AccountManager user={user} isLoggedIn={isLoggedIn} />
+                <AccountManager user={user} isLoggedIn={isLoggedIn} />
+              </div>
             </div>
-          </div>
           )}
-        </div>
+          </div>
       </header>
 
       {/* Main Content Area with Optional Sidebar */}
@@ -1471,8 +1478,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <span>{genre}</span>
                     </label>
                   ))}
-                </div>
-              </div>
+            </div>
+        </div>
 
               {/* Clear Filters */}
               {(selectedAuthors.length > 0 || selectedGenres.length > 0) && (
@@ -1498,16 +1505,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           {/* Reading Progress */}
           <div className="mb-4 flex items-center justify-between">
             <div className="bg-white border-2 border-black rounded-lg px-3 py-1">
-              <span className="text-black font-black text-xs">
+                    <span className="text-black font-black text-xs">
                 READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
-              </span>
-            </div>
+                    </span>
+                  </div>
             <div className="bg-orange-100 border border-orange-200 rounded-lg px-3 py-1">
-              <span className="text-orange-800 font-medium text-xs">
+                  <span className="text-orange-800 font-medium text-xs">
                 {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
-              </span>
-            </div>
-          </div>
+                  </span>
+                </div>
+              </div>
 
               <div data-tour="books">
                 <BookGrid
@@ -1692,7 +1699,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 }}
                 sharedBooks={new Set()}
                 />
-              </div>
+            </div>
           </main>
         </div>
 
@@ -1835,22 +1842,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             {userState.suggestNewAuthors && (
               <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isRecommendationsOpen ? 'p-2 md:p-4' : 'p-2 md:p-4 pb-0'}`}>
-                <button
-                  data-tour="recommendations"
-                  onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
+              <button
+                data-tour="recommendations"
+                onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
                   className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <Users className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
                   <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">RECOMMENDATIONS</span>
                   {isRecommendationsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
-                </button>
+              </button>
 
-                {isRecommendationsOpen && (
-                  <Card className="bg-white border-orange-200">
-                    <CardContent className="p-4">
-                      <APIErrorBoundary>
-                        <ComponentErrorBoundary componentName="Book Recommendations">
-                          <BookRecommendations
+              {isRecommendationsOpen && (
+                <Card className="bg-white border-orange-200">
+                  <CardContent className="p-4">
+                    <APIErrorBoundary>
+                      <ComponentErrorBoundary componentName="Book Recommendations">
+                        <BookRecommendations
                       authors={authors.map(name => ({ id: name, name }))}
                   books={books}
                   readBooks={readBooks}
@@ -1959,12 +1966,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     }
                   }}
                 />
-                        </ComponentErrorBoundary>
-                      </APIErrorBoundary>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+                      </ComponentErrorBoundary>
+                    </APIErrorBoundary>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
             )}
 
 
@@ -1980,7 +1987,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isPreferencesOpen && (
-                <div className="space-y-3">
+                  <div className="space-y-3">
                   {/* Account Information - Collapsible */}
                   <div className="space-y-2">
                     <button
@@ -2047,7 +2054,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                           placeholder="e.g., United States"
                         />
-                      </div>
+                    </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
                         <input
@@ -2103,7 +2110,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </button>
                     {isReadingPrefsOpen && (
                       <div className="space-y-3 pl-2">
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
                     <div className="space-y-1">
                       {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
@@ -2135,7 +2142,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
                     <div className="space-y-1">
                       {[
@@ -2157,7 +2164,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
                     <div className="space-y-1">
                       {[
@@ -2195,7 +2202,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
                     <div className="space-y-1">
                       <label className="flex items-center text-xs">
@@ -2215,7 +2222,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
                     <div className="space-y-1">
                       {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
@@ -2246,41 +2253,41 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         ),
                       )}
                     </div>
-                        </div>
+                  </div>
 
                         {/* Limit Books per Author */}
-                        <div className="space-y-3">
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
-                          <div className="flex flex-wrap gap-3 text-xs">
-                            {([3,5,10] as const).map((n) => (
-                              <label key={n} className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="showLastNBooks"
-                                  checked={userState.settings?.showLastNBooks === n}
-                                  onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
-                                />
-                                Last {n}
-                              </label>
-                            ))}
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name="showLastNBooks"
-                                checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
-                                onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
-                              />
-                              All
-                            </label>
-                          </div>
-                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {([3,5,10] as const).map((n) => (
+                        <label key={n} className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="showLastNBooks"
+                            checked={userState.settings?.showLastNBooks === n}
+                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                          />
+                          Last {n}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="showLastNBooks"
+                          checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                          onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                        />
+                        All
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Reading Platforms - Collapsible */}
-                  <div className="space-y-2">
+                    <div className="space-y-2">
                     <button
                       onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
                       className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
@@ -2304,15 +2311,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             return (
                               <div key={option.name} className="space-y-1">
                                 <label className="flex items-center text-xs">
-                                  <input
-                                    type="checkbox"
+                          <input
+                            type="checkbox"
                                     checked={isEnabled}
-                                    onChange={(e) => {
+                            onChange={(e) => {
                                       if (e.target.checked) {
                                         // Add or enable platform
                                         const existing = platforms.find((p) => p.name === option.name && p.category === category)
                                         if (existing) {
-                                          setPlatforms((prev) =>
+                              setPlatforms((prev) =>
                                             prev.map((p) =>
                                               p.name === option.name && p.category === category
                                                 ? { ...p, enabled: true }
@@ -2332,40 +2339,40 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                                         }
                                       } else {
                                         // Disable platform
-                                        setPlatforms((prev) =>
+                              setPlatforms((prev) =>
                                           prev.map((p) =>
                                             p.name === option.name && p.category === category
                                               ? { ...p, enabled: false }
                                               : p
-                                          )
+                              )
                                         )
                                       }
-                                    }}
-                                    className="mr-2"
-                                  />
+                            }}
+                            className="mr-2"
+                          />
                                   {option.name}
-                                </label>
+                        </label>
                                 {isEnabled && (
-                                  <input
-                                    type="url"
+                        <input
+                          type="url"
                                     value={url}
-                                    onChange={(e) => {
-                                      setPlatforms((prev) =>
+                          onChange={(e) => {
+                            setPlatforms((prev) =>
                                         prev.map((p) =>
                                           p.name === option.name && p.category === category
                                             ? { ...p, url: e.target.value }
                                             : p
                                         )
-                                      )
-                                    }}
-                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                            )
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                                     placeholder={option.placeholder || option.defaultUrl}
-                                  />
+                        />
                                 )}
-                              </div>
+                      </div>
                             )
                           })}
-                        </div>
+                      </div>
                       </div>
                     ))}
                     
@@ -2456,9 +2463,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                     <p className="text-xs text-gray-500">
                       Increases contrast for better visibility
-                    </p>
-                        </div>
+                        </p>
                       </div>
+                    </div>
                     )}
                   </div>
 
@@ -2473,23 +2480,23 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </button>
                     {isDataSupportOpen && (
                       <div className="space-y-3 pl-2">
-                        {/* Data Export Section */}
-                        <div className="space-y-3">
+                  {/* Data Export Section */}
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
-                          <div className="p-3 bg-orange-50 rounded border border-orange-200">
-                            <DataExport 
+                    <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                      <DataExport 
                               books={filteredAndLimitedBooks}
-                              authors={authors}
-                              readBooks={readBooks}
-                              wantToReadBooks={wantToReadBooks}
-                              dontWantBooks={dontWantBooks}
-                              userProfile={userState}
-                            />
-                          </div>
-                        </div>
+                        authors={authors}
+                        readBooks={readBooks}
+                        wantToReadBooks={wantToReadBooks}
+                        dontWantBooks={dontWantBooks}
+                        userProfile={userState}
+              />
+                    </div>
+            </div>
 
-                        {/* Help & Support Section */}
-                        <div className="space-y-3">
+                  {/* Help & Support Section */}
+                  <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
                     <div className="p-3 bg-blue-50 rounded border border-blue-200">
                       <button
@@ -2502,14 +2509,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <p className="text-xs text-blue-600 mt-2 text-center">
                         Take a guided tour to learn how to use all features
                       </p>
-                        </div>
+                  </div>
                         </div>
                       </div>
                     )}
-                  </div>
+                </div>
                 </div>
               )}
-            </div>
+              </div>
 
             {/* Recently Viewed Section for Memory Support */}
             {recentlyViewed.length > 0 && (
@@ -2596,7 +2603,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           }}
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
-                      </div>
+        </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
                         <input
@@ -2678,7 +2685,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
                 )}
-              </div>
+      </div>
 
               {/* Reading Preferences - Collapsible */}
               <div className="space-y-2">
@@ -3048,8 +3055,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         </button>
                         <p className="text-xs text-blue-600 mt-2 text-center">
                           Take a guided tour to learn how to use all features
-                        </p>
-                      </div>
+          </p>
+        </div>
                     </div>
                   </div>
                 )}
