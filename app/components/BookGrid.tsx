@@ -430,9 +430,9 @@ export default function BookGrid({
     if (!publishedDate) return false
     
     try {
-      const now = new Date()
-      const twelveMonthsFromNow = new Date()
-      twelveMonthsFromNow.setMonth(twelveMonthsFromNow.getMonth() + 12)
+    const now = new Date()
+    const twelveMonthsFromNow = new Date()
+    twelveMonthsFromNow.setMonth(twelveMonthsFromNow.getMonth() + 12)
       
       // Handle different date formats
       let bookDate: Date
@@ -455,7 +455,7 @@ export default function BookGrid({
       }
       
       // Check if it's in the future and within 12 months
-      return bookDate >= now && bookDate <= twelveMonthsFromNow
+    return bookDate >= now && bookDate <= twelveMonthsFromNow
     } catch (error) {
       console.error("Error parsing date:", publishedDate, error)
       return false
@@ -784,89 +784,89 @@ export default function BookGrid({
                   <div className="space-y-4">
                     {/* Book Cover - only show if memory aid preference is enabled */}
                     {book.thumbnail && showCovers && (
-                      <div className="flex justify-center mt-4">
-                        <img
-                          src={book.thumbnail || "/placeholder.svg"}
-                          alt={book.title}
-                          className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
-                        />
-                      </div>
-                    )}
+                    <div className="flex justify-center mt-4">
+                      <img
+                        src={book.thumbnail || "/placeholder.svg"}
+                        alt={book.title}
+                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
+                      />
+                    </div>
+                  )}
 
-                    {/* Book Info */}
-                    <div className="space-y-3">
-                      <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
-                        {book.title}
-                      </h3>
-                      <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
+                  {/* Book Info */}
+                  <div className="space-y-3">
+                    <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
+                      {book.title}
+                    </h3>
+                    <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
 
-                      <div className="flex flex-wrap gap-2 text-sm">
-                        {book.publishedDate && (
-                          <div
-                            className={`flex items-center gap-1 ${
-                              isUpcoming
-                                ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
-                                : "text-black"
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      {book.publishedDate && (
+                        <div
+                          className={`flex items-center gap-1 ${
+                            isUpcoming
+                              ? "text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-300"
+                              : "text-black"
+                          }`}
+                        >
+                          <Calendar
+                            className={`w-3 h-3 ${
+                              isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
                             }`}
-                          >
-                            <Calendar
-                              className={`w-3 h-3 ${
-                                isUpcoming ? "text-emerald-600" : "drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]"
-                              }`}
-                            />
-                            <span className="font-bold">
-                              {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
-                            </span>
-                            {isUpcoming && (
-                              <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
-                            )}
-                          </div>
-                        )}
-                        {book.pageCount && book.pageCount > 0 && (
-                          <div className="flex items-center gap-1 text-black">
-                            <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                            <span className="font-bold">{book.pageCount} pages</span>
-                          </div>
-                        )}
-                        {book.language && book.language !== "en" && (
-                          <div className="flex items-center gap-1 text-black">
-                            <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                            <span className="font-bold">{book.language.toUpperCase()}</span>
-                          </div>
-                        )}
-                      </div>
+                          />
+                          <span className="font-bold">
+                            {isUpcoming ? formatUpcomingDate(book.publishedDate) : book.publishedDate}
+                          </span>
+                          {isUpcoming && (
+                            <span className="text-xs text-emerald-600 ml-1 font-black">• COMING SOON</span>
+                          )}
+                        </div>
+                      )}
+                      {book.pageCount && book.pageCount > 0 && (
+                        <div className="flex items-center gap-1 text-black">
+                          <FileText className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          <span className="font-bold">{book.pageCount} pages</span>
+                        </div>
+                      )}
+                      {book.language && book.language !== "en" && (
+                        <div className="flex items-center gap-1 text-black">
+                          <Globe className="w-3 h-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                          <span className="font-bold">{book.language.toUpperCase()}</span>
+                        </div>
+                      )}
                     </div>
+                  </div>
 
-                    {/* Status Badge */}
-                    <div className="flex justify-center">
-                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
-                        {getStatusText(status)}
-                      </Badge>
+                  {/* Status Badge */}
+                  <div className="flex justify-center">
+                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
+                      {getStatusText(status)}
+                    </Badge>
+                  </div>
+
+                  {/* Description */}
+                  {book.description && (
+                    <div className="space-y-2">
+                      <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
+                        {book.description}
+                      </p>
+                      {book.description.length > 300 && (
+                        <button
+                          onClick={() => toggleDescription(book.id)}
+                          className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                        >
+                          {isExpanded ? "Show less" : "Read more"}
+                        </button>
+                      )}
                     </div>
+                  )}
 
-                    {/* Description */}
-                    {book.description && (
-                      <div className="space-y-2">
-                        <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
-                          {book.description}
-                        </p>
-                        {book.description.length > 300 && (
-                          <button
-                            onClick={() => toggleDescription(book.id)}
-                            className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
-                          >
-                            {isExpanded ? "Show less" : "Read more"}
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="space-y-3">
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
                     {status === "read" ? (
                       // Show rating buttons and unmark button for read books
                       <div className="space-y-2">
-                        <div className="flex gap-4 md:gap-6 justify-center">
+                        <div className="flex gap-6 md:gap-8 justify-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -918,7 +918,7 @@ export default function BookGrid({
                         </div>
                         {onUnmarkAsRead && (
                           <div className="flex justify-center">
-                            <Button
+                      <Button
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
@@ -937,48 +937,48 @@ export default function BookGrid({
                       </div>
                     ) : (
                       // Show Read/Want/Pass buttons for unread books
-                      <div className="flex gap-2 md:gap-3 justify-center">
+                      <div className="flex gap-4 md:gap-6 justify-center">
                         <Button
                           variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
-                          disabled={isBookUpdating}
+                        size="sm"
+                        onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
                           className="h-8 px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
                           title="Mark as read"
-                        >
-                          <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                          Read
-                        </Button>
-                        <Button
-                          variant={status === "want" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
-                          disabled={isBookUpdating}
-                          className={`h-8 px-3 text-xs font-bold border-2 ${
-                            status === "want"
-                              ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                              : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                          }`}
-                          title={status === "want" ? "Remove from want to read" : "Add to want to read"}
-                        >
-                          <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                          Want
-                        </Button>
-                        <Button
-                          variant={status === "pass" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
-                          disabled={isBookUpdating}
-                          className={`h-8 px-3 text-xs font-bold border-2 ${
-                            status === "pass"
-                              ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                              : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
-                          }`}
-                          title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
-                        >
-                          <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
-                          Pass
-                        </Button>
+                      >
+                        <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Read
+                      </Button>
+                      <Button
+                        variant={status === "want" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
+                        className={`h-8 px-3 text-xs font-bold border-2 ${
+                          status === "want"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                        }`}
+                        title={status === "want" ? "Remove from want to read" : "Add to want to read"}
+                      >
+                        <BookmarkPlus className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Want
+                      </Button>
+                      <Button
+                        variant={status === "pass" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
+                        disabled={isBookUpdating}
+                        className={`h-8 px-3 text-xs font-bold border-2 ${
+                          status === "pass"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                            : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                        }`}
+                        title={status === "pass" ? "Remove from pass list" : "Mark as pass"}
+                      >
+                        <BookX className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
+                        Pass
+                      </Button>
                       </div>
                     )}
                     </div>
@@ -1042,24 +1042,24 @@ export default function BookGrid({
                       const hasOtherBooksInSeries = seriesBooks.length > 1
                       
                       return hasOtherBooksInSeries ? (
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                           <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">
                             {book.seriesInfo.name} Series:
                           </div>
-                          <div className="flex justify-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
+                        <div className="flex justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
                                 setShowSeriesForBookId(showSeriesForBookId === book.id ? null : book.id)
-                              }}
+                            }}
                               className="border-2 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white text-xs font-bold h-8 px-3"
-                            >
+                          >
                               <List className="w-3 h-3 mr-1" />
                               {showSeriesForBookId === book.id ? "Hide" : "Show"} Series ({seriesBooks.length} books)
-                            </Button>
-                          </div>
+                          </Button>
+                        </div>
                           
                           {showSeriesForBookId === book.id && (
                             <div className="mt-3 space-y-2 max-h-64 overflow-y-auto border-t border-blue-200 pt-3">
@@ -1091,7 +1091,7 @@ export default function BookGrid({
                                           <h4 className={`text-sm font-bold ${isCurrentBook ? "text-blue-900" : "text-gray-900"}`}>
                                             {seriesBook.title}
                                           </h4>
-                                        </div>
+                      </div>
                                         {seriesBook.publishedDate && (
                                           <p className="text-xs text-gray-600">
                                             {seriesBook.publishedDate}
@@ -1102,8 +1102,8 @@ export default function BookGrid({
                                         >
                                           {getStatusText(seriesStatus)}
                                         </Badge>
-                                      </div>
-                                    </div>
+                  </div>
+                </div>
                                   </div>
                                 )
                               })}
