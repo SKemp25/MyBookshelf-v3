@@ -1221,6 +1221,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 highContrast={highContrast}
                 recommendedAuthors={recommendedAuthors}
                 memoryAids={userState.memoryAids || []}
+                themeTextColor={themeTextColor}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)

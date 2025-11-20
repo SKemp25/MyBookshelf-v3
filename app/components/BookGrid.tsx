@@ -46,6 +46,7 @@ interface BookGridProps {
   recommendedAuthors?: Set<string> // Authors that came from recommendations
   onAddAuthor?: (authorName: string) => void // Add all books by an author
   memoryAids?: string[] // Memory aid preferences
+  themeTextColor?: string // Theme text color for author names
 }
 
 export default function BookGrid({
@@ -69,6 +70,7 @@ export default function BookGrid({
   recommendedAuthors = new Set(),
   onAddAuthor,
   memoryAids = [],
+  themeTextColor = 'text-red-600', // Default to red if not provided
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
@@ -540,7 +542,7 @@ export default function BookGrid({
                     <h3 className="font-black text-black text-lg leading-tight min-h-[3rem] flex items-center uppercase">
                       {book.title}
                     </h3>
-                    <p className="text-red-600 font-bold text-base uppercase">{getAuthorName(book)}</p>
+                    <p className={`${themeTextColor} font-bold text-base uppercase`}>{getAuthorName(book)}</p>
 
                     <div className="flex flex-wrap gap-2 text-sm">
                       {book.publishedDate && (
