@@ -1276,6 +1276,151 @@ export default function BookGrid({
         })}
       </div>
 
+      {/* Book Detail Dialog */}
+      {selectedBookId && (() => {
+        const selectedBook = books.find(b => b.id === selectedBookId)
+        if (!selectedBook) return null
+        const bookId = `${selectedBook.title}-${selectedBook.author}`
+        const status = getReadingStatus(bookId)
+        const bookAuthor = getAuthorName(selectedBook)
+        const isUpcoming = isUpcomingRelease(selectedBook.publishedDate || "")
+
+        return (
+          <Dialog open={!!selectedBookId} onOpenChange={(open) => !open && setSelectedBookId(null)}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold">{selectedBook.title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Cover and Basic Info */}
+                <div className="flex gap-4">
+                  {selectedBook.thumbnail && showCovers && (
+                    <img
+                      src={selectedBook.thumbnail || "/placeholder.svg"}
+                      alt={selectedBook.title}
+                      className="w-32 h-48 object-cover rounded-lg shadow-md flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <p className="text-red-600 font-bold text-lg">{bookAuthor}</p>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      {selectedBook.publishedDate && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>{isUpcoming ? formatUpcomingDate(selectedBook.publishedDate) : selectedBook.publishedDate}</span>
+                        </div>
+                      )}
+                      {selectedBook.pageCount && selectedBook.pageCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <FileText className="w-4 h-4" />
+                          <span>{selectedBook.pageCount} pages</span>
+                        </div>
+                      )}
+                    </div>
+                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase`}>
+                      {getStatusText(status)}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {selectedBook.description && (
+                  <div>
+                    <h4 className="font-bold text-sm mb-2">Description</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">{selectedBook.description}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t">
+                  {status === "read" ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentRating = bookRatings.get(bookId)
+                          const newRating = currentRating === "loved" ? null : "loved"
+                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                        }}
+                        className={bookRatings.get(bookId) === "loved" ? "bg-pink-100 text-pink-600" : ""}
+                      >
+                        <Heart className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "loved" ? "fill-current" : ""}`} />
+                        {bookRatings.get(bookId) === "loved" ? "Loved" : "Love"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentRating = bookRatings.get(bookId)
+                          const newRating = currentRating === "liked" ? null : "liked"
+                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                        }}
+                        className={bookRatings.get(bookId) === "liked" ? "bg-blue-100 text-blue-600" : ""}
+                      >
+                        <ThumbsUp className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
+                        {bookRatings.get(bookId) === "liked" ? "Liked" : "Like"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentRating = bookRatings.get(bookId)
+                          const newRating = currentRating === "didnt-like" ? null : "didnt-like"
+                          onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                        }}
+                        className={bookRatings.get(bookId) === "didnt-like" ? "bg-gray-100 text-gray-600" : ""}
+                      >
+                        <ThumbsDown className={`w-4 h-4 mr-2 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
+                        {bookRatings.get(bookId) === "didnt-like" ? "Didn't Like" : "Didn't Like"}
+                      </Button>
+                      {onUnmarkAsRead && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnmarkAsRead(bookId, selectedBook.title, bookAuthor)}
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Unmark as Read
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMarkAsRead(bookId, selectedBook.title, bookAuthor)}
+                      >
+                        <BookCheck className="w-4 h-4 mr-2" />
+                        Mark as Read
+                      </Button>
+                      <Button
+                        variant={status === "want" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => onMarkAsWant(bookId, selectedBook.title, bookAuthor)}
+                        className={status === "want" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+                      >
+                        <BookmarkPlus className="w-4 h-4 mr-2" />
+                        {status === "want" ? "Want to Read" : "Want to Read"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onToggleDontWant(bookId, selectedBook.title, bookAuthor)}
+                      >
+                        <BookX className="w-4 h-4 mr-2" />
+                        Pass
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      })()}
+
     </>
   )
 }
