@@ -49,6 +49,7 @@ interface BookGridProps {
   recommendedAuthors?: Set<string> // Authors that came from recommendations
   onAddAuthor?: (authorName: string) => void // Add all books by an author
   memoryAids?: string[] // Memory aid preferences
+  viewMode?: "grid" | "list" | "cover" // View mode for displaying books
 }
 
 export default function BookGrid({
@@ -72,6 +73,7 @@ export default function BookGrid({
   recommendedAuthors = new Set(),
   onAddAuthor,
   memoryAids = [],
+  viewMode = "grid",
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
@@ -530,6 +532,7 @@ export default function BookGrid({
               key={`${book.id}-${index}`}
               data-book-id={book.id}
               className={`shadow-lg hover:shadow-xl transition-all duration-300 ${
+                viewMode === "cover" ? "p-2" : "",
                 isUpcoming
                   ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-white to-yellow-50 text-black"
                   : isRecommendedAuthor
@@ -539,6 +542,50 @@ export default function BookGrid({
               onClick={() => onBookClick?.(book.id)}
               style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
+              {viewMode === "cover" ? (
+                /* Cover Only View */
+                book.thumbnail && showCovers ? (
+                  <div className="aspect-[2/3] w-full">
+                    <img
+                      src={book.thumbnail || "/placeholder.svg"}
+                      alt={book.title}
+                      className="w-full h-full object-cover rounded-lg shadow-md"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center">
+                    <BookOpen className="w-12 h-12 text-gray-400" />
+                  </div>
+                )
+              ) : viewMode === "list" ? (
+                /* List View */
+                <CardContent className="p-4">
+                  <div className="flex gap-4">
+                    {book.thumbnail && showCovers && (
+                      <img
+                        src={book.thumbnail || "/placeholder.svg"}
+                        alt={book.title}
+                        className="w-20 h-32 object-cover rounded-lg shadow-sm flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-black mb-1">{book.title}</h3>
+                      <p className="text-red-600 font-semibold text-sm mb-2">{getAuthorName(book)}</p>
+                      <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
+                        {book.publishedDate && <span>{book.publishedDate}</span>}
+                        {book.pageCount && book.pageCount > 0 && <span>• {book.pageCount} pages</span>}
+                      </div>
+                      {book.description && (
+                        <p className="text-sm text-gray-700 line-clamp-2 mb-2">{book.description}</p>
+                      )}
+                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
+                        {getStatusText(status)}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              ) : (
+                /* Grid View (default) */
               <CardContent className={isMobile ? "p-4" : "p-6"}>
                 {isMobile ? (
                   /* Clean Mobile View - iPhone */
@@ -616,6 +663,22 @@ export default function BookGrid({
                             title="Liked"
                           >
                             <ThumbsUp className={`w-4 h-4 ${bookRatings.get(bookId) === "liked" ? "fill-current" : ""}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const currentRating = bookRatings.get(bookId)
+                              const newRating = currentRating === "didnt-like" ? null : "didnt-like"
+                              onSetBookRating?.(bookId, newRating as "loved" | "liked" | "didnt-like" | null)
+                            }}
+                            className={`p-1.5 rounded transition-colors ${
+                              bookRatings.get(bookId) === "didnt-like"
+                                ? "bg-red-100 text-red-600"
+                                : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            }`}
+                            title="Didn't like"
+                          >
+                            <ThumbsDown className={`w-4 h-4 ${bookRatings.get(bookId) === "didnt-like" ? "fill-current" : ""}`} />
                           </button>
                         </div>
                       ) : (
@@ -802,7 +865,7 @@ export default function BookGrid({
                     {status === "read" ? (
                       // Show rating buttons and unmark button for read books
                       <div className="space-y-2">
-                        <div className="flex gap-3 justify-center">
+                        <div className="flex gap-4 md:gap-6 justify-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
