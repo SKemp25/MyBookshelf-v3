@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   BookCheck,
   BookmarkPlus,
@@ -85,6 +86,7 @@ export default function BookGrid({
   const [expandedMobileDescriptions, setExpandedMobileDescriptions] = useState<Set<string>>(new Set())
   const [isUpdating, setIsUpdating] = useState<Set<string>>(new Set())
   const [showSeriesForBookId, setShowSeriesForBookId] = useState<string | null>(null)
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
   const { toast } = useToast()
   const isMobile = useIsMobile()
   
@@ -921,6 +923,7 @@ export default function BookGrid({
                       className="flex justify-center mt-4 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
+                        setSelectedBookId(book.id)
                         onBookClick?.(book.id)
                       }}
                     >
