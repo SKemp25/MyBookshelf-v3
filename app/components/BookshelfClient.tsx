@@ -2107,6 +2107,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         Take a guided tour to learn how to use all features
                       </p>
                         </div>
+                        </div>
                       </div>
                     )}
                   </div>
