@@ -956,10 +956,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return true
   })
 
+    // Apply deduplication to ensure only original published versions are shown
+    const deduplicatedBase = deduplicateBooks(base, userState.country || "US")
+
     const showN = userState.settings?.showLastNBooks
     if (showN && showN !== "all") {
       const grouped: Record<string, Book[]> = {}
-      base.forEach((b) => {
+      deduplicatedBase.forEach((b) => {
         const key = b.author || "Unknown"
         if (!grouped[key]) grouped[key] = []
         grouped[key].push(b)

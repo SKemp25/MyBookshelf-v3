@@ -92,11 +92,23 @@ export function deduplicateBooks(books: any[], userCountry: string = "US") {
     }
 
     // Create unique key from normalized title and author (without publication year to group all editions)
-    const normalizedTitle = title
+    // Strip out series information, subtitles, and edition indicators
+    let normalizedTitle = title
+      // Remove series information (e.g., ": CORMORAN STRIKE BOOK 7", "BOOK 1", etc.)
+      .replace(/:\s*(book|novel|volume|vol\.?)\s*\d+/gi, "")
+      .replace(/\s*\(book\s*\d+\)/gi, "")
+      .replace(/\s*\[book\s*\d+\]/gi, "")
+      // Remove common subtitle separators and everything after them if they indicate series
+      .replace(/:\s*[^:]+(?:book|novel|volume|vol\.?)\s*\d+/gi, "")
+      // Remove edition indicators from title
+      .replace(/\s*\(.*edition.*\)/gi, "")
+      .replace(/\s*\[.*edition.*\]/gi, "")
+      // Normalize punctuation and whitespace
       .replace(/[^\w\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase()
+    
     const author = (book.authors?.[0] || book.author || "unknown").toLowerCase().trim()
     // Don't include publication year in key - we want to group all editions together
     const key = `${normalizedTitle}|${author}`
