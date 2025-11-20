@@ -161,10 +161,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [colorTheme, setColorTheme] = useState<ColorTheme>('orange')
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
   
-  // Get current theme's text accent color
-  const currentTheme = colorThemes[colorTheme]
-  const themeTextColor = currentTheme.textAccent
-  
   // Collapsible sections for Preferences
   const [isAccountInfoOpen, setIsAccountInfoOpen] = useState(false)
   const [isReadingPrefsOpen, setIsReadingPrefsOpen] = useState(false)
@@ -352,9 +348,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   // Load color theme from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('bookshelf_color_theme') as ColorTheme
-      if (savedTheme && colorThemes[savedTheme]) {
-        setColorTheme(savedTheme)
+      const savedTheme = localStorage.getItem('bookshelf_color_theme') as ColorTheme | null
+      if (savedTheme && colorThemes[savedTheme as ColorTheme]) {
+        setColorTheme(savedTheme as ColorTheme)
       }
     }
   }, [])
@@ -1081,7 +1077,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     )
   }
 
-  const currentTheme = colorThemes[colorTheme]
+  const currentTheme = colorThemes[colorTheme] || colorThemes.orange
+  const themeTextColor = currentTheme?.textAccent || 'text-orange-700'
 
   return (
     <div className={`min-h-screen ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
