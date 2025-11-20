@@ -641,11 +641,19 @@ export default function BookGrid({
 
   return (
     <>
-      <div className={`grid gap-6 ${
-        viewMode === "cover" 
-          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8"
-          : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-      }`}>
+      <div 
+        className={`grid gap-6 ${
+          viewMode === "cover" 
+            ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8"
+            : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+        }`}
+        onClick={(e) => {
+          // In cover view, prevent any clicks on the grid container from bubbling
+          if (viewMode === "cover") {
+            e.stopPropagation()
+          }
+        }}
+      >
         {sortedBooks.map((book, index) => {
           const bookId = `${book.title}-${book.author}`
           const status = getReadingStatus(bookId)
