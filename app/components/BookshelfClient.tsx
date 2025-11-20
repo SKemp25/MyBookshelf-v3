@@ -1316,13 +1316,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
-                className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 flex-shrink-0" />
-                  <span>AUTHORS & BOOKS</span>
-                </div>
-                {isAuthorsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                <BookOpen className="w-4 h-4 flex-shrink-0 mr-2" />
+                <span className="flex-1 text-left">AUTHORS & BOOKS</span>
+                {isAuthorsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0 ml-2" /> : <ChevronDown className="w-4 h-4 flex-shrink-0 ml-2" />}
               </button>
 
               {isAuthorsOpen && (
@@ -1351,13 +1349,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                  className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
+                  className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 flex-shrink-0" />
-                    <span>RECOMMENDATIONS</span>
-                  </div>
-                  {isRecommendationsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                  <Users className="w-4 h-4 flex-shrink-0 mr-2" />
+                  <span className="flex-1 text-left">RECOMMENDATIONS</span>
+                  {isRecommendationsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0 ml-2" /> : <ChevronDown className="w-4 h-4 flex-shrink-0 ml-2" />}
                 </button>
 
                 {isRecommendationsOpen && (
@@ -1487,13 +1483,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
-                className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 flex-shrink-0" />
-                  <span>MY PREFERENCES</span>
-                </div>
-                {isPreferencesOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                <Settings className="w-4 h-4 flex-shrink-0 mr-2" />
+                <span className="flex-1 text-left">MY PREFERENCES</span>
+                {isPreferencesOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0 ml-2" /> : <ChevronDown className="w-4 h-4 flex-shrink-0 ml-2" />}
               </button>
 
               {isPreferencesOpen && (
