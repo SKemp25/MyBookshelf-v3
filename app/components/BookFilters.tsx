@@ -83,7 +83,7 @@ export default function BookFilters({
       <button
         data-tour="filters"
         onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-        className={`w-full flex items-center justify-between hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isFiltersOpen ? 'mb-2' : 'mb-0'}`}
+        className={`w-full flex items-center justify-between hover:bg-orange-50 p-6 -m-6 rounded transition-colors ${isFiltersOpen ? 'mb-6' : 'mb-0'}`}
       >
         <div className="flex items-center gap-3">
           <Filter className="w-6 h-6 text-orange-600" />
