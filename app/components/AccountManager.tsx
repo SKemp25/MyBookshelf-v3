@@ -87,6 +87,15 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: "" })
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
 
+  // Listen for custom event to open auth dialog from mobile menu
+  useEffect(() => {
+    const handleOpenAuth = () => {
+      setShowAuth(true)
+    }
+    window.addEventListener('openAuthDialog', handleOpenAuth)
+    return () => window.removeEventListener('openAuthDialog', handleOpenAuth)
+  }, [])
+
   const [signInState, signInAction] = useActionState(signIn, null)
   const [signUpState, signUpAction] = useActionState(signUp, null)
   const [resetState, resetAction] = useActionState(resetPassword, null)

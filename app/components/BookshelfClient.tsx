@@ -9,7 +9,7 @@ import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
-import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, Image as ImageIcon, ArrowUpDown, Filter, User, Download, LogOut, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
+import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, Image as ImageIcon, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { signOut } from "@/lib/actions"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
@@ -280,6 +281,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
   const [showFiltersDialog, setShowFiltersDialog] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
   const isMobileLayout = useIsMobile()
   const showSidebar = sidebarOpen // Show sidebar on all devices when open
 
@@ -1131,14 +1134,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
           {/* Left: Sidebar Toggle & App Title */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 text-white hover:bg-white/20"
-            >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
+            {!isMobileLayout && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 text-white hover:bg-white/20"
+              >
+                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+            )}
             <button 
               onClick={() => {
                 setSearchQuery("")
@@ -1152,8 +1157,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             </button>
           </div>
 
-          {/* Center: Search Bar */}
-          <div className="flex-1 max-w-xl md:max-w-2xl mx-2 md:mx-8">
+          {/* Center: Search Bar - More space on mobile */}
+          <div className={`flex-1 ${isMobileLayout ? 'mx-2' : 'max-w-xl md:max-w-2xl mx-2 md:mx-8'}`}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -1166,7 +1171,122 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             </div>
           </div>
 
-          {/* Right: Action Buttons */}
+          {/* Right: Mobile Menu (hamburger) or Desktop Action Buttons */}
+          {isMobileLayout ? (
+            <DropdownMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-2 text-white hover:bg-white/20">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Menu</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {/* Quick Filters */}
+                <DropdownMenuItem onClick={() => { setSidebarOpen(!sidebarOpen); setMobileMenuOpen(false); }}>
+                  <Filter className="w-4 h-4 mr-2" />
+                  Quick Filters
+                </DropdownMenuItem>
+                
+                {/* View Options */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      {viewMode === "grid" && <Grid3x3 className="w-4 h-4 mr-2" />}
+                      {viewMode === "list" && <List className="w-4 h-4 mr-2" />}
+                      {viewMode === "cover" && <ImageIcon className="w-4 h-4 mr-2" />}
+                      View
+                      <ChevronDown className="w-4 h-4 ml-auto" />
+                    </DropdownMenuItem>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="left">
+                    <DropdownMenuItem onClick={() => { setViewMode("grid"); setMobileMenuOpen(false); }}>
+                      <Grid3x3 className="w-4 h-4 mr-2" />
+                      Grid View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setViewMode("list"); setMobileMenuOpen(false); }}>
+                      <List className="w-4 h-4 mr-2" />
+                      List View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setViewMode("cover"); setMobileMenuOpen(false); }}>
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Cover Only
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                {/* Sort Options */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <ArrowUpDown className="w-4 h-4 mr-2" />
+                      Sort
+                      <ChevronDown className="w-4 h-4 ml-auto" />
+                    </DropdownMenuItem>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="left">
+                    <DropdownMenuItem onClick={() => { setSortBy("newest"); setMobileMenuOpen(false); }}>
+                      Newest First
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy("oldest"); setMobileMenuOpen(false); }}>
+                      Oldest First
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy("title"); setMobileMenuOpen(false); }}>
+                      Title A-Z
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy("author"); setMobileMenuOpen(false); }}>
+                      Author A-Z
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy("pages"); setMobileMenuOpen(false); }}>
+                      Most Pages
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                {/* Advanced Filters */}
+                <DropdownMenuItem onClick={() => { setShowFiltersDialog(true); setMobileMenuOpen(false); }}>
+                  <Filter className="w-4 h-4 mr-2" />
+                  Advanced Filters
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                {/* Settings Options */}
+                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Authors & Books
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setShowSettingsDialog(true); setMobileMenuOpen(false); }}>
+                  <User className="w-4 h-4 mr-2" />
+                  My Preferences
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Data
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                {/* Login/Logout */}
+                {isLoggedIn ? (
+                  <form action={signOut}>
+                    <DropdownMenuItem asChild>
+                      <button type="submit" className="w-full flex items-center cursor-pointer">
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                      </button>
+                    </DropdownMenuItem>
+                  </form>
+                ) : (
+                  <DropdownMenuItem onClick={() => { setShowAuthDialog(true); setMobileMenuOpen(false); }}>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
           <div className="flex items-center gap-0.5 md:gap-2 flex-shrink-0">
             {/* View Dropdown - Hide on mobile */}
             <DropdownMenu>
@@ -1275,11 +1395,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Account Manager - Always visible */}
+            {/* Account Manager - Always visible on desktop */}
             <div className="flex-shrink-0">
               <AccountManager user={user} isLoggedIn={isLoggedIn} />
             </div>
           </div>
+          )}
         </div>
       </header>
 
