@@ -5,10 +5,11 @@ import AccountManager from "./AccountManager"
 import AuthorManager from "./AuthorManager"
 import BookGrid from "./BookGrid"
 import BookFilters from "./BookFilters"
+import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
-import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle } from "lucide-react"
+import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, Image as ImageIcon, ArrowUpDown, Filter, User, Download, LogOut, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
@@ -19,6 +20,18 @@ import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
@@ -260,6 +273,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  
+  // New Apple Books layout state
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "cover">("grid")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
+  const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
+  const [showFiltersDialog, setShowFiltersDialog] = useState(false)
+  const isMobileLayout = useIsMobile()
+  const showSidebar = !isMobileLayout && sidebarOpen
 
   const [userState, setUserState] = useState<UserType>({
     name: "My Bookshelf",
@@ -1103,131 +1125,255 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const currentTheme = colorThemes[colorTheme] || colorThemes.orange
 
   return (
-    <div className={`min-h-screen ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
-      <header className={`relative shadow-lg overflow-hidden ${
-        highContrast 
-          ? "bg-black text-white border-b-4 border-white" 
-          : `${currentTheme.headerGradient} text-white`
-      }`}>
-        <div className="container mx-auto px-4 py-4">
-          {/* Accessibility Controls */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 md:gap-4">
-              <button
-                onClick={() => {
-                  const newState = !isMobileMenuOpen
-                  setIsMobileMenuOpen(newState)
-                  
-                  // Scroll to top when opening mobile menu to ensure it's visible
-                  if (newState) {
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }
-                }}
-                className={`md:hidden p-2 rounded-lg border-2 transition-colors ${
-                  isMobileMenuOpen 
-                    ? "bg-orange-500 text-white border-orange-600" 
-                    : "bg-white text-black border-black hover:bg-gray-100"
-                }`}
-                aria-label="Toggle menu"
+    <div className={`min-h-screen flex flex-col ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
+      {/* Header - Sticky Top */}
+      <header className={`sticky top-0 z-50 ${highContrast ? 'bg-black text-white border-b-4 border-white' : `${currentTheme.headerGradient} text-white`} shadow-sm`}>
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
+          {/* Left: Sidebar Toggle & App Title */}
+          <div className="flex items-center gap-2">
+            {!isMobileLayout && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 text-white hover:bg-white/20"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
+                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+            )}
+            <button 
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedAuthors([])
+                setSelectedGenres([])
+                setAdvancedFilters(defaultAdvancedFilters)
+              }}
+              className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
+            >
+              MY BOOKCASE
+            </button>
+          </div>
 
-              {/* Make "My Bookshelf" clickable to reset filters */}
-              <button
-                onClick={() => {
-                  setIsAuthorsOpen(true)
-                  setIsRecommendationsOpen(true)
-                  setSearchQuery("")
-                  setSelectedAuthors([])
-                  setSelectedLanguages(["en"])
-                  setSelectedGenres([])
-                  setAdvancedFilters(defaultAdvancedFilters)
-                }}
-                className="bg-white border-4 border-black rounded-full px-4 md:px-6 py-2 hover:bg-orange-50 transition-colors"
-                title="Click to clear all filters and show all books"
-              >
-                <h1 className="text-black font-black text-lg md:text-xl tracking-tight">MY BOOKCASE</h1>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="scale-75 md:scale-100 origin-right">
-                <AccountManager user={user} isLoggedIn={isLoggedIn} />
-              </div>
+          {/* Center: Search Bar */}
+          <div className="flex-1 max-w-xl md:max-w-2xl mx-2 md:mx-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search books..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full text-sm md:text-base bg-white"
+              />
             </div>
           </div>
 
-          {showOnboarding && (
-            <div className="absolute top-full left-4 mt-2 md:hidden z-50">
-              <div className="bg-yellow-400 text-black px-3 py-2 rounded-lg border-2 border-black shadow-lg animate-bounce">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-xs font-bold">Start here! Add your favorite authors</span>
-                </div>
-              </div>
+          {/* Right: Action Buttons */}
+          <div className="flex items-center gap-1 md:gap-2">
+            {/* View Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
+                  {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
+                  {viewMode === "list" && <List className="w-4 h-4" />}
+                  {viewMode === "cover" && <ImageIcon className="w-4 h-4" />}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>View</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setViewMode("grid")}>
+                  <Grid3x3 className="w-4 h-4 mr-2" />
+                  Grid View
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode("list")}>
+                  <List className="w-4 h-4 mr-2" />
+                  List View
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode("cover")}>
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Cover Only
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Sort Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
+                  <ArrowUpDown className="w-4 h-4" />
+                  <span className="hidden md:inline">Sort</span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setSortBy("newest")}>
+                  Newest First
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("oldest")}>
+                  Oldest First
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("title")}>
+                  Title A-Z
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("author")}>
+                  Author A-Z
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("pages")}>
+                  Most Pages
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden md:inline">Filter</span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Filters</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowFiltersDialog(true)}>
+                  <span className="w-full">Advanced Filters...</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Settings Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
+                  <Settings className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowAuthorsDialog(true)}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Authors & Books
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                  <User className="w-4 h-4 mr-2" />
+                  My Preferences
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Data
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Account Manager */}
+            <div className="scale-75 md:scale-100 origin-right">
+              <AccountManager user={user} isLoggedIn={isLoggedIn} />
             </div>
-          )}
+          </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* Mobile: Show main content first, then sidebar */}
-          <main className={`md:col-span-4 space-y-6 ${isMobileMenuOpen ? "order-2" : "order-1 md:order-2"}`}>
-            <div className={`bg-white rounded-lg shadow-lg border-4 border-black p-6 ${isFiltersOpen ? '' : 'pb-0'}`}>
-              <BookFilters
-                authors={authors}
-                recommendedAuthors={recommendedAuthors}
-                selectedAuthors={selectedAuthors}
-                setSelectedAuthors={setSelectedAuthors}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                selectedLanguages={selectedLanguages}
-                setSelectedLanguages={setSelectedLanguages}
-                selectedGenres={selectedGenres}
-                setSelectedGenres={setSelectedGenres}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                userPreferences={userState}
-                advancedFilters={advancedFilters}
-                onFiltersChange={setAdvancedFilters}
-                books={books}
-                isFiltersOpen={isFiltersOpen}
-                setIsFiltersOpen={setIsFiltersOpen}
-                bookRatings={bookRatings}
-                showHeartedBooks={showHeartedBooks}
-                setShowHeartedBooks={setShowHeartedBooks}
-              />
-            </div>
-
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-red-600 font-bold text-lg uppercase tracking-wide flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    My Bookshelf
-                  </h2>
-                  <div className="bg-white border-2 border-black rounded-lg px-2 py-0.5">
-                    <span className="text-black font-black text-xs">
-                      READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
-                  <span className="text-orange-800 font-medium text-xs">
-                    {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
-                  </span>
+      {/* Main Content Area with Optional Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Optional Sidebar - Hidden on mobile, collapsible on desktop */}
+        {showSidebar && (
+          <aside className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide">Quick Filters</h3>
+              
+              {/* Authors Filter */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-600 mb-2">Authors</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {authors.slice(0, 10).map((author) => (
+                    <label key={author} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedAuthors.includes(author)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAuthors([...selectedAuthors, author])
+                          } else {
+                            setSelectedAuthors(selectedAuthors.filter(a => a !== author))
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="truncate">{author}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
+
+              {/* Genres Filter */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-600 mb-2">Genres</h4>
+                <div className="space-y-1">
+                  {["Fiction", "Mystery", "Romance", "Science Fiction", "Fantasy", "Thriller", "Historical Fiction", "Memoir/Biography"].map((genre) => (
+                    <label key={genre} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedGenres.includes(genre)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedGenres([...selectedGenres, genre])
+                          } else {
+                            setSelectedGenres(selectedGenres.filter(g => g !== genre))
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span>{genre}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              {(selectedAuthors.length > 0 || selectedGenres.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedAuthors([])
+                    setSelectedGenres([])
+                  }}
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {/* Main Content - Book Grid */}
+        <main className="flex-1 px-4 md:px-6 py-6 overflow-y-auto">
+          {/* Reading Progress */}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="bg-white border-2 border-black rounded-lg px-3 py-1">
+              <span className="text-black font-black text-xs">
+                READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
+              </span>
+            </div>
+            <div className="bg-orange-100 border border-orange-200 rounded-lg px-3 py-1">
+              <span className="text-orange-800 font-medium text-xs">
+                {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
+              </span>
+            </div>
+          </div>
 
               <div data-tour="books">
                 <BookGrid
@@ -1414,7 +1560,56 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </div>
             </div>
           </main>
+        </div>
 
+      {/* Fixed Footer with Icon/Tools */}
+      <footer 
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-lg"
+        style={{ backgroundColor: currentTheme.footerColor }}
+      >
+        <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3">
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
+            <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Library</span>
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 text-white"
+            onClick={() => setShowAuthorsDialog(true)}
+          >
+            <Users className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Authors</span>
+          </Button>
+          
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
+            <Heart className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Favorites</span>
+          </Button>
+          
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
+            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Want to Read</span>
+          </Button>
+          
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
+            <BookCheck className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Finished</span>
+          </Button>
+          
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
+            <FileText className="w-5 h-5 md:w-6 md:h-6" />
+            <span className="text-xs">Export</span>
+          </Button>
+        </div>
+      </footer>
+      
+      {/* Spacer to prevent content from being hidden behind fixed footer */}
+      <div className="h-16 md:h-20"></div>
+
+      {/* Old sidebar content - now in dialogs */}
+      {false && (
           <aside className={`md:col-span-1 space-y-6 ${isMobileMenuOpen ? "block order-1" : "hidden md:block order-2 md:order-1"}`}>
             <div className="md:hidden flex justify-between items-center mb-4">
               <h2 className="text-white font-bold text-lg">Menu</h2>
@@ -2189,22 +2384,58 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         </div>
       </div>
 
-      <footer 
-        className="text-white py-4 mt-12"
-        style={{ backgroundColor: currentTheme.footerColor }}
-      >
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-xs opacity-80 mb-1">
-            This site was designed by Susanna Kemp as a personal project. It is intended to reduce overwhelm and online
-            clutter and is for individual use. It may not be copied without permission.
-          </p>
-          <p className="text-xs opacity-70 mb-2">Design inspired Penguin Books and art by James McQueen.</p>
-          <p className="text-xs opacity-60">
-            Data is private to your account only. It is stored locally on your device and for now will be erased if you
-            clear your cache.
-          </p>
-        </div>
-      </footer>
+      {/* Dialogs for Settings, Authors, Filters */}
+      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>My Preferences</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            {/* TODO: Add full preferences content here */}
+            <p className="text-sm text-gray-600">Settings will be integrated here</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAuthorsDialog} onOpenChange={setShowAuthorsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Authors & Books</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <AuthorManager
+              authors={authors}
+              setAuthors={setAuthors}
+              userId={currentUser || "guest"}
+              onBooksFound={onBooksFound}
+              onAuthorsChange={(newAuthors) => {
+                setAuthors(newAuthors)
+                if (currentUser) {
+                  localStorage.setItem(`authors_${currentUser}`, JSON.stringify(newAuthors))
+                }
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFiltersDialog} onOpenChange={setShowFiltersDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Advanced Filters</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <AdvancedFilters
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              books={books}
+              authors={authors.map(name => ({ id: name, name }))}
+              showHeartedBooks={showHeartedBooks}
+              setShowHeartedBooks={setShowHeartedBooks}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Contextual Tooltip Tour */}
       <TooltipManager
