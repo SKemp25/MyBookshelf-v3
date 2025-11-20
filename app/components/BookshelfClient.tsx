@@ -45,6 +45,7 @@ export const colorThemes = {
     accentDark: 'orange-600',
     textAccent: 'text-orange-700',
     borderAccent: 'border-orange-200',
+    footerColor: '#ea580c',
   },
   blue: {
     name: 'Literary Blue',
@@ -57,6 +58,7 @@ export const colorThemes = {
     accentDark: 'blue-600',
     textAccent: 'text-blue-700',
     borderAccent: 'border-blue-200',
+    footerColor: '#2563eb',
   },
   green: {
     name: 'British Racing Green',
@@ -69,6 +71,7 @@ export const colorThemes = {
     accentDark: 'green-900',
     textAccent: 'text-green-900',
     borderAccent: 'border-green-200',
+    footerColor: '#14532d',
   },
   purple: {
     name: 'Creative Purple',
@@ -81,6 +84,7 @@ export const colorThemes = {
     accentDark: 'purple-600',
     textAccent: 'text-purple-700',
     borderAccent: 'border-purple-200',
+    footerColor: '#9333ea',
   },
   teal: {
     name: 'Modern Teal',
@@ -93,6 +97,7 @@ export const colorThemes = {
     accentDark: 'teal-600',
     textAccent: 'text-teal-700',
     borderAccent: 'border-teal-200',
+    footerColor: '#0d9488',
   },
   neutral: {
     name: 'Neutral',
@@ -105,6 +110,7 @@ export const colorThemes = {
     accentDark: 'gray-600',
     textAccent: 'text-gray-700',
     borderAccent: 'border-gray-200',
+    footerColor: '#4b5563',
   },
 }
 
@@ -2183,7 +2189,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         </div>
       </div>
 
-      <footer className="bg-orange-600 text-white py-4 mt-12">
+      <footer 
+        className="text-white py-4 mt-12"
+        style={{ backgroundColor: currentTheme.footerColor }}
+      >
         <div className="container mx-auto px-4 text-center">
           <p className="text-xs opacity-80 mb-1">
             This site was designed by Susanna Kemp as a personal project. It is intended to reduce overwhelm and online
