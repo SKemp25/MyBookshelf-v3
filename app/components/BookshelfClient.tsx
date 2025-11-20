@@ -1312,7 +1312,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isAuthorsOpen ? 'p-4 pb-4' : 'p-4 pb-0'}`}>
               <button
                 data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
@@ -1347,7 +1347,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             </div>
 
             {userState.suggestNewAuthors && (
-              <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
+              <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isRecommendationsOpen ? 'p-4 pb-4' : 'p-4 pb-0'}`}>
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
@@ -1483,7 +1483,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             )}
 
 
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-4">
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isPreferencesOpen ? 'p-4 pb-4' : 'p-4 pb-0'}`}>
               <button
                 data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
