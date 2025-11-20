@@ -410,6 +410,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         toast({
           title: "Author Added Successfully!",
           description: `Found ${deduplicatedBooks.length} books for ${normalizedName}`,
+          duration: 4000, // Auto-dismiss after 4 seconds
         })
       } catch (error) {
         console.error("Error fetching books for author:", error)
@@ -484,6 +485,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         toast({
           title: "Author Added",
           description: `${normalizedName} has been added to your authors list.`,
+          duration: 4000, // Auto-dismiss after 4 seconds
         })
 
         // Clear the found books since we've added the author
