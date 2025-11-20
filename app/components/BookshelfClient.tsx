@@ -30,6 +30,84 @@ const getBookAuthor = (book: any): string => {
   return book.author || book.authors?.[0] || "Unknown"
 }
 
+// Define color themes inspired by artistic palettes
+export type ColorTheme = 'orange' | 'blue' | 'green' | 'purple' | 'teal' | 'neutral'
+
+export const colorThemes = {
+  orange: {
+    name: 'Penguin Orange',
+    description: 'Classic Penguin Books inspired',
+    bgGradient: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600',
+    headerGradient: 'bg-gradient-to-r from-orange-500 to-orange-600',
+    accent: 'orange',
+    accentLight: 'orange-50',
+    accentMedium: 'orange-200',
+    accentDark: 'orange-600',
+    textAccent: 'text-orange-700',
+    borderAccent: 'border-orange-200',
+  },
+  blue: {
+    name: 'Literary Blue',
+    description: 'Calming blue tones',
+    bgGradient: 'bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600',
+    headerGradient: 'bg-gradient-to-r from-blue-500 to-blue-600',
+    accent: 'blue',
+    accentLight: 'blue-50',
+    accentMedium: 'blue-200',
+    accentDark: 'blue-600',
+    textAccent: 'text-blue-700',
+    borderAccent: 'border-blue-200',
+  },
+  green: {
+    name: 'Nature Green',
+    description: 'Fresh green palette',
+    bgGradient: 'bg-gradient-to-br from-green-400 via-green-500 to-green-600',
+    headerGradient: 'bg-gradient-to-r from-green-500 to-green-600',
+    accent: 'green',
+    accentLight: 'green-50',
+    accentMedium: 'green-200',
+    accentDark: 'green-600',
+    textAccent: 'text-green-700',
+    borderAccent: 'border-green-200',
+  },
+  purple: {
+    name: 'Creative Purple',
+    description: 'Artistic purple tones',
+    bgGradient: 'bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600',
+    headerGradient: 'bg-gradient-to-r from-purple-500 to-purple-600',
+    accent: 'purple',
+    accentLight: 'purple-50',
+    accentMedium: 'purple-200',
+    accentDark: 'purple-600',
+    textAccent: 'text-purple-700',
+    borderAccent: 'border-purple-200',
+  },
+  teal: {
+    name: 'Modern Teal',
+    description: 'Contemporary teal palette',
+    bgGradient: 'bg-gradient-to-br from-teal-400 via-teal-500 to-teal-600',
+    headerGradient: 'bg-gradient-to-r from-teal-500 to-teal-600',
+    accent: 'teal',
+    accentLight: 'teal-50',
+    accentMedium: 'teal-200',
+    accentDark: 'teal-600',
+    textAccent: 'text-teal-700',
+    borderAccent: 'border-teal-200',
+  },
+  neutral: {
+    name: 'Neutral',
+    description: 'Subtle gray tones',
+    bgGradient: 'bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500',
+    headerGradient: 'bg-gradient-to-r from-gray-500 to-gray-600',
+    accent: 'gray',
+    accentLight: 'gray-50',
+    accentMedium: 'gray-200',
+    accentDark: 'gray-600',
+    textAccent: 'text-gray-700',
+    borderAccent: 'border-gray-200',
+  },
+}
+
 // Define platform options by category (outside component to prevent recreation on every render)
 const platformCategories = {
   Print: [
@@ -80,6 +158,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
+  const [colorTheme, setColorTheme] = useState<ColorTheme>('orange')
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
 
   // Handle hydration and check login state
@@ -258,6 +337,23 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       localStorage.setItem(userPrefsKey, JSON.stringify(userState))
     }
   }, [userState, isLoggedIn, currentUser])
+
+  // Load color theme from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('bookshelf_color_theme') as ColorTheme
+      if (savedTheme && colorThemes[savedTheme]) {
+        setColorTheme(savedTheme)
+      }
+    }
+  }, [])
+
+  // Save color theme to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bookshelf_color_theme', colorTheme)
+    }
+  }, [colorTheme])
 
   // Load platforms from localStorage (only once when user logs in)
   const [platformsLoaded, setPlatformsLoaded] = useState(false)
@@ -974,12 +1070,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     )
   }
 
+  const currentTheme = colorThemes[colorTheme]
+
   return (
-    <div className={`min-h-screen ${highContrast ? 'bg-black' : 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600'}`}>
+    <div className={`min-h-screen ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
       <header className={`relative shadow-lg overflow-hidden ${
         highContrast 
           ? "bg-black text-white border-b-4 border-white" 
-          : "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+          : `${currentTheme.headerGradient} text-white`
       }`}>
         <div className="container mx-auto px-4 py-4">
           {/* Accessibility Controls */}
@@ -1843,6 +1941,58 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   {/* Display Settings */}
                   <div className="space-y-3">
                     <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Display Settings</h3>
+                    
+                    {/* Color Theme Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm text-orange-700">Color Theme</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(Object.entries(colorThemes) as [ColorTheme, typeof colorThemes[ColorTheme]][]).map(([key, theme]) => {
+                          const isSelected = colorTheme === key
+                          const borderClass = isSelected ? (
+                            key === 'orange' ? 'border-orange-600 bg-orange-50' :
+                            key === 'blue' ? 'border-blue-600 bg-blue-50' :
+                            key === 'green' ? 'border-green-600 bg-green-50' :
+                            key === 'purple' ? 'border-purple-600 bg-purple-50' :
+                            key === 'teal' ? 'border-teal-600 bg-teal-50' :
+                            'border-gray-600 bg-gray-50'
+                          ) : 'border-gray-200 bg-white hover:border-gray-300'
+                          
+                          const textClass = isSelected ? (
+                            key === 'orange' ? 'text-orange-700' :
+                            key === 'blue' ? 'text-blue-700' :
+                            key === 'green' ? 'text-green-700' :
+                            key === 'purple' ? 'text-purple-700' :
+                            key === 'teal' ? 'text-teal-700' :
+                            'text-gray-700'
+                          ) : 'text-gray-700'
+                          
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => setColorTheme(key)}
+                              className={`p-3 rounded-lg border-2 transition-all text-left ${borderClass}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${
+                                  key === 'orange' ? 'from-orange-400 to-orange-600' :
+                                  key === 'blue' ? 'from-blue-400 to-blue-600' :
+                                  key === 'green' ? 'from-green-400 to-green-600' :
+                                  key === 'purple' ? 'from-purple-400 to-purple-600' :
+                                  key === 'teal' ? 'from-teal-400 to-teal-600' :
+                                  'from-gray-300 to-gray-500'
+                                }`} />
+                                <span className={`text-xs font-semibold ${textClass}`}>
+                                  {theme.name}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">{theme.description}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* High Contrast Toggle */}
                     <div className="flex items-center justify-between space-x-2">
                       <Label htmlFor="high-contrast" className="text-sm text-orange-700 cursor-pointer">
                         High Contrast Mode
