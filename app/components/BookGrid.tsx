@@ -661,50 +661,59 @@ export default function BookGrid({
               key={`${book.id}-${index}`}
               data-book-id={book.id}
               className="p-2"
+              onClick={(e) => {
+                // Prevent any clicks on the container div
+                e.stopPropagation()
+                e.preventDefault()
+              }}
             >
               <button
-                  type="button"
-                  className="relative aspect-[2/3] w-full cursor-pointer border-0 bg-transparent p-0"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    console.log("Cover clicked, book.id:", book.id, "onCoverClick exists:", !!onCoverClick)
-                    if (onCoverClick) {
-                      console.log("Calling onCoverClick with:", book.id)
-                      onCoverClick(book.id)
-                    } else {
-                      console.warn("onCoverClick is not defined!")
-                    }
-                    return false
-                  }}
-                >
-                  {book.thumbnail && showCovers ? (
-                    <>
-                      <img
-                        src={book.thumbnail || "/placeholder.svg"}
-                        alt={book.title}
-                        className="w-full h-full object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                      />
-                      {/* Dog-eared corner */}
+                type="button"
+                className="relative aspect-[2/3] w-full cursor-pointer border-0 bg-transparent p-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  console.log("Cover clicked, book.id:", book.id, "onCoverClick exists:", !!onCoverClick, "status:", status)
+                  if (onCoverClick) {
+                    console.log("Calling onCoverClick with:", book.id)
+                    onCoverClick(book.id)
+                  } else {
+                    console.warn("onCoverClick is not defined!")
+                  }
+                  return false
+                }}
+              >
+                {book.thumbnail && showCovers ? (
+                  <>
+                    <img
+                      src={book.thumbnail || "/placeholder.svg"}
+                      alt={book.title}
+                      className="w-full h-full object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                    />
+                    {/* Dog-eared corner - only show for read books */}
+                    {status === "read" && (
                       <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
                         <svg className="w-full h-full" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M32 0L0 32V0H32Z" fill="white" />
                           <path d="M32 0L0 32" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
                         </svg>
                       </div>
-                    </>
-                  ) : (
-                    <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
-                      <BookOpen className="w-12 h-12 text-gray-400" />
-                      {/* Dog-eared corner */}
+                    )}
+                  </>
+                ) : (
+                  <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
+                    <BookOpen className="w-12 h-12 text-gray-400" />
+                    {/* Dog-eared corner - only show for read books */}
+                    {status === "read" && (
                       <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
                         <svg className="w-full h-full" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M32 0L0 32V0H32Z" fill="white" />
                           <path d="M32 0L0 32" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
                         </svg>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
               </button>
             </div>
           ) : (
