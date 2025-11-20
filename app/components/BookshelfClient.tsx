@@ -59,15 +59,15 @@ export const colorThemes = {
     borderAccent: 'border-blue-200',
   },
   green: {
-    name: 'Nature Green',
-    description: 'Fresh green palette',
-    bgGradient: 'bg-gradient-to-br from-green-400 via-green-500 to-green-600',
-    headerGradient: 'bg-gradient-to-r from-green-500 to-green-600',
+    name: 'British Racing Green',
+    description: 'Classic dark green palette',
+    bgGradient: 'bg-gradient-to-br from-green-800 via-green-900 to-green-950',
+    headerGradient: 'bg-gradient-to-r from-green-900 to-green-950',
     accent: 'green',
     accentLight: 'green-50',
     accentMedium: 'green-200',
-    accentDark: 'green-600',
-    textAccent: 'text-green-700',
+    accentDark: 'green-900',
+    textAccent: 'text-green-900',
     borderAccent: 'border-green-200',
   },
   purple: {
@@ -2030,7 +2030,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                                 <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${
                                   key === 'orange' ? 'from-orange-400 to-orange-600' :
                                   key === 'blue' ? 'from-blue-400 to-blue-600' :
-                                  key === 'green' ? 'from-green-400 to-green-600' :
+                                  key === 'green' ? 'from-green-800 to-green-950' :
                                   key === 'purple' ? 'from-purple-400 to-purple-600' :
                                   key === 'teal' ? 'from-teal-400 to-teal-600' :
                                   'from-gray-300 to-gray-500'
