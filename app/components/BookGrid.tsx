@@ -532,7 +532,8 @@ export default function BookGrid({
               key={`${book.id}-${index}`}
               data-book-id={book.id}
               className={`shadow-lg hover:shadow-xl transition-all duration-300 ${
-                viewMode === "cover" ? "p-2" : "",
+                viewMode === "cover" ? "p-2" : ""
+              } ${
                 isUpcoming
                   ? "shadow-yellow-300 ring-2 ring-yellow-300 bg-gradient-to-br from-white to-yellow-50 text-black"
                   : isRecommendedAuthor
