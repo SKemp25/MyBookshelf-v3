@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   BookCheck,
   BookmarkPlus,
@@ -669,8 +668,8 @@ export default function BookGrid({
                   ? "shadow-blue-200 ring-2 ring-blue-200 bg-gradient-to-br from-white to-blue-50 text-black"
                   : highContrast ? "bg-white text-black" : "bg-white text-black"
               }`}
-              onClick={() => onBookClick?.(book.id)}
-              style={{ cursor: onBookClick ? 'pointer' : 'default' }}
+              onClick={viewMode === "cover" ? undefined : () => onBookClick?.(book.id)}
+              style={{ cursor: viewMode === "cover" ? 'default' : (onBookClick ? 'pointer' : 'default') }}
             >
               {viewMode === "cover" ? (
                 /* Cover Only View - Clickable with dog-eared corner */
@@ -678,8 +677,10 @@ export default function BookGrid({
                   className="relative aspect-[2/3] w-full cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onCoverClick?.(book.id)
-                    onBookClick?.(book.id)
+                    e.preventDefault()
+                    if (onCoverClick) {
+                      onCoverClick(book.id)
+                    }
                   }}
                 >
                   {book.thumbnail && showCovers ? (
