@@ -779,16 +779,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         // Check for "Fiction" vs "Non-Fiction" distinction
         if (filterLower === "fiction") {
           // Fiction should NOT match if book has "non-fiction", "biography", "history", etc.
-          const nonFictionIndicators = ["non-fiction", "nonfiction", "biography", "autobiography", "history", "biographical", "reference", "academic", "scholarly"]
-          if (nonFictionIndicators.some(indicator => 
-            bookGenres.some(bg => bg.includes(indicator)) || 
-            bookDescription.includes(indicator) ||
-            bookGenre.includes(indicator)
-          )) {
+          const nonFictionIndicators = [
+            "non-fiction", "nonfiction", "non fiction",
+            "biography", "autobiography", "biographical", "memoir",
+            "history", "historical", 
+            "reference", "academic", "scholarly",
+            "essay", "essays", "essay series",
+            "exploration", "thought-provoking", "era-defining",
+            "radio", "podcast", "series"
+          ]
+          const combinedText = `${bookGenres.join(" ")} ${bookGenre} ${bookDescription}`.toLowerCase()
+          if (nonFictionIndicators.some(indicator => combinedText.includes(indicator))) {
             return false
           }
           // Fiction should match if it has fiction-related categories
-          const fictionIndicators = ["fiction", "novel", "literary fiction"]
+          const fictionIndicators = ["fiction", "novel", "literary fiction", "literature"]
           return fictionIndicators.some(indicator => 
             bookGenres.some(bg => bg.includes(indicator)) || 
             bookDescription.includes(indicator) ||
