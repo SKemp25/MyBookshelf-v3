@@ -326,7 +326,78 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           try {
             const authorBooks = await fetchAuthorBooksWithCache(author)
             if (authorBooks && authorBooks.length > 0) {
-              allBooks.push(...authorBooks)
+              // Get existing books by this author to use as reference
+              const existingBooksByAuthor = books.filter(book => {
+                const bookAuthor = getBookAuthor(book)
+                return normalizeAuthorName(bookAuthor).toLowerCase() === normalizeAuthorName(author).toLowerCase()
+              })
+              
+              // Validate books against existing books if we have any
+              const validatedBooks = authorBooks.filter((item: any) => {
+                const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
+                if (!apiAuthor) return false
+                
+                const bookAuthor = normalizeAuthorName(apiAuthor).toLowerCase()
+                const searchedAuthor = normalizeAuthorName(author).toLowerCase()
+                
+                // Require exact name match (after normalization)
+                if (bookAuthor !== searchedAuthor) {
+                  return false
+                }
+                
+                // If we have existing books by this author, use them as reference
+                if (existingBooksByAuthor.length > 0) {
+                  // Check if this book's metadata is consistent with existing books
+                  // Look at categories/genres - if existing books are fiction, exclude non-fiction
+                  const existingGenres = new Set(
+                    existingBooksByAuthor
+                      .flatMap(b => b.categories || [])
+                      .map(g => g.toLowerCase())
+                  )
+                  
+                  const bookCategories = (item.volumeInfo?.categories || []).map((c: string) => c.toLowerCase())
+                  const bookDescription = (item.volumeInfo?.description || "").toLowerCase()
+                  
+                  // If existing books are clearly fiction, exclude books that are clearly non-fiction
+                  const hasFictionGenre = Array.from(existingGenres).some(g => 
+                    g.includes("fiction") || g.includes("novel") || g.includes("literature")
+                  )
+                  
+                  if (hasFictionGenre) {
+                    const nonFictionIndicators = [
+                      "biography", "autobiography", "history", "historical", 
+                      "non-fiction", "nonfiction", "reference", "academic"
+                    ]
+                    const isNonFiction = nonFictionIndicators.some(indicator =>
+                      bookCategories.some(c => c.includes(indicator)) ||
+                      bookDescription.includes(indicator)
+                    )
+                    if (isNonFiction) {
+                      return false
+                    }
+                  }
+                  
+                  // If existing books are clearly non-fiction, exclude books that are clearly fiction
+                  const hasNonFictionGenre = Array.from(existingGenres).some(g =>
+                    g.includes("biography") || g.includes("history") || g.includes("non-fiction")
+                  )
+                  
+                  if (hasNonFictionGenre) {
+                    const fictionIndicators = ["fiction", "novel", "literature", "romance", "mystery", "thriller"]
+                    const isFiction = fictionIndicators.some(indicator =>
+                      bookCategories.some(c => c.includes(indicator)) ||
+                      bookDescription.includes(indicator)
+                    )
+                    if (isFiction && !bookCategories.some(c => c.includes("biography") || c.includes("history"))) {
+                      return false
+                    }
+                  }
+                }
+                
+                return true
+              })
+              
+              allBooks.push(...validatedBooks)
             }
           } catch (error) {
             console.error(`Error fetching books for ${author}:`, error)

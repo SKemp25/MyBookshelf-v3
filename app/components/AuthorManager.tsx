@@ -109,7 +109,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         const apiResults = await fetchAuthorBooksWithCache(normalizedName)
         
         // Filter out books where author name appears in title but author is different
-        // Only include books where the author field actually matches
+        // Only include books where the author field actually matches EXACTLY
         const validBooks = apiResults.filter((item: any) => {
           const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
           if (!apiAuthor) return false
@@ -122,27 +122,20 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             return false
           }
           
-          // Only include books where author actually matches
-          // Use more flexible matching - check if all words from searched name appear in book author
+          // STRICT MATCHING: Only include books where author matches exactly (after normalization)
+          // This prevents mixing authors with the same name
           if (bookAuthor === searchedNameLower) return true
           
-          // Check if the searched name is contained in the book author (for cases like "David Nicholls" matching "David Nicholls, Jr.")
-          if (bookAuthor.includes(searchedNameLower)) return true
+          // Allow for suffixes like "Jr.", "Sr.", "III" - check if base name matches
+          const searchedBaseName = searchedNameLower.replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, "").trim()
+          const bookBaseName = bookAuthor.replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, "").trim()
           
-          // Word-by-word matching - all words from searched name must appear in book author
-          const searchedWords = searchedNameLower
-            .split(/[\s,]+/)
-            .filter((word: string) => word.length > 1)
-          const bookWords = bookAuthor
-            .split(/[\s,]+/)
-            .filter((word: string) => word.length > 1)
+          if (searchedBaseName === bookBaseName && searchedBaseName.length > 0) {
+            return true
+          }
           
-          // Check if all searched words appear in book author (order doesn't matter)
-          const allWordsMatch = searchedWords.every((searchedWord: string) => 
-            bookWords.some((bookWord: string) => bookWord === searchedWord || bookWord.includes(searchedWord))
-          )
-          
-          return allWordsMatch
+          // If no exact match, exclude the book to avoid mixing authors with same name
+          return false
         })
         
         // Group books by author name to detect multiple authors with same name
