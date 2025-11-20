@@ -673,8 +673,9 @@ export default function BookGrid({
             >
               {viewMode === "cover" ? (
                 /* Cover Only View - Clickable with dog-eared corner */
-                <div 
-                  className="relative aspect-[2/3] w-full cursor-pointer"
+                <button
+                  type="button"
+                  className="relative aspect-[2/3] w-full cursor-pointer border-0 bg-transparent p-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -714,7 +715,7 @@ export default function BookGrid({
                       </div>
                     </div>
                   )}
-                </div>
+                </button>
               ) : (
                 /* Grid View (default) */
               <CardContent className={isMobile ? "p-4" : "p-6"}>
