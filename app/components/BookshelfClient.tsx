@@ -178,6 +178,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
+  const [footerView, setFooterView] = useState<"library" | "favorites" | "want-to-read" | "finished" | null>(null)
+  const [showExportDialog, setShowExportDialog] = useState(false)
   // Initialize color theme from localStorage if available
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
     if (typeof window !== 'undefined') {
@@ -912,13 +914,26 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
-    // Filter by hearted books (loved rating)
-    if (showHeartedBooks) {
-      const bookId = `${book.title}-${getBookAuthor(book)}`
+    // Filter by hearted books (loved rating) - also check footer view
+    const bookId = `${book.title}-${getBookAuthor(book)}`
+    if (showHeartedBooks || footerView === "favorites") {
       const rating = bookRatings.get(bookId)
       if (rating !== "loved") {
         return false
       }
+    }
+
+    // Filter by footer view
+    if (footerView === "want-to-read") {
+      if (!wantToReadBooks.has(bookId)) {
+        return false
+      }
+    } else if (footerView === "finished") {
+      if (!readBooks.has(bookId)) {
+        return false
+      }
+    } else if (footerView === "library") {
+      // Library shows all books (no additional filter)
     }
 
     if (safeAdvancedFilters.fromDate && book.publishedDate) {
@@ -1695,45 +1710,89 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         style={{ backgroundColor: currentTheme.footerColor }}
       >
         <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3">
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
-            <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Library</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "library" ? "bg-white/20" : ""}`}
+            onClick={() => setFooterView(footerView === "library" ? null : "library")}
+          >
+            <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Library</span>
           </Button>
           
           <Button 
             variant="ghost" 
             size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2 text-white"
+            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === null ? "" : ""}`}
             onClick={() => setShowAuthorsDialog(true)}
           >
-            <Users className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Authors</span>
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Authors</span>
           </Button>
           
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
-            <Heart className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Favorites</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "favorites" ? "bg-white/20" : ""}`}
+            onClick={() => setFooterView(footerView === "favorites" ? null : "favorites")}
+          >
+            <Heart className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Favorites</span>
           </Button>
           
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
-            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Want to Read</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "want-to-read" ? "bg-white/20" : ""}`}
+            onClick={() => setFooterView(footerView === "want-to-read" ? null : "want-to-read")}
+          >
+            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Want to Read</span>
           </Button>
           
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
-            <BookCheck className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Finished</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex flex-col items-center gap-1 h-auto py-2 ${footerView === "finished" ? "bg-white/20" : ""}`}
+            onClick={() => setFooterView(footerView === "finished" ? null : "finished")}
+          >
+            <BookCheck className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Finished</span>
           </Button>
           
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 text-white">
-            <FileText className="w-5 h-5 md:w-6 md:h-6" />
-            <span className="text-xs">Export</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2"
+            onClick={() => setShowExportDialog(true)}
+          >
+            <FileText className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <span className="text-xs text-white">Export</span>
           </Button>
         </div>
       </footer>
       
       {/* Spacer to prevent content from being hidden behind fixed footer */}
       <div className="h-16 md:h-20"></div>
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Export Data</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <DataExport 
+              books={filteredAndLimitedBooks}
+              authors={authors}
+              readBooks={readBooks}
+              wantToReadBooks={wantToReadBooks}
+              dontWantBooks={dontWantBooks}
+              userProfile={userState}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Old sidebar content - now in dialogs */}
       {false && (

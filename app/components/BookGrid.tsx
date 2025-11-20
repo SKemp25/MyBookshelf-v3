@@ -545,7 +545,7 @@ export default function BookGrid({
                   <div className="space-y-3">
                     {/* Book Cover - if available */}
                     {book.thumbnail && showCovers && (
-                      <div className="flex justify-center">
+                      <div className="flex justify-center mt-4">
                         <img
                           src={book.thumbnail || "/placeholder.svg"}
                           alt={book.title}
