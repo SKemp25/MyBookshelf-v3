@@ -1558,7 +1558,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 sharedBooks={new Set()}
                 />
               </div>
-            </div>
           </main>
         </div>
 
