@@ -160,6 +160,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [highContrast, setHighContrast] = useState(false)
   const [colorTheme, setColorTheme] = useState<ColorTheme>('orange')
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
+  
+  // Collapsible sections for Preferences
+  const [isAccountInfoOpen, setIsAccountInfoOpen] = useState(false)
+  const [isReadingPrefsOpen, setIsReadingPrefsOpen] = useState(false)
+  const [isDisplaySettingsOpen, setIsDisplaySettingsOpen] = useState(false)
+  const [isReadingPlatformsOpen, setIsReadingPlatformsOpen] = useState(false)
+  const [isDataSupportOpen, setIsDataSupportOpen] = useState(false)
 
   // Handle hydration and check login state
   useEffect(() => {
@@ -1577,9 +1584,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isPreferencesOpen && (
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Account Information</h3>
+                <div className="space-y-3">
+                  {/* Account Information - Collapsible */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsAccountInfoOpen(!isAccountInfoOpen)}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                    >
+                      <span>Account Information</span>
+                      {isAccountInfoOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {isAccountInfoOpen && (
+                      <div className="space-y-2 pl-2">
                     <div className="space-y-2">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
@@ -1676,10 +1692,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Languages</h3>
+                  {/* Reading Preferences - Collapsible */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsReadingPrefsOpen(!isReadingPrefsOpen)}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                    >
+                      <span>Reading Preferences</span>
+                      {isReadingPrefsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {isReadingPrefsOpen && (
+                      <div className="space-y-3 pl-2">
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
                     <div className="space-y-1">
                       {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
                         const langCode = ["en", "es", "fr", "de", "it", "pt"][index]
@@ -1710,8 +1738,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Age Range</h3>
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
                     <div className="space-y-1">
                       {[
                         { label: "0-12", value: "Children (0-12)" },
@@ -1732,8 +1760,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Genres</h3>
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
                     <div className="space-y-1">
                       {[
                         "Fiction",
@@ -1770,8 +1798,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Recommendations</h3>
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
                     <div className="space-y-1">
                       <label className="flex items-center text-xs">
                         <input
@@ -1790,8 +1818,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Publication Type</h3>
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
                     <div className="space-y-1">
                       {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
                         (type) => (
@@ -1848,11 +1876,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         All
                       </label>
                     </div>
-                    <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Reading Platforms</h3>
+                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                        </div>
                     <p className="text-xs text-gray-600 mb-3">Select your preferred platforms for each reading format. You can choose multiple options per category.</p>
                     
                     {Object.entries(platformCategories).map(([category, options]) => (
@@ -1938,9 +1963,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </p>
                   </div>
 
-                  {/* Display Settings */}
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Display Settings</h3>
+                        {/* Display Settings */}
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Display Settings</h4>
                     
                     {/* Color Theme Selector */}
                     <div className="space-y-2">
@@ -2007,11 +2032,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <p className="text-xs text-gray-500">
                       Increases contrast for better visibility
                     </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Data Export Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Data Export</h3>
+                  {/* Reading Platforms - Collapsible */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
+                    >
+                      <span>Reading Platforms</span>
+                      {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {isReadingPlatformsOpen && (
+                      <div className="space-y-4 pl-2">
                     <div className="p-3 bg-orange-50 rounded border border-orange-200">
                       <DataExport 
                 books={filteredAndLimitedBooks}
