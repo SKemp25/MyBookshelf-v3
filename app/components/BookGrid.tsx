@@ -673,13 +673,20 @@ export default function BookGrid({
             >
               {viewMode === "cover" ? (
                 /* Cover Only View - Clickable with dog-eared corner */
-                <div className="relative aspect-[2/3] w-full">
+                <div 
+                  className="relative aspect-[2/3] w-full cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedBookId(book.id)
+                    onBookClick?.(book.id)
+                  }}
+                >
                   {book.thumbnail && showCovers ? (
                     <>
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
-                        className="w-full h-full object-cover rounded-lg shadow-md"
+                        className="w-full h-full object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
                       />
                       {/* Dog-eared corner */}
                       <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
@@ -690,7 +697,7 @@ export default function BookGrid({
                       </div>
                     </>
                   ) : (
-                    <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center">
+                    <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
                       <BookOpen className="w-12 h-12 text-gray-400" />
                       {/* Dog-eared corner */}
                       <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
@@ -709,31 +716,13 @@ export default function BookGrid({
                   /* Clean Mobile View - iPhone */
                   <div className="space-y-3">
                     {/* Book Cover - if available */}
-                    {book.thumbnail && showCovers ? (
-                      <div 
-                        className="flex justify-center mt-4 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onBookClick?.(book.id)
-                        }}
-                      >
+                    {book.thumbnail && showCovers && (
+                      <div className="flex justify-center mt-4">
                         <img
                           src={book.thumbnail || "/placeholder.svg"}
                           alt={book.title}
-                          className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black hover:shadow-md transition-shadow"
+                          className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black"
                         />
-                      </div>
-                    ) : (
-                      <div 
-                        className="flex justify-center mt-4 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onBookClick?.(book.id)
-                        }}
-                      >
-                        <div className="w-24 h-36 bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
-                          <BookOpen className="w-8 h-8 text-gray-400" />
-                        </div>
                       </div>
                     )}
 
@@ -918,32 +907,13 @@ export default function BookGrid({
                   /* Full Desktop View */
                   <div className="space-y-4">
                     {/* Book Cover - only show if memory aid preference is enabled */}
-                    {book.thumbnail && showCovers ? (
-                    <div 
-                      className="flex justify-center mt-4 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedBookId(book.id)
-                        onBookClick?.(book.id)
-                      }}
-                    >
+                    {book.thumbnail && showCovers && (
+                    <div className="flex justify-center mt-4">
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
-                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black hover:shadow-md transition-shadow"
+                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
                       />
-                    </div>
-                  ) : (
-                    <div 
-                      className="flex justify-center mt-4 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onBookClick?.(book.id)
-                      }}
-                    >
-                      <div className="w-28 h-42 bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
-                        <BookOpen className="w-10 h-10 text-gray-400" />
-                      </div>
                     </div>
                   )}
 
