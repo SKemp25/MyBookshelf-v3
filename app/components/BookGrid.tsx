@@ -515,9 +515,84 @@ export default function BookGrid({
     )
   }
 
+  // For list view, render as a table
+  if (viewMode === "list") {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100 border-b-2 border-gray-300">
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Cover</th>
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Title</th>
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Author</th>
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Published</th>
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Pages</th>
+              <th className="text-left p-3 text-xs font-bold uppercase text-gray-700">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedBooks.map((book, index) => {
+              const bookId = `${book.title}-${book.author}`
+              const status = getReadingStatus(bookId)
+              const isUpcoming = isUpcomingRelease(book.publishedDate || "")
+              const bookAuthor = getAuthorName(book)
+              const isRecommendedAuthor = recommendedAuthors.has(bookAuthor)
+
+              return (
+                <tr
+                  key={`${book.id}-${index}`}
+                  data-book-id={book.id}
+                  onClick={() => onBookClick?.(book.id)}
+                  className={`border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer ${
+                    isUpcoming ? "bg-yellow-50" : isRecommendedAuthor ? "bg-blue-50" : ""
+                  }`}
+                >
+                  <td className="p-3">
+                    {book.thumbnail && showCovers ? (
+                      <img
+                        src={book.thumbnail || "/placeholder.svg"}
+                        alt={book.title}
+                        className="w-12 h-18 object-cover rounded shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-12 h-18 bg-gray-200 rounded flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-gray-400" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="font-bold text-sm text-black">{book.title}</div>
+                  </td>
+                  <td className="p-3">
+                    <div className="text-red-600 font-semibold text-sm">{bookAuthor}</div>
+                  </td>
+                  <td className="p-3">
+                    <div className="text-xs text-gray-600">{book.publishedDate || "-"}</div>
+                  </td>
+                  <td className="p-3">
+                    <div className="text-xs text-gray-600">{book.pageCount && book.pageCount > 0 ? `${book.pageCount}` : "-"}</div>
+                  </td>
+                  <td className="p-3">
+                    <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
+                      {getStatusText(status)}
+                    </Badge>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+      <div className={`grid gap-6 ${
+        viewMode === "cover" 
+          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8"
+          : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+      }`}>
         {sortedBooks.map((book, index) => {
           const bookId = `${book.title}-${book.author}`
           const status = getReadingStatus(bookId)
@@ -544,47 +619,36 @@ export default function BookGrid({
               style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
               {viewMode === "cover" ? (
-                /* Cover Only View */
-                book.thumbnail && showCovers ? (
-                  <div className="aspect-[2/3] w-full">
-                    <img
-                      src={book.thumbnail || "/placeholder.svg"}
-                      alt={book.title}
-                      className="w-full h-full object-cover rounded-lg shadow-md"
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center">
-                    <BookOpen className="w-12 h-12 text-gray-400" />
-                  </div>
-                )
-              ) : viewMode === "list" ? (
-                /* List View */
-                <CardContent className="p-4">
-                  <div className="flex gap-4">
-                    {book.thumbnail && showCovers && (
+                /* Cover Only View - Clickable with dog-eared corner */
+                <div className="relative aspect-[2/3] w-full">
+                  {book.thumbnail && showCovers ? (
+                    <>
                       <img
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
-                        className="w-20 h-32 object-cover rounded-lg shadow-sm flex-shrink-0"
+                        className="w-full h-full object-cover rounded-lg shadow-md"
                       />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-lg text-black mb-1">{book.title}</h3>
-                      <p className="text-red-600 font-semibold text-sm mb-2">{getAuthorName(book)}</p>
-                      <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
-                        {book.publishedDate && <span>{book.publishedDate}</span>}
-                        {book.pageCount && book.pageCount > 0 && <span>• {book.pageCount} pages</span>}
+                      {/* Dog-eared corner */}
+                      <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
+                        <svg className="w-full h-full" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M32 0L0 32V0H32Z" fill="white" />
+                          <path d="M32 0L0 32" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
+                        </svg>
                       </div>
-                      {book.description && (
-                        <p className="text-sm text-gray-700 line-clamp-2 mb-2">{book.description}</p>
-                      )}
-                      <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
-                        {getStatusText(status)}
-                      </Badge>
+                    </>
+                  ) : (
+                    <div className="aspect-[2/3] w-full bg-gray-200 rounded-lg flex items-center justify-center">
+                      <BookOpen className="w-12 h-12 text-gray-400" />
+                      {/* Dog-eared corner */}
+                      <div className="absolute bottom-0 right-0 w-8 h-8 bg-white opacity-90">
+                        <svg className="w-full h-full" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M32 0L0 32V0H32Z" fill="white" />
+                          <path d="M32 0L0 32" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
+                  )}
+                </div>
               ) : (
                 /* Grid View (default) */
               <CardContent className={isMobile ? "p-4" : "p-6"}>
