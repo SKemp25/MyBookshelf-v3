@@ -1087,7 +1087,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const currentTheme = colorThemes[colorTheme] || colorThemes.orange
-  const themeTextColor = currentTheme?.textAccent || 'text-orange-700'
 
   return (
     <div className={`min-h-screen ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
@@ -1193,7 +1192,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 bookRatings={bookRatings}
                 showHeartedBooks={showHeartedBooks}
                 setShowHeartedBooks={setShowHeartedBooks}
-                themeTextColor={themeTextColor}
               />
             </div>
 
@@ -1231,7 +1229,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 highContrast={highContrast}
                 recommendedAuthors={recommendedAuthors}
                 memoryAids={userState.memoryAids || []}
-                themeTextColor={themeTextColor}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
@@ -1421,7 +1418,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="authors"
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
-                className={`w-full flex items-center ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
               >
                 <BookOpen className="w-4 h-4 flex-shrink-0 mr-2" />
                 <span className="flex-1 text-left">AUTHORS & BOOKS</span>
@@ -1454,7 +1451,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <button
                   data-tour="recommendations"
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
-                  className={`w-full flex items-center ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
+                  className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <Users className="w-4 h-4 flex-shrink-0 mr-2" />
                   <span className="flex-1 text-left">RECOMMENDATIONS</span>
@@ -1473,7 +1470,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   wantToReadBooks={wantToReadBooks}
                   bookRatings={bookRatings}
                   user={userState}
-                  themeTextColor={themeTextColor}
                   onBookClick={async (book) => {
                     // Add the single book and include the author with just this one book
                     const bookAuthor = book.author || book.authors?.[0]
@@ -1589,7 +1585,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <button
                 data-tour="settings"
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
-                className={`w-full flex items-center ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
+                className={`w-full flex items-center text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-4 -m-4 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
               >
                 <Settings className="w-4 h-4 flex-shrink-0 mr-2" />
                 <span className="flex-1 text-left">MY PREFERENCES</span>
@@ -1713,7 +1709,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   <div className="space-y-2">
                     <button
                       onClick={() => setIsReadingPrefsOpen(!isReadingPrefsOpen)}
-                      className={`w-full flex items-center justify-between ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors`}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                     >
                       <span>Reading Preferences</span>
                       {isReadingPrefsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1721,7 +1717,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     {isReadingPrefsOpen && (
                       <div className="space-y-3 pl-2">
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Languages</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
                     <div className="space-y-1">
                       {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
                         const langCode = ["en", "es", "fr", "de", "it", "pt"][index]
@@ -1753,7 +1749,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </div>
 
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Reading Age Range</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
                     <div className="space-y-1">
                       {[
                         { label: "0-12", value: "Children (0-12)" },
@@ -1775,7 +1771,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </div>
 
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Genres</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
                     <div className="space-y-1">
                       {[
                         "Fiction",
@@ -1813,7 +1809,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </div>
 
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Recommendations</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
                     <div className="space-y-1">
                       <label className="flex items-center text-xs">
                         <input
@@ -1833,7 +1829,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </div>
 
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Publication Type</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
                     <div className="space-y-1">
                       {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
                         (type) => (
@@ -1872,7 +1868,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   <div className="space-y-2">
                     <button
                       onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
-                      className={`w-full flex items-center justify-between ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors`}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                     >
                       <span>Reading Platforms</span>
                       {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1970,7 +1966,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   <div className="space-y-2">
                     <button
                       onClick={() => setIsDisplaySettingsOpen(!isDisplaySettingsOpen)}
-                      className={`w-full flex items-center justify-between ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors`}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                     >
                       <span>Display & Settings</span>
                       {isDisplaySettingsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1979,7 +1975,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <div className="space-y-3 pl-2">
                         {/* Show last N books setting */}
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Limit Books per Author</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
                           <div className="flex flex-wrap gap-3 text-xs">
                             {([3,5,10] as const).map((n) => (
                               <label key={n} className="flex items-center gap-2">
@@ -2007,7 +2003,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
                         {/* Display Settings */}
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Display Settings</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Display Settings</h4>
                     
                     {/* Color Theme Selector */}
                     <div className="space-y-2">
@@ -2083,7 +2079,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   <div className="space-y-2">
                     <button
                       onClick={() => setIsDataSupportOpen(!isDataSupportOpen)}
-                      className={`w-full flex items-center justify-between ${themeTextColor} font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors`}
+                      className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                     >
                       <span>Data & Support</span>
                       {isDataSupportOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -2092,7 +2088,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <div className="space-y-3 pl-2">
                         {/* Data Export Section */}
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Data Export</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
                           <div className="p-3 bg-orange-50 rounded border border-orange-200">
                             <DataExport 
                               books={filteredAndLimitedBooks}
@@ -2107,7 +2103,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
                         {/* Help & Support Section */}
                         <div className="space-y-3">
-                          <h4 className={`${themeTextColor} font-bold text-xs uppercase tracking-wide`}>Help & Support</h4>
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
                     <div className="p-3 bg-blue-50 rounded border border-blue-200">
                       <button
                         onClick={() => setIsTooltipTourActive(true)}

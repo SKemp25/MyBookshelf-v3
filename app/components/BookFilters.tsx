@@ -36,7 +36,6 @@ interface BookFiltersProps {
   bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
   showHeartedBooks: boolean
   setShowHeartedBooks: (show: boolean) => void
-  themeTextColor?: string
 }
 
 export default function BookFilters({
@@ -61,7 +60,6 @@ export default function BookFilters({
   bookRatings,
   showHeartedBooks,
   setShowHeartedBooks,
-  themeTextColor = 'text-red-700',
 }: BookFiltersProps) {
   const safeAuthors = Array.isArray(authors) ? authors : []
   const safeBooks = Array.isArray(books) ? books : []
@@ -81,7 +79,7 @@ export default function BookFilters({
   }
 
   return (
-    <div className={`text-sm font-medium ${themeTextColor}`}>
+    <div className="text-sm font-medium text-red-700">
       <button
         data-tour="filters"
         onClick={() => setIsFiltersOpen(!isFiltersOpen)}
