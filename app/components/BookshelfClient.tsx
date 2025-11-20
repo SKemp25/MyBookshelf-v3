@@ -1603,6 +1603,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 memoryAids={userState.memoryAids || []}
                 viewMode={viewMode}
                 onSortChange={setSortBy}
+                onCoverClick={(bookId) => {
+                  // Find the book by ID
+                  const book = books.find(b => b.id === bookId)
+                  if (book) {
+                    // Switch to grid view and filter to show just this book
+                    setViewMode("grid")
+                    setSearchQuery(book.title)
+                  }
+                }}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
