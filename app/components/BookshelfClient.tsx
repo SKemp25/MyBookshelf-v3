@@ -1160,7 +1160,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     console.log("onBooksFound called with", newBooks.length, "books")
     console.log("Current authors:", authors)
     setBooks((prevBooks) => {
-      // Simple approach: just add new books, filter out any with missing authors
+      // Filter out books with invalid authors (but don't filter by authors list here)
+      // AuthorManager already ensures only matching books are passed
+      // The real filtering by authors list happens in filteredAndLimitedBooks
       const validNewBooks = newBooks.filter(book => {
         const author = getBookAuthor(book)
         const isValid = author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
@@ -1173,19 +1175,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       console.log("Valid new books:", validNewBooks.length)
       validNewBooks.forEach(book => {
         const bookAuthor = getBookAuthor(book)
-        console.log("New book:", book.title, "by", bookAuthor)
-        // Check if author matches
-        const authorMatches = authors.some(author => {
-          const match1 = author.toLowerCase().trim() === bookAuthor.toLowerCase().trim()
-          const match2 = normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
-          if (match1 || match2) {
-            console.log("Author match found:", author, "matches", bookAuthor)
-          }
-          return match1 || match2
-        })
-        if (!authorMatches) {
-          console.warn("WARNING: Book author", bookAuthor, "does not match any author in list:", authors)
-        }
+        console.log("Adding book:", book.title, "by", bookAuthor)
       })
       
       // Remove duplicates based on book ID
@@ -1398,7 +1388,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </DropdownMenuItem>
                   </form>
                 ) : (
-                  <DropdownMenuItem onClick={() => { setShowAuthDialog(true); setMobileMenuOpen(false); }}>
+                  <DropdownMenuItem onClick={() => { 
+                    window.dispatchEvent(new CustomEvent('openAuthDialog'));
+                    setMobileMenuOpen(false); 
+                  }}>
                     <LogIn className="w-4 h-4 mr-2" />
                     Login
                   </DropdownMenuItem>
@@ -1803,15 +1796,24 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-lg"
         style={{ backgroundColor: currentTheme.footerColor }}
       >
-        <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3">
+        <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3 [&_button]:text-white [&_button:hover]:text-white [&_button_svg]:text-white [&_button:hover_svg]:text-white">
           <Button 
             variant="ghost" 
             size="sm" 
             className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "library" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "library" ? null : "library")}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = footerView === "library" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
+            }}
           >
-            <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Library</span>
+            <BookOpen className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Library</span>
           </Button>
           
           <Button 
@@ -1819,9 +1821,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             size="sm" 
             className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
             onClick={() => setShowAuthorsDialog(true)}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
           >
-            <Users className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Authors</span>
+            <Users className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Authors</span>
           </Button>
           
           <Button 
@@ -1829,9 +1840,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             size="sm" 
             className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "favorites" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "favorites" ? null : "favorites")}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = footerView === "favorites" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
+            }}
           >
-            <Heart className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Favorites</span>
+            <Heart className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Favorites</span>
           </Button>
           
           <Button 
@@ -1839,9 +1859,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             size="sm" 
             className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "want-to-read" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "want-to-read" ? null : "want-to-read")}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = footerView === "want-to-read" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
+            }}
           >
-            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Want to Read</span>
+            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Want to Read</span>
           </Button>
           
           <Button 
@@ -1849,9 +1878,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             size="sm" 
             className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "finished" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "finished" ? null : "finished")}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = footerView === "finished" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
+            }}
           >
-            <BookCheck className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Finished</span>
+            <BookCheck className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Finished</span>
           </Button>
           
           <Button 
@@ -1859,9 +1897,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             size="sm" 
             className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
             onClick={() => setShowExportDialog(true)}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
           >
-            <FileText className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            <span className="text-xs text-white">Export</span>
+            <FileText className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Export</span>
           </Button>
         </div>
       </footer>
