@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   title: "My Bookcase - Personal Reading Tracker",
   description: "Track your personal reading collection, discover new books, and manage your reading preferences",
   generator: "v0.app",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+  },
 }
 
 export default function RootLayout({
