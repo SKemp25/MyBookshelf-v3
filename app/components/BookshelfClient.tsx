@@ -266,7 +266,29 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         try {
           const parsed = JSON.parse(savedPlatforms)
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setPlatforms(parsed)
+            // Migrate old "OverDrive/Libby" entries to "Library"
+            const migrated = parsed.map((platform: Platform) => {
+              if (platform.name === "OverDrive/Libby" || platform.name === "OverDrive" || platform.name === "Libby") {
+                return {
+                  ...platform,
+                  name: "Library",
+                  category: "Library" as const,
+                }
+              }
+              return platform
+            })
+            
+            // Remove duplicates - keep only one "Library" entry if multiple exist
+            const libraryPlatforms = migrated.filter((p: Platform) => p.name === "Library" && p.category === "Library")
+            const otherPlatforms = migrated.filter((p: Platform) => !(p.name === "Library" && p.category === "Library"))
+            
+            // If multiple library platforms exist, keep the enabled one, or the first one
+            const uniqueLibrary = libraryPlatforms.length > 0 
+              ? [libraryPlatforms.find((p: Platform) => p.enabled) || libraryPlatforms[0]]
+              : []
+            
+            const deduplicated = [...otherPlatforms, ...uniqueLibrary]
+            setPlatforms(deduplicated)
             setPlatformsLoaded(true)
           }
         } catch (e) {
@@ -860,6 +882,26 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
   const enabledPlatforms = (platforms || [])
     .filter((platform) => platform.enabled)
+    // Remove duplicate library platforms - keep only one
+    .reduce((acc: Platform[], platform: Platform) => {
+      // If this is a library platform, check if we already have one
+      if (platform.category === "Library" || platform.name === "Library" || platform.name === "OverDrive/Libby") {
+        const hasLibrary = acc.some(p => 
+          p.category === "Library" || p.name === "Library" || p.name === "OverDrive/Libby"
+        )
+        if (!hasLibrary) {
+          // Normalize library platform name to "Library"
+          acc.push({
+            ...platform,
+            name: "Library",
+            category: "Library",
+          })
+        }
+      } else {
+        acc.push(platform)
+      }
+      return acc
+    }, [])
     .map((platform) => ({
       ...platform,
       url: platform.url || getDefaultPlatformUrl(platform.name),

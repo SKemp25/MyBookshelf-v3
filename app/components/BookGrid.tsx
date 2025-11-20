@@ -333,9 +333,9 @@ export default function BookGrid({
                 overdriveBase = "https://www.overdrive.com"
               }
               
-              // Construct OverDrive search URL: {overdriveBase}/search?query={bookTitle}
-              // OverDrive uses /search?query= format, not /search/title?query=
-              url = `${overdriveBase}/search?query=${encodedTitle}`
+              // Construct OverDrive search URL: {overdriveBase}/search/title?query={bookTitle}
+              // OverDrive uses /search/title?query= format for title searches
+              url = `${overdriveBase}/search/title?query=${encodedTitle}`
             } else if (urlLower.includes("hoopladigital.com") || urlLower.includes("hoopla")) {
               // Hoopla - use title search first
               url = `https://www.hoopladigital.com/search?q=${encodedTitle}`
@@ -749,7 +749,9 @@ export default function BookGrid({
                               {!["Kindle", "Audible", "Books"].includes(platform.name) && (
                                 <Globe className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
                               )}
-                              {platform.name === "Books" ? "Print" : platform.name}
+                              {platform.name === "Books" ? "Print" : 
+                               platform.name === "OverDrive/Libby" ? "Library" : 
+                               platform.name}
                             </Button>
                           ))}
                         </div>
