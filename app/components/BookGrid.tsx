@@ -708,7 +708,7 @@ export default function BookGrid({
               </button>
             </div>
           ) : (
-            /* Grid/List View - Use Card */
+            /* Grid View - Use Card */
             <Card
               key={`${book.id}-${index}`}
               data-book-id={book.id}
@@ -722,100 +722,6 @@ export default function BookGrid({
               onClick={() => onBookClick?.(book.id)}
               style={{ cursor: onBookClick ? 'pointer' : 'default' }}
             >
-              {viewMode === "list" ? (
-                /* List View as Table */
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100 border-b-2 border-gray-300">
-                        <th className="text-left p-2 text-xs font-bold uppercase text-gray-700">Cover</th>
-                        <th 
-                          className="text-left p-2 text-xs font-bold uppercase text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => onSortChange?.("title")}
-                        >
-                          Title {sortBy === "title" && <ArrowUpDown className="inline-block w-3 h-3 ml-1" />}
-                        </th>
-                        <th 
-                          className="text-left p-2 text-xs font-bold uppercase text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => onSortChange?.("author")}
-                        >
-                          Author {sortBy === "author" && <ArrowUpDown className="inline-block w-3 h-3 ml-1" />}
-                        </th>
-                        <th 
-                          className="text-left p-2 text-xs font-bold uppercase text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => onSortChange?.("newest")}
-                        >
-                          Published {sortBy === "newest" && <ArrowDown className="inline-block w-3 h-3 ml-1" />}
-                          {sortBy === "oldest" && <ArrowUp className="inline-block w-3 h-3 ml-1" />}
-                        </th>
-                        <th 
-                          className="text-left p-2 text-xs font-bold uppercase text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => onSortChange?.("pages")}
-                        >
-                          Pages {sortBy === "pages" && <ArrowUpDown className="inline-block w-3 h-3 ml-1" />}
-                        </th>
-                        <th className="text-left p-2 text-xs font-bold uppercase text-gray-700">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedBooks.map((book, index) => {
-                        const bookId = `${book.title}-${book.author}`
-                        const status = getReadingStatus(bookId)
-                        const isUpcoming = isUpcomingRelease(book.publishedDate || "")
-                        const bookAuthor = getAuthorName(book)
-                        const isRecommendedAuthor = recommendedAuthors.has(bookAuthor)
-
-                        return (
-                          <tr
-                            key={`${book.id}-${index}`}
-                            data-book-id={book.id}
-                            onClick={() => onBookClick?.(book.id)}
-                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer ${
-                              isUpcoming ? "bg-yellow-50" : isRecommendedAuthor ? "bg-blue-50" : ""
-                            }`}
-                          >
-                            <td className="p-2">
-                              {book.thumbnail && showCovers ? (
-                                <img
-                                  src={book.thumbnail || "/placeholder.svg"}
-                                  alt={book.title}
-                                  className="w-10 h-15 object-cover rounded shadow-sm"
-                                />
-                              ) : (
-                                <div className="w-10 h-15 bg-gray-200 rounded flex items-center justify-center">
-                                  <BookOpen className="w-5 h-5 text-gray-400" />
-                                </div>
-                              )}
-                            </td>
-                            <td className="p-2 max-w-[200px]">
-                              <div className="font-bold text-sm text-black truncate" title={book.title}>
-                                {book.title}
-                              </div>
-                            </td>
-                            <td className="p-2 max-w-[150px]">
-                              <div className="text-red-600 font-semibold text-sm truncate" title={bookAuthor}>
-                                {bookAuthor}
-                              </div>
-                            </td>
-                            <td className="p-2">
-                              <div className="text-xs text-gray-600 whitespace-nowrap">{book.publishedDate || "-"}</div>
-                            </td>
-                            <td className="p-2">
-                              <div className="text-xs text-gray-600 whitespace-nowrap">{book.pageCount && book.pageCount > 0 ? `${book.pageCount}` : "-"}</div>
-                            </td>
-                            <td className="p-2">
-                              <Badge className={`${getStatusColor(status)} border-2 border-black font-bold uppercase text-xs`}>
-                                {getStatusText(status)}
-                              </Badge>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                /* Grid View (default) */
               <CardContent className={isMobile ? "p-4" : "p-6"}>
                 {isMobile ? (
                   /* Clean Mobile View - iPhone */
@@ -1345,7 +1251,6 @@ export default function BookGrid({
                   </div>
                 )}
               </CardContent>
-            )}
             </Card>
           )
         })}
