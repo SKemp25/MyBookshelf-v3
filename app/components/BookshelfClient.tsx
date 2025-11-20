@@ -281,7 +281,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
   const [showFiltersDialog, setShowFiltersDialog] = useState(false)
   const isMobileLayout = useIsMobile()
-  const showSidebar = !isMobileLayout && sidebarOpen
+  const showSidebar = sidebarOpen // Show sidebar on all devices when open
 
   const [userState, setUserState] = useState<UserType>({
     name: "My Bookshelf",
@@ -1125,22 +1125,20 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const currentTheme = colorThemes[colorTheme] || colorThemes.orange
 
   return (
-    <div className={`min-h-screen flex flex-col ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
+    <div className={`h-screen flex flex-col overflow-hidden ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
       {/* Header - Sticky Top */}
       <header className={`sticky top-0 z-50 ${highContrast ? 'bg-black text-white border-b-4 border-white' : `${currentTheme.headerGradient} text-white`} shadow-sm`}>
         <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
           {/* Left: Sidebar Toggle & App Title */}
           <div className="flex items-center gap-2">
-            {!isMobileLayout && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 text-white hover:bg-white/20"
-              >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 text-white hover:bg-white/20"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
             <button 
               onClick={() => {
                 setSearchQuery("")
@@ -1169,15 +1167,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           </div>
 
           {/* Right: Action Buttons */}
-          <div className="flex items-center gap-1 md:gap-2">
-            {/* View Dropdown */}
+          <div className="flex items-center gap-0.5 md:gap-2 flex-shrink-0">
+            {/* View Dropdown - Hide on very small screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
-                  {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
-                  {viewMode === "list" && <List className="w-4 h-4" />}
-                  {viewMode === "cover" && <ImageIcon className="w-4 h-4" />}
-                  <ChevronDown className="w-3 h-3" />
+                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
+                  {viewMode === "grid" && <Grid3x3 className="w-3 h-3 md:w-4 md:h-4" />}
+                  {viewMode === "list" && <List className="w-3 h-3 md:w-4 md:h-4" />}
+                  {viewMode === "cover" && <ImageIcon className="w-3 h-3 md:w-4 md:h-4" />}
+                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1198,13 +1196,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Sort Dropdown */}
+            {/* Sort Dropdown - Hide on very small screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
-                  <ArrowUpDown className="w-4 h-4" />
-                  <span className="hidden md:inline">Sort</span>
-                  <ChevronDown className="w-3 h-3" />
+                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
+                  <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="hidden lg:inline">Sort</span>
+                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1228,13 +1226,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Filter Dropdown */}
+            {/* Filter Dropdown - Hide on very small screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
-                  <Filter className="w-4 h-4" />
-                  <span className="hidden md:inline">Filter</span>
-                  <ChevronDown className="w-3 h-3" />
+                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
+                  <Filter className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="hidden lg:inline">Filter</span>
+                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
@@ -1246,12 +1244,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Settings Dropdown */}
+            {/* Settings Dropdown - Always visible */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/20">
-                  <Settings className="w-4 h-4" />
-                  <ChevronDown className="w-3 h-3" />
+                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
+                  <Settings className="w-3 h-3 md:w-4 md:h-4" />
+                  <ChevronDown className="w-2 h-2 md:w-3 md:h-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -1286,10 +1284,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       </header>
 
       {/* Main Content Area with Optional Sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Optional Sidebar - Hidden on mobile, collapsible on desktop */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Optional Sidebar - Overlay on mobile, side panel on desktop */}
         {showSidebar && (
-          <aside className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+          <>
+            {/* Mobile overlay backdrop */}
+            {isMobileLayout && (
+              <div 
+                className="fixed inset-0 bg-black/50 z-40"
+                onClick={() => setSidebarOpen(false)}
+              />
+            )}
+            <aside className={`${isMobileLayout ? 'fixed left-0 top-0 bottom-0 z-50 shadow-2xl' : 'relative'} w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto`}>
             <div className="space-y-4">
               <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide">Quick Filters</h3>
               
@@ -1357,10 +1363,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               )}
             </div>
           </aside>
+          </>
         )}
 
         {/* Main Content - Book Grid */}
-        <main className="flex-1 px-4 md:px-6 py-6 overflow-y-auto">
+        <main className="flex-1 px-4 md:px-6 py-6 overflow-y-auto" style={{ maxHeight: isMobileLayout ? 'calc(100vh - 180px)' : 'calc(100vh - 140px)' }}>
           {/* Reading Progress */}
           <div className="mb-4 flex items-center justify-between">
             <div className="bg-white border-2 border-black rounded-lg px-3 py-1">

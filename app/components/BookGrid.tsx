@@ -543,6 +543,17 @@ export default function BookGrid({
                 {isMobile ? (
                   /* Clean Mobile View - iPhone */
                   <div className="space-y-3">
+                    {/* Book Cover - if available */}
+                    {book.thumbnail && showCovers && (
+                      <div className="flex justify-center">
+                        <img
+                          src={book.thumbnail || "/placeholder.svg"}
+                          alt={book.title}
+                          className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black"
+                        />
+                      </div>
+                    )}
+
                     {/* Title */}
                     <h3 className="font-black text-black text-base leading-tight uppercase">
                       {book.title}
