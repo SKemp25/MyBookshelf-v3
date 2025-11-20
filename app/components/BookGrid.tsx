@@ -679,16 +679,30 @@ export default function BookGrid({
                 type="button"
                 className="relative aspect-[2/3] w-full cursor-pointer border-0 bg-transparent p-0"
                 onClick={(e) => {
+                  // Aggressively prevent all event propagation
                   e.stopPropagation()
                   e.preventDefault()
+                  e.nativeEvent.stopImmediatePropagation()
+                  
                   console.log("Cover clicked, book.id:", book.id, "onCoverClick exists:", !!onCoverClick, "status:", status)
+                  
+                  // Only call onCoverClick, NOT onBookClick
                   if (onCoverClick) {
                     console.log("Calling onCoverClick with:", book.id)
-                    onCoverClick(book.id)
+                    // Use setTimeout to ensure this happens after any other handlers
+                    setTimeout(() => {
+                      onCoverClick(book.id)
+                    }, 0)
                   } else {
                     console.warn("onCoverClick is not defined!")
                   }
+                  
                   return false
+                }}
+                onMouseDown={(e) => {
+                  // Also prevent mousedown events
+                  e.stopPropagation()
+                  e.preventDefault()
                 }}
               >
                 {book.thumbnail && showCovers ? (
