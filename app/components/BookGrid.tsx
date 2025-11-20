@@ -1001,13 +1001,13 @@ export default function BookGrid({
                       </div>
                     ) : (
                       // Show Read/Want/Pass buttons for unread books
-                      <div className="flex gap-6 md:gap-8 justify-center">
+                      <div className="flex flex-wrap gap-2 justify-center">
                         <Button
                           variant="outline"
                         size="sm"
                         onClick={() => handleMarkAsRead(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                          className="h-8 px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
+                          className="h-8 px-2 md:px-3 text-xs font-bold border-2 border-gray-400 text-gray-800 hover:bg-orange-50 bg-white flex-shrink-0"
                           title="Mark as read"
                       >
                         <BookCheck className="w-3 h-3 mr-1 drop-shadow-[0_0_1px_rgba(0,0,0,0.8)]" />
@@ -1018,7 +1018,7 @@ export default function BookGrid({
                         size="sm"
                         onClick={() => handleMarkAsWant(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 ${
+                        className={`h-8 px-2 md:px-3 text-xs font-bold border-2 flex-shrink-0 ${
                           status === "want"
                             ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
                             : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
@@ -1033,7 +1033,7 @@ export default function BookGrid({
                         size="sm"
                         onClick={() => handleToggleDontWant(bookId, book.title, getAuthorName(book))}
                         disabled={isBookUpdating}
-                        className={`h-8 px-3 text-xs font-bold border-2 ${
+                        className={`h-8 px-2 md:px-3 text-xs font-bold border-2 flex-shrink-0 ${
                           status === "pass"
                             ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
                             : "border-gray-400 text-gray-800 hover:bg-orange-50 bg-white"
