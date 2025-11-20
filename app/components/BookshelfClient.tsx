@@ -737,6 +737,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
   const filteredAndLimitedBooks = (() => {
     const base = (books || []).filter((book) => {
+    // Create bookId once at the start of the filter function
+    const bookId = `${book.title}-${getBookAuthor(book)}`
     
     // Search filter - search in title and author
     if (searchQuery.trim()) {
@@ -915,7 +917,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     // Filter by hearted books (loved rating) - also check footer view
-    const bookId = `${book.title}-${getBookAuthor(book)}`
     if (showHeartedBooks || footerView === "favorites") {
       const rating = bookRatings.get(bookId)
       if (rating !== "loved") {
@@ -976,8 +977,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     // Hide books based on selected statuses to hide
     if (Array.isArray(safeAdvancedFilters.readingStatus) && safeAdvancedFilters.readingStatus.length > 0) {
-      const bookId = `${book.title}-${book.author}`
-      
       // Check if this book should be hidden based on its status
       for (const statusToHide of safeAdvancedFilters.readingStatus) {
         if (statusToHide === "read" && (readBooks || new Set()).has(bookId)) {
@@ -998,7 +997,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     // Hide passed books by default unless showPassedBooks is true
-    const bookId = `${book.title}-${book.author}`
     if ((dontWantBooks || new Set()).has(bookId) && !(safeAdvancedFilters as any).showPassedBooks) {
       return false // Hide passed books unless explicitly shown
     }
@@ -1259,7 +1257,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   </DropdownMenuContent>
                 </DropdownMenu>
                 
-                {/* Advanced Filters */}
+                {/* Advanced Filters - Opens directly */}
                 <DropdownMenuItem onClick={() => { setShowFiltersDialog(true); setMobileMenuOpen(false); }}>
                   <Filter className="w-4 h-4 mr-2" />
                   Advanced Filters
@@ -1361,23 +1359,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Filter Dropdown - Always visible */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  <Filter className="w-4 h-4" />
-                  <span className="hidden lg:inline">Filter</span>
-                  <ChevronDown className="w-3 h-3 hidden sm:inline" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>Filters</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowFiltersDialog(true)}>
-                  <span className="w-full">Advanced Filters...</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Filter Button - Opens Advanced Filters directly */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2"
+              onClick={() => setShowFiltersDialog(true)}
+            >
+              <Filter className="w-4 h-4" />
+              <span className="hidden lg:inline">Filter</span>
+            </Button>
 
             {/* Settings Dropdown - Always visible */}
             <DropdownMenu>
@@ -1532,6 +1523,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 highContrast={highContrast}
                 recommendedAuthors={recommendedAuthors}
                 memoryAids={userState.memoryAids || []}
+                viewMode={viewMode}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
