@@ -17,6 +17,8 @@ import { deduplicateBooks } from "@/lib/utils"
 import DataExport from "./DataExport"
 import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 import { Card, CardContent } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
@@ -981,20 +983,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }`}>
         <div className="container mx-auto px-4 py-4">
           {/* Accessibility Controls */}
-          <div className="flex justify-end gap-2 mb-2">
-            <button
-              onClick={() => setHighContrast(!highContrast)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors border-2 ${
-                highContrast 
-                  ? 'bg-white text-black border-white' 
-                  : 'bg-white/20 text-white border-white/30 hover:bg-white/30'
-              }`}
-              title="Toggle High Contrast Mode"
-            >
-              {highContrast ? '✓ High Contrast' : 'High Contrast'}
-            </button>
-          </div>
-          
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 md:gap-4">
               <button
@@ -1849,6 +1837,25 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <p className="text-xs text-gray-500 mt-3">
                       <strong>Note:</strong> For OverDrive/Libby libraries, enter the OverDrive base URL (e.g., https://mcplmd.overdrive.com). 
                       If you have a Libby URL like https://libbyapp.com/library/mcplmd, we'll automatically convert it to the OverDrive format.
+                    </p>
+                  </div>
+
+                  {/* Display Settings */}
+                  <div className="space-y-3">
+                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Display Settings</h3>
+                    <div className="flex items-center justify-between space-x-2">
+                      <Label htmlFor="high-contrast" className="text-sm text-orange-700 cursor-pointer">
+                        High Contrast Mode
+                      </Label>
+                      <Switch
+                        id="high-contrast"
+                        checked={highContrast}
+                        onCheckedChange={setHighContrast}
+                        className="data-[state=checked]:bg-orange-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Increases contrast for better visibility
                     </p>
                   </div>
 
