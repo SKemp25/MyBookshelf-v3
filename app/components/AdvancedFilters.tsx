@@ -336,7 +336,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
             </div>
           </div>
 
-          {/* Title Contains */}
+          {/* Titles Contain */}
           <div className="space-y-2">
             <div className="text-sm font-bold text-orange-700">Titles Contain</div>
             <Input
