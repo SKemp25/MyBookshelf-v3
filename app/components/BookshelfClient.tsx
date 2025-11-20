@@ -1319,7 +1319,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                       {viewMode === "grid" && <Grid3x3 className="w-4 h-4 mr-2" />}
                       {viewMode === "list" && <List className="w-4 h-4 mr-2" />}
-                      {viewMode === "cover" && <ImageIcon className="w-4 h-4 mr-2" />}
                       View
                       <ChevronDown className="w-4 h-4 ml-auto" />
                     </DropdownMenuItem>
@@ -1332,10 +1331,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     <DropdownMenuItem onClick={() => { setViewMode("list"); setMobileMenuOpen(false); }}>
                       <List className="w-4 h-4 mr-2" />
                       List View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setViewMode("cover"); setMobileMenuOpen(false); }}>
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      Cover Only
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
