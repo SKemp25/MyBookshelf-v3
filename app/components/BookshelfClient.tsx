@@ -1692,6 +1692,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         </div>
                       </div>
                     </div>
+                      </div>
                     )}
                   </div>
 
@@ -1849,6 +1850,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         ),
                       )}
                     </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Reading Platforms - Collapsible */}
@@ -2062,32 +2066,35 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     )}
                   </div>
 
-                  {/* Reading Platforms - Collapsible */}
+                  {/* Data & Support - Collapsible */}
                   <div className="space-y-2">
                     <button
-                      onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
+                      onClick={() => setIsDataSupportOpen(!isDataSupportOpen)}
                       className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
                     >
-                      <span>Reading Platforms</span>
-                      {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <span>Data & Support</span>
+                      {isDataSupportOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
-                    {isReadingPlatformsOpen && (
-                      <div className="space-y-4 pl-2">
-                    <div className="p-3 bg-orange-50 rounded border border-orange-200">
-                      <DataExport 
-                books={filteredAndLimitedBooks}
-                        authors={authors}
-                        readBooks={readBooks}
-                        wantToReadBooks={wantToReadBooks}
-                        dontWantBooks={dontWantBooks}
-                        userProfile={userState}
-              />
-                    </div>
-            </div>
+                    {isDataSupportOpen && (
+                      <div className="space-y-3 pl-2">
+                        {/* Data Export Section */}
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
+                          <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                            <DataExport 
+                              books={filteredAndLimitedBooks}
+                              authors={authors}
+                              readBooks={readBooks}
+                              wantToReadBooks={wantToReadBooks}
+                              dontWantBooks={dontWantBooks}
+                              userProfile={userState}
+                            />
+                          </div>
+                        </div>
 
-                  {/* Help & Support Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide">Help & Support</h3>
+                        {/* Help & Support Section */}
+                        <div className="space-y-3">
+                          <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
                     <div className="p-3 bg-blue-50 rounded border border-blue-200">
                       <button
                         onClick={() => setIsTooltipTourActive(true)}
