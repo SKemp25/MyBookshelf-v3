@@ -1067,7 +1067,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Mobile: Show main content first, then sidebar */}
           <main className={`md:col-span-4 space-y-6 ${isMobileMenuOpen ? "order-2" : "order-1 md:order-2"}`}>
-            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black p-6 ${isFiltersOpen ? '' : 'pb-0'}`}>
               <BookFilters
                 authors={authors}
                 recommendedAuthors={recommendedAuthors}
@@ -1318,11 +1318,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 onClick={() => setIsAuthorsOpen(!isAuthorsOpen)}
                 className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isAuthorsOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  AUTHORS & BOOKS
+                <div className="flex items-center gap-2 flex-1">
+                  <BookOpen className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">AUTHORS & BOOKS</span>
                 </div>
-                {isAuthorsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {isAuthorsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
               </button>
 
               {isAuthorsOpen && (
@@ -1353,11 +1353,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
                   className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    RECOMMENDATIONS
+                  <div className="flex items-center gap-2 flex-1">
+                    <Users className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1 text-left">RECOMMENDATIONS</span>
                   </div>
-                  {isRecommendationsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {isRecommendationsOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
                 </button>
 
                 {isRecommendationsOpen && (
@@ -1489,11 +1489,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 onClick={() => setIsPreferencesOpen(!isPreferencesOpen)}
                 className={`w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors ${isPreferencesOpen ? 'mb-3' : 'mb-0'}`}
               >
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  MY PREFERENCES
+                <div className="flex items-center gap-2 flex-1">
+                  <Settings className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">MY PREFERENCES</span>
                 </div>
-                {isPreferencesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {isPreferencesOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
               </button>
 
               {isPreferencesOpen && (
