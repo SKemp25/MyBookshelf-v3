@@ -1152,21 +1152,49 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }))
 
   const onBooksFound = (newBooks: Book[]) => {
+    console.log("onBooksFound called with", newBooks.length, "books")
+    console.log("Current authors:", authors)
     setBooks((prevBooks) => {
       // Simple approach: just add new books, filter out any with missing authors
       const validNewBooks = newBooks.filter(book => {
         const author = getBookAuthor(book)
-        return author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
+        const isValid = author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
+        if (!isValid) {
+          console.log("Filtered out book with invalid author:", book.title, "author:", author)
+        }
+        return isValid
+      })
+      
+      console.log("Valid new books:", validNewBooks.length)
+      validNewBooks.forEach(book => {
+        const bookAuthor = getBookAuthor(book)
+        console.log("New book:", book.title, "by", bookAuthor)
+        // Check if author matches
+        const authorMatches = authors.some(author => {
+          const match1 = author.toLowerCase().trim() === bookAuthor.toLowerCase().trim()
+          const match2 = normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
+          if (match1 || match2) {
+            console.log("Author match found:", author, "matches", bookAuthor)
+          }
+          return match1 || match2
+        })
+        if (!authorMatches) {
+          console.warn("WARNING: Book author", bookAuthor, "does not match any author in list:", authors)
+        }
       })
       
       // Remove duplicates based on book ID
       const existingIds = new Set(prevBooks.map(book => book.id))
       const uniqueNewBooks = validNewBooks.filter(book => !existingIds.has(book.id))
       
+      console.log("Unique new books (after dedup):", uniqueNewBooks.length)
+      
       const allBooks = [...prevBooks, ...uniqueNewBooks]
       
       // Deduplicate using the improved deduplicateBooks function
       const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
+      
+      console.log("Final book count:", deduplicatedBooks.length)
       
       return deduplicatedBooks
     })
@@ -3172,6 +3200,24 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Auth Dialog for Mobile */}
+      {showAuthDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Login</h2>
+              <button
+                onClick={() => setShowAuthDialog(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <AccountManager user={user} isLoggedIn={isLoggedIn} />
+          </div>
+        </div>
+      )}
 
       {/* Contextual Tooltip Tour */}
       <TooltipManager
