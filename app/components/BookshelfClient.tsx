@@ -50,15 +50,15 @@ export const colorThemes = {
   orange: {
     name: 'Penguin Orange',
     description: 'Classic Penguin Books inspired',
-    bgGradient: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600',
-    headerGradient: 'bg-gradient-to-r from-orange-500 to-orange-600',
+    bgGradient: 'bg-gradient-to-br from-orange-100 via-orange-50 to-orange-100',
+    headerGradient: 'bg-gradient-to-r from-orange-200 to-orange-300',
     accent: 'orange',
     accentLight: 'orange-50',
     accentMedium: 'orange-200',
     accentDark: 'orange-600',
     textAccent: 'text-orange-700',
     borderAccent: 'border-orange-200',
-    footerColor: '#ea580c',
+    footerColor: '#fb923c',
   },
   blue: {
     name: 'Literary Blue',
