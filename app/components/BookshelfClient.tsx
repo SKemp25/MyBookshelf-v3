@@ -1604,12 +1604,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 viewMode={viewMode}
                 onSortChange={setSortBy}
                 onCoverClick={(bookId) => {
+                  console.log("onCoverClick called with bookId:", bookId)
                   // Find the book by ID
                   const book = books.find(b => b.id === bookId)
+                  console.log("Found book:", book)
                   if (book) {
+                    console.log("Switching to grid view and filtering to:", book.title)
                     // Switch to grid view and filter to show just this book
                     setViewMode("grid")
                     setSearchQuery(book.title)
+                    // Clear any other filters that might interfere
+                    setSelectedAuthors([])
                   }
                 }}
                 onAddAuthor={async (authorName) => {

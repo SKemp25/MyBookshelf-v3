@@ -678,8 +678,12 @@ export default function BookGrid({
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
+                    console.log("Cover clicked, book.id:", book.id, "onCoverClick exists:", !!onCoverClick)
                     if (onCoverClick) {
+                      console.log("Calling onCoverClick with:", book.id)
                       onCoverClick(book.id)
+                    } else {
+                      console.warn("onCoverClick is not defined!")
                     }
                   }}
                 >
