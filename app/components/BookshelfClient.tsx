@@ -50,7 +50,7 @@ const platformCategories = {
   ],
   Library: [
     { name: "WorldCat", defaultUrl: "https://www.worldcat.org/search?q={title}", placeholder: "https://www.worldcat.org/search?q={title}" },
-    { name: "OverDrive/Libby", defaultUrl: "", placeholder: "https://yourlibrary.overdrive.com or https://libbyapp.com/library/yourlibrary" },
+    { name: "Library", defaultUrl: "", placeholder: "https://yourlibrary.overdrive.com or https://libbyapp.com/library/yourlibrary" },
     { name: "Hoopla", defaultUrl: "https://www.hoopladigital.com/search?q={title}", placeholder: "https://www.hoopladigital.com/search?q={title}" },
     { name: "Local Library", defaultUrl: "", placeholder: "Enter your library's catalog URL" },
   ],

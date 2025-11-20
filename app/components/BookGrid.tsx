@@ -277,6 +277,9 @@ export default function BookGrid({
         break
 
       case "library":
+      case "local library":
+      case "overdrive":
+      case "libby":
         // Smart library URL handling - detect common platforms and construct proper search URLs
         if (platform.url && platform.url !== "") {
           const title = book.title.replace(/[^\w\s]/g, " ").trim()
@@ -349,6 +352,7 @@ export default function BookGrid({
           }
         } else {
           // Default to WorldCat with advanced search if no custom URL provided
+          // This ensures library platforms always search for the selected book
           const title = book.title.replace(/[^\w\s]/g, " ").trim()
           const author = getAuthorName(book).replace(/[^\w\s]/g, " ").trim()
           const encodedTitle = encodeURIComponent(title)
