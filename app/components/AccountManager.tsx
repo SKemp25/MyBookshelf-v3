@@ -216,7 +216,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
           if (!open) resetForm()
         }}
       >
-        <DialogContent className="sm:max-w-md bg-white border-orange-200 rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-white border-orange-200 rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-orange-800 font-display text-2xl flex items-center gap-3">
               <Shield className="w-7 h-7" />
