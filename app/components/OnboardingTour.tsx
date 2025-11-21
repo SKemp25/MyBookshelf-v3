@@ -89,14 +89,45 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
     }
 
     // Wait for element to be available before showing tooltip
-    const showNextTooltip = () => {
+    const showNextTooltip = (attempt = 0) => {
       if (currentStep >= onboardingSteps.length) {
         onComplete()
         return
       }
 
       const step = onboardingSteps[currentStep]
-      const element = document.querySelector(step.selector) as HTMLElement
+      let element = document.querySelector(step.selector) as HTMLElement
+      
+      // Special handling for elements inside dropdowns
+      if (!element && step.id === "authors") {
+        // Try to find the Settings button and open the dropdown
+        const settingsButton = document.querySelector('[data-onboarding="settings"]') as HTMLElement
+        if (settingsButton) {
+          // Click to open dropdown
+          settingsButton.click()
+          // Wait a bit for dropdown to open, then try again
+          setTimeout(() => {
+            element = document.querySelector(step.selector) as HTMLElement
+            if (element) {
+              setTargetElement(element)
+              setIsVisible(true)
+              requestAnimationFrame(() => {
+                element.scrollIntoView({ 
+                  behavior: "smooth", 
+                  block: "center",
+                  inline: "center"
+                })
+              })
+            } else if (attempt < 3) {
+              // Retry up to 3 times
+              showNextTooltip(attempt + 1)
+            } else {
+              console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
+            }
+          }, 500)
+          return
+        }
+      }
       
       if (element) {
         setTargetElement(element)
@@ -129,14 +160,17 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
           })
         })
       } else {
-        // If element not found, wait longer and try again (don't auto-skip)
-        console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
-        // Don't auto-advance - let user manually proceed or fix the selector
+        // If element not found, retry a few times before giving up
+        if (attempt < 3) {
+          setTimeout(() => showNextTooltip(attempt + 1), 1000)
+        } else {
+          console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
+        }
       }
     }
 
     // Wait longer to ensure DOM is fully ready
-    const timer = setTimeout(showNextTooltip, 1000)
+    const timer = setTimeout(() => showNextTooltip(0), 1000)
     return () => clearTimeout(timer)
   }, [isActive, currentStep, onComplete])
 

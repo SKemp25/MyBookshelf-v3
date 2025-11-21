@@ -3421,16 +3421,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <div className="p-3 bg-blue-50 rounded border border-blue-200 space-y-2">
                         <button
                           onClick={() => {
-                            setIsTooltipTourActive(true)
-                            setShowSettingsDialog(false)
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors font-medium"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                          Show App Tour
-                        </button>
-                        <button
-                          onClick={() => {
                             // Reset onboarding tour completion status
                             if (currentUser) {
                               localStorage.removeItem(`bookshelf_onboarding_seen_${currentUser}`)
