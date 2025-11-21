@@ -1439,6 +1439,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     onClick={(e) => { 
                       e.preventDefault();
                       e.stopPropagation();
+                      console.log('Mobile menu: Setting showAuthDialog to true');
                       setShowAuthDialog(true);
                       setMobileMenuOpen(false);
                     }}
