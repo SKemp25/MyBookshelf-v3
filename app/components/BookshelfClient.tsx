@@ -3534,6 +3534,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       />
 
       {/* Error Logger - Shows errors on screen for mobile debugging */}
+      {/* TODO: Remove ErrorLogger before production release - it's currently visible on all devices for debugging */}
       <ErrorLogger />
     </div>
   )
