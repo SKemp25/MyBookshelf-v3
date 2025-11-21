@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Calendar, User } from "lucide-react"
+import { RefreshCw, Calendar, User, X } from "lucide-react"
 import type { Author, Book } from "@/lib/types"
 import RecommendationBookModal from "./RecommendationBookModal"
 
