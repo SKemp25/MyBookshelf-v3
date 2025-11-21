@@ -9,6 +9,7 @@ import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
+import OnboardingTour from "./OnboardingTour"
 import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
@@ -297,6 +298,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false) // Added recently viewed section state
   const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
   const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
+  const [isOnboardingTourActive, setIsOnboardingTourActive] = useState(false) // Onboarding tour for new users
   const [recommendedAuthors, setRecommendedAuthors] = useState<Set<string>>(new Set())
   
   // Initialize platforms state - will be loaded from localStorage in useEffect
@@ -567,6 +569,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         // Load user-specific data
         const userDataKey = `bookshelf_data_${currentUser}`
         const savedData = localStorage.getItem(userDataKey)
+        const isNewUser = !savedData || savedData === "{}"
+        
         if (savedData) {
           const parsedData = JSON.parse(savedData)
           setAuthors(parsedData.authors || [])
@@ -596,6 +600,27 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     loadUserData()
   }, [isLoggedIn, currentUser])
+
+  // Check for new user and trigger onboarding tour after data is loaded
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !isDataLoaded) return
+
+    const userDataKey = `bookshelf_data_${currentUser}`
+    const savedData = localStorage.getItem(userDataKey)
+    const isNewUser = !savedData || savedData === "{}"
+    
+    // Check if user has seen onboarding tour
+    const onboardingSeenKey = `bookshelf_onboarding_seen_${currentUser}`
+    const hasSeenOnboarding = localStorage.getItem(onboardingSeenKey) === "true"
+    
+    // Show onboarding tour for new users who haven't seen it
+    if (isNewUser && !hasSeenOnboarding) {
+      // Small delay to ensure UI is fully rendered
+      setTimeout(() => {
+        setIsOnboardingTourActive(true)
+      }, 1500)
+    }
+  }, [isLoggedIn, currentUser, isDataLoaded])
 
   useEffect(() => {
     if (!isLoggedIn || !isDataLoaded || !currentUser) return
@@ -1313,13 +1338,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   setAdvancedFilters(defaultAdvancedFilters)
                 }}
               className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
+              data-onboarding="welcome"
               >
               MY BOOKCASE
               </button>
             </div>
 
           {/* Center: Search Bar - More space on mobile */}
-          <div className={`flex-1 ${isMobileLayout ? 'mx-2' : 'max-w-xl md:max-w-2xl mx-2 md:mx-8'}`}>
+          <div className={`flex-1 ${isMobileLayout ? 'mx-2' : 'max-w-xl md:max-w-2xl mx-2 md:mx-8'}`} data-onboarding="search">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -1409,7 +1435,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <DropdownMenuSeparator />
                 
                 {/* Settings Options */}
-                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }}>
+                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }} data-onboarding="authors">
                   <BookOpen className="w-4 h-4 mr-2" />
                   Authors & Books
                 </DropdownMenuItem>
@@ -1527,7 +1553,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Settings</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowAuthorsDialog(true)}>
+                <DropdownMenuItem onClick={() => setShowAuthorsDialog(true)} data-onboarding="authors">
                   <BookOpen className="w-4 h-4 mr-2" />
                   Authors & Books
                 </DropdownMenuItem>
@@ -1660,7 +1686,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 </div>
               </div>
 
-              <div data-tour="books">
+              <div data-tour="books" data-onboarding="book-actions">
                 <BookGrid
                   books={filteredAndLimitedBooks}
                 sortBy={sortBy}
@@ -1852,6 +1878,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       <footer 
         className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-lg"
         style={{ backgroundColor: currentTheme.footerColor }}
+        data-onboarding="footer"
       >
         <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3 [&_button]:text-white [&_button:hover]:text-white [&_button_svg]:text-white [&_button:hover_svg]:text-white">
           <Button 
@@ -3325,6 +3352,19 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             localStorage.setItem(`bookshelf_tour_seen_${currentUser}`, "true")
           }
         }}
+      />
+
+      {/* Onboarding Tour for New Users */}
+      <OnboardingTour
+        isActive={isOnboardingTourActive}
+        onComplete={() => {
+          setIsOnboardingTourActive(false)
+          // Mark onboarding as seen for this user
+          if (currentUser) {
+            localStorage.setItem(`bookshelf_onboarding_seen_${currentUser}`, "true")
+          }
+        }}
+        userId={currentUser}
       />
     </div>
   )
