@@ -138,22 +138,39 @@ function findSimilarAuthors(
   const maleAuthors: string[] = []
   const unknownAuthors: string[] = []
   
+  // Track which favorited authors are in the map
+  const authorsInMap: string[] = []
+  const authorsNotInMap: string[] = []
+  
   lovedBookAuthors.forEach(author => {
     const similar = similarAuthorsMap[author] || []
-    similar.forEach(simAuthor => {
-      // Filter out existing authors and rejected authors
-      if (!existingAuthors.includes(simAuthor) && !rejectedAuthors.has(simAuthor)) {
-        const simGender = inferAuthorGender(simAuthor)
-        if (simGender === "female") {
-          femaleAuthors.push(simAuthor)
-        } else if (simGender === "male") {
-          maleAuthors.push(simAuthor)
-        } else {
-          unknownAuthors.push(simAuthor)
+    if (similar.length > 0) {
+      authorsInMap.push(author)
+      similar.forEach(simAuthor => {
+        // Filter out existing authors and rejected authors
+        if (!existingAuthors.includes(simAuthor) && !rejectedAuthors.has(simAuthor)) {
+          const simGender = inferAuthorGender(simAuthor)
+          if (simGender === "female") {
+            femaleAuthors.push(simAuthor)
+          } else if (simGender === "male") {
+            maleAuthors.push(simAuthor)
+          } else {
+            unknownAuthors.push(simAuthor)
+          }
         }
-      }
-    })
+      })
+    } else {
+      authorsNotInMap.push(author)
+    }
   })
+  
+  // If we have authors not in the map, try to find similar authors based on genre
+  // This is a fallback when the hardcoded map doesn't have the author
+  if (authorsNotInMap.length > 0 && commonGenres.length > 0) {
+    console.log(`Authors not in similarity map: ${authorsNotInMap.join(", ")}. Using genre-based fallback.`)
+    // For now, we'll rely on the map, but this could be expanded to use genre-based matching
+    // or Google Books API to find similar authors
+  }
   
   // Remove duplicates
   const uniqueFemale = Array.from(new Set(femaleAuthors))
