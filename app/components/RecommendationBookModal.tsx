@@ -24,6 +24,8 @@ export default function RecommendationBookModal({
   onAddAuthor,
   onPass
 }: RecommendationBookModalProps) {
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+  
   if (!book) return null
 
   const getAuthorName = (book: Book) => {
@@ -38,6 +40,18 @@ export default function RecommendationBookModal({
 
   const authorName = getAuthorName(book)
   const isUpcoming = book.publishedDate ? isUpcomingPublication(book.publishedDate) : false
+  
+  // Reset expanded state when modal closes
+  const handleClose = () => {
+    setIsDescriptionExpanded(false)
+    onClose()
+  }
+  
+  const descriptionLength = book.description?.length || 0
+  const shouldShowReadMore = descriptionLength > 200
+  const truncatedDescription = shouldShowReadMore && !isDescriptionExpanded
+    ? book.description?.substring(0, 200) + "..."
+    : book.description
 
   const handleAddBook = () => {
     onAddBook(book)
@@ -57,7 +71,7 @@ export default function RecommendationBookModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-blue-800">Book Recommendation</DialogTitle>
@@ -112,9 +126,19 @@ export default function RecommendationBookModal({
                 </div>
 
                 {book.description && (
-                  <p className="text-gray-600 text-sm line-clamp-3 mb-3">
-                    {book.description}
-                  </p>
+                  <div className="mb-3">
+                    <p className="text-gray-600 text-sm">
+                      {truncatedDescription}
+                    </p>
+                    {shouldShowReadMore && (
+                      <button
+                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1 underline"
+                      >
+                        {isDescriptionExpanded ? "Read less" : "Read more"}
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {book.pageCount && (
