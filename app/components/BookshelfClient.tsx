@@ -314,6 +314,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
   const [showFiltersDialog, setShowFiltersDialog] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
   const isMobileLayout = useIsMobile()
   const showSidebar = sidebarOpen // Show sidebar on all devices when open
 
@@ -1438,18 +1439,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     onClick={(e) => { 
                       e.preventDefault();
                       e.stopPropagation();
-                      try {
-                        const event = new CustomEvent('openAuthDialog', { bubbles: true, cancelable: true });
-                        window.dispatchEvent(event);
-                        setMobileMenuOpen(false);
-                      } catch (error) {
-                        console.error('Error dispatching auth dialog event:', error);
-                        // Fallback: try to find AccountManager and trigger it directly
-                        const accountManager = document.querySelector('[data-account-manager]');
-                        if (accountManager) {
-                          (accountManager as HTMLElement).click();
-                        }
-                      }
+                      setShowAuthDialog(true);
+                      setMobileMenuOpen(false);
                     }}
                   >
                     <LogIn className="w-4 h-4 mr-2" />
@@ -1557,7 +1548,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             {/* Account Manager - Always visible on desktop */}
             <div className="flex-shrink-0">
-                <AccountManager user={user} isLoggedIn={isLoggedIn} />
+                <AccountManager 
+                  user={user} 
+                  isLoggedIn={isLoggedIn}
+                  showAuthDialog={showAuthDialog}
+                  onAuthDialogChange={setShowAuthDialog}
+                />
               </div>
             </div>
           )}

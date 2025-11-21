@@ -30,6 +30,8 @@ import { Separator } from "@/components/ui/separator"
 interface AccountManagerProps {
   user: any // Updated comment to reflect localStorage-based auth
   isLoggedIn: boolean
+  showAuthDialog?: boolean // Allow parent to control dialog state
+  onAuthDialogChange?: (open: boolean) => void // Callback when dialog state changes
 }
 
 function SubmitButton({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) {
@@ -80,20 +82,33 @@ const AppleIcon = () => (
   </svg>
 )
 
-export default function AccountManager({ user, isLoggedIn }: AccountManagerProps) {
+export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAuthDialogChange }: AccountManagerProps) {
   const router = useRouter()
   const [showAuth, setShowAuth] = useState(false)
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "reset">("signin")
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: "" })
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
 
-  // Listen for custom event to open auth dialog from mobile menu
+  // Sync with parent-controlled dialog state
+  useEffect(() => {
+    if (showAuthDialog !== undefined) {
+      setShowAuth(showAuthDialog)
+    }
+  }, [showAuthDialog])
+
+  // Notify parent when dialog state changes
+  const handleShowAuthChange = (open: boolean) => {
+    setShowAuth(open)
+    onAuthDialogChange?.(open)
+  }
+
+  // Listen for custom event to open auth dialog from mobile menu (fallback)
   useEffect(() => {
     const handleOpenAuth = (e: Event) => {
       e.preventDefault()
       e.stopPropagation()
       console.log('AccountManager: Received openAuthDialog event')
-      setShowAuth(true)
+      handleShowAuthChange(true)
     }
     
     // Use capture phase to ensure we catch it early
@@ -101,7 +116,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
     return () => {
       window.removeEventListener('openAuthDialog', handleOpenAuth, true)
     }
-  }, [])
+  }, [onAuthDialogChange])
 
   const [signInState, signInAction] = useActionState(signIn, null)
   const [signUpState, signUpAction] = useActionState(signUp, null)
@@ -137,18 +152,18 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
 
   useEffect(() => {
     if (signInState?.success) {
-      setShowAuth(false)
+      handleShowAuthChange(false)
       // Close modal immediately and prevent it from reopening
       // The redirect will handle the page refresh
     }
-  }, [signInState])
+  }, [signInState, onAuthDialogChange])
 
   // Prevent modal from showing if user is logged in
   useEffect(() => {
     if (isLoggedIn && showAuth) {
-      setShowAuth(false)
+      handleShowAuthChange(false)
     }
-  }, [isLoggedIn, showAuth])
+  }, [isLoggedIn, showAuth, onAuthDialogChange])
 
   const resetForm = () => {
     setPasswordStrength({ score: 0, message: "" })
@@ -183,7 +198,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
         </div>
       ) : (
         <Button
-          onClick={() => setShowAuth(true)}
+          onClick={() => handleShowAuthChange(true)}
           variant="ghost"
           size="sm"
           className="text-white hover:bg-white/20 p-1.5 md:p-2"
@@ -196,6 +211,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
 
       <Dialog
         open={showAuth}
+        onOpenChange={handleShowAuthChange}
         onOpenChange={(open) => {
           setShowAuth(open)
           if (!open) resetForm()
