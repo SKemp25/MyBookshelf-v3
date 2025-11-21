@@ -9,7 +9,6 @@ import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
-import OnboardingTour from "./OnboardingTour"
 import ErrorLogger, { logError } from "./ErrorLogger"
 import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
@@ -3574,18 +3573,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         }}
       />
 
-      {/* Onboarding Tour for New Users */}
-      <OnboardingTour
-        isActive={isOnboardingTourActive}
-        onComplete={() => {
-          setIsOnboardingTourActive(false)
-          // Mark onboarding as seen for this user
-          if (currentUser) {
-            localStorage.setItem(`bookshelf_onboarding_seen_${currentUser}`, "true")
-          }
-        }}
-        userId={currentUser}
-      />
 
       {/* Error Logger - Shows errors on screen for mobile debugging */}
       {/* TODO: Remove ErrorLogger before production release - it's currently visible on all devices for debugging */}
