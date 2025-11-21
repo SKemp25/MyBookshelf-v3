@@ -13,13 +13,6 @@ interface OnboardingStep {
 
 const onboardingSteps: OnboardingStep[] = [
   {
-    id: "welcome",
-    selector: "[data-onboarding='welcome']",
-    title: "Welcome to My Bookcase! 📚",
-    content: "Let's get you started! This quick tour will show you how to build and organize your personal library.",
-    position: "bottom"
-  },
-  {
     id: "authors",
     selector: "[data-onboarding='authors']",
     title: "Step 1: Add Your Favorite Authors",
