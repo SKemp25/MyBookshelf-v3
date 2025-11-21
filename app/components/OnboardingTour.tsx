@@ -88,10 +88,15 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
       return
     }
 
+    let isMounted = true
+    let retryTimeout: NodeJS.Timeout | null = null
+
     // Wait for element to be available before showing tooltip
     const showNextTooltip = (attempt = 0) => {
-      if (currentStep >= onboardingSteps.length) {
-        onComplete()
+      if (!isMounted || currentStep >= onboardingSteps.length) {
+        if (currentStep >= onboardingSteps.length) {
+          onComplete()
+        }
         return
       }
 
@@ -102,24 +107,26 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
       if (!element && step.id === "authors") {
         // Try to find the Settings button and open the dropdown
         const settingsButton = document.querySelector('[data-onboarding="settings"]') as HTMLElement
-        if (settingsButton) {
+        if (settingsButton && isMounted) {
           // Click to open dropdown
           settingsButton.click()
           // Wait a bit for dropdown to open, then try again
-          setTimeout(() => {
+          retryTimeout = setTimeout(() => {
+            if (!isMounted) return
             element = document.querySelector(step.selector) as HTMLElement
             if (element) {
               setTargetElement(element)
               setIsVisible(true)
               requestAnimationFrame(() => {
+                if (!isMounted) return
                 element.scrollIntoView({ 
                   behavior: "smooth", 
                   block: "center",
                   inline: "center"
                 })
               })
-            } else if (attempt < 3) {
-              // Retry up to 3 times
+            } else if (attempt < 2) {
+              // Retry up to 2 times (reduced from 3)
               showNextTooltip(attempt + 1)
             } else {
               console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
@@ -129,12 +136,13 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
         }
       }
       
-      if (element) {
+      if (element && isMounted) {
         setTargetElement(element)
         setIsVisible(true)
         
         // Use requestAnimationFrame to batch DOM operations and avoid forced reflows
         requestAnimationFrame(() => {
+          if (!isMounted) return
           // Scroll element into view with padding to account for footer
           element.scrollIntoView({ 
             behavior: "smooth", 
@@ -144,12 +152,14 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
           
           // Add extra padding for footer - batch DOM reads
           requestAnimationFrame(() => {
+            if (!isMounted) return
             const rect = element.getBoundingClientRect()
             const footer = document.querySelector('footer')
             if (footer) {
               const footerHeight = footer.offsetHeight
               if (rect.bottom + footerHeight > window.innerHeight) {
                 requestAnimationFrame(() => {
+                  if (!isMounted) return
                   window.scrollBy({
                     top: footerHeight + 20,
                     behavior: 'smooth'
@@ -159,10 +169,14 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
             }
           })
         })
-      } else {
+      } else if (isMounted) {
         // If element not found, retry a few times before giving up
-        if (attempt < 3) {
-          setTimeout(() => showNextTooltip(attempt + 1), 1000)
+        if (attempt < 2) {
+          retryTimeout = setTimeout(() => {
+            if (isMounted) {
+              showNextTooltip(attempt + 1)
+            }
+          }, 1000)
         } else {
           console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
         }
@@ -170,8 +184,17 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
     }
 
     // Wait longer to ensure DOM is fully ready
-    const timer = setTimeout(() => showNextTooltip(0), 1000)
-    return () => clearTimeout(timer)
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        showNextTooltip(0)
+      }
+    }, 1000)
+    
+    return () => {
+      isMounted = false
+      if (timer) clearTimeout(timer)
+      if (retryTimeout) clearTimeout(retryTimeout)
+    }
   }, [isActive, currentStep, onComplete])
 
   const handleNext = () => {
