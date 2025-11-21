@@ -89,11 +89,18 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
 
   // Listen for custom event to open auth dialog from mobile menu
   useEffect(() => {
-    const handleOpenAuth = () => {
+    const handleOpenAuth = (e: Event) => {
+      e.preventDefault()
+      e.stopPropagation()
+      console.log('AccountManager: Received openAuthDialog event')
       setShowAuth(true)
     }
-    window.addEventListener('openAuthDialog', handleOpenAuth)
-    return () => window.removeEventListener('openAuthDialog', handleOpenAuth)
+    
+    // Use capture phase to ensure we catch it early
+    window.addEventListener('openAuthDialog', handleOpenAuth, true)
+    return () => {
+      window.removeEventListener('openAuthDialog', handleOpenAuth, true)
+    }
   }, [])
 
   const [signInState, signInAction] = useActionState(signIn, null)
@@ -161,7 +168,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
   return (
     <>
       {isLoggedIn ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-account-manager>
           <form action={signOut}>
             <Button
               type="submit"
@@ -180,6 +187,7 @@ export default function AccountManager({ user, isLoggedIn }: AccountManagerProps
           variant="ghost"
           size="sm"
           className="text-white hover:bg-white/20 p-1.5 md:p-2"
+          data-account-manager
         >
           <LogIn className="w-4 h-4" />
           <span className="hidden sm:inline ml-1 text-xs md:text-sm font-medium">Login</span>

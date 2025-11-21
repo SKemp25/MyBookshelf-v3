@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import AccountManager from "./AccountManager"
 import AuthorManager from "./AuthorManager"
 import BookGrid from "./BookGrid"
@@ -204,13 +204,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Set hydrated immediately to prevent infinite loading
     setIsHydrated(true)
     
+    let lastLoggedIn: boolean | null = null
+    let lastUser: string | null = null
+    
     const checkLoginState = () => {
       try {
-    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-    const user = localStorage.getItem("bookshelf_current_user") || ""
-        console.log("Checking login state:", { loggedIn, user })
-    setIsLoggedIn(loggedIn)
-    setCurrentUser(user)
+        const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+        const user = localStorage.getItem("bookshelf_current_user") || ""
+        
+        // Only update state if values actually changed to prevent unnecessary re-renders
+        if (loggedIn !== lastLoggedIn || user !== lastUser) {
+          console.log("Login state changed:", { loggedIn, user, wasLoggedIn: lastLoggedIn, wasUser: lastUser })
+          setIsLoggedIn(loggedIn)
+          setCurrentUser(user)
+          lastLoggedIn = loggedIn
+          lastUser = user
+        }
       } catch (error) {
         console.error("Error checking login state:", error)
         // Still set hydrated even if there's an error
@@ -221,19 +230,31 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Check immediately
     checkLoginState()
     
-    // Listen for storage changes (in case login happens in another tab/window)
+    // Throttle storage change handler to prevent excessive calls
+    let storageChangeTimeout: NodeJS.Timeout | null = null
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "bookshelf_is_logged_in" || e.key === "bookshelf_current_user") {
-        console.log("Storage changed, re-checking login state")
-        checkLoginState()
+        if (storageChangeTimeout) {
+          clearTimeout(storageChangeTimeout)
+        }
+        storageChangeTimeout = setTimeout(() => {
+          console.log("Storage changed, re-checking login state")
+          checkLoginState()
+        }, 100) // Throttle to max once per 100ms
       }
     }
     
     window.addEventListener("storage", handleStorageChange)
     
-    // Also check on window focus (in case login happened and page was redirected)
+    // Throttle focus handler
+    let focusTimeout: NodeJS.Timeout | null = null
     const handleFocus = () => {
-      checkLoginState()
+      if (focusTimeout) {
+        clearTimeout(focusTimeout)
+      }
+      focusTimeout = setTimeout(() => {
+        checkLoginState()
+      }, 200) // Only check after 200ms of focus
     }
     window.addEventListener("focus", handleFocus)
     
@@ -242,10 +263,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       checkLoginState()
     }, 200)
     
-    // Also check when the page becomes visible (handles tab switching)
+    // Throttle visibility change handler
+    let visibilityTimeout: NodeJS.Timeout | null = null
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        checkLoginState()
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout)
+        }
+        visibilityTimeout = setTimeout(() => {
+          checkLoginState()
+        }, 200)
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange)
@@ -259,6 +286,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
+      if (storageChangeTimeout) clearTimeout(storageChangeTimeout)
+      if (focusTimeout) clearTimeout(focusTimeout)
+      if (visibilityTimeout) clearTimeout(visibilityTimeout)
       clearTimeout(timeoutId)
       clearTimeout(safetyTimeout)
     }
@@ -284,7 +314,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
   const [showFiltersDialog, setShowFiltersDialog] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
   const isMobileLayout = useIsMobile()
   const showSidebar = sidebarOpen // Show sidebar on all devices when open
 
@@ -806,7 +835,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
   }
 
-  const filteredAndLimitedBooks = (() => {
+  const filteredAndLimitedBooks = useMemo(() => {
     const base = (books || []).filter((book) => {
     // Create bookId once at the start of the filter function
     const bookId = `${book.title}-${getBookAuthor(book)}`
@@ -1107,7 +1136,24 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return result
     }
     return deduplicatedBase
-  })()
+  }, [
+    books,
+    searchQuery,
+    userState.preferredLanguages,
+    userState.ageRange,
+    authors,
+    selectedAuthors,
+    selectedGenres,
+    advancedFilters,
+    showHeartedBooks,
+    footerView,
+    bookRatings,
+    readBooks,
+    wantToReadBooks,
+    dontWantBooks,
+    userState.country,
+    userState.settings?.showLastNBooks,
+  ])
 
   const getDefaultPlatformUrl = (platformName: string) => {
     const userPlatform = platforms.find((p) => p.name === platformName)
@@ -1388,10 +1434,24 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </DropdownMenuItem>
                   </form>
                 ) : (
-                  <DropdownMenuItem onClick={() => { 
-                    window.dispatchEvent(new CustomEvent('openAuthDialog'));
-                    setMobileMenuOpen(false); 
-                  }}>
+                  <DropdownMenuItem 
+                    onClick={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        const event = new CustomEvent('openAuthDialog', { bubbles: true, cancelable: true });
+                        window.dispatchEvent(event);
+                        setMobileMenuOpen(false);
+                      } catch (error) {
+                        console.error('Error dispatching auth dialog event:', error);
+                        // Fallback: try to find AccountManager and trigger it directly
+                        const accountManager = document.querySelector('[data-account-manager]');
+                        if (accountManager) {
+                          (accountManager as HTMLElement).click();
+                        }
+                      }
+                    }}
+                  >
                     <LogIn className="w-4 h-4 mr-2" />
                     Login
                   </DropdownMenuItem>
