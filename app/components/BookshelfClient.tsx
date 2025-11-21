@@ -1681,46 +1681,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           bookRatings={bookRatings}
                           user={userState}
                           onBookClick={async (book) => {
-                            // Add the single book and include the author with just this one book
-                            const bookAuthor = book.author || book.authors?.[0]
-                            if (bookAuthor) {
-                              const normalizedAuthor = normalizeAuthorName(bookAuthor)
-                              const authorExists = authors.some(author => 
-                                author.toLowerCase() === normalizedAuthor.toLowerCase()
-                              )
-                              
-                              if (!authorExists) {
-                                const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
-                                  const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
-                                  return getLastName(a).localeCompare(getLastName(b))
-                                })
-                                
-                                setAuthors(updatedAuthors)
-                                
-                                // Mark as recommended origin
-                                setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
-                                
-                                // Save to database and track analytics
-                                if (currentUser) {
-                                  saveUserAuthors(currentUser, updatedAuthors).catch(error => 
-                                    console.error("Error saving authors to database:", error)
-                                  )
-                                  
-                                  trackEvent(currentUser, {
-                                    event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-                                    event_data: {
-                                      author_name: normalizedAuthor,
-                                      total_authors: updatedAuthors.length,
-                                      source: "recommendation_book_click",
-                                      timestamp: new Date().toISOString(),
-                                    },
-                                  }).catch(error => 
-                                    console.error("Error tracking author addition:", error)
-                                  )
-                                }
-                              }
-                            }
-                            
+                            // For memory support: Just add the book, don't add the author
+                            // This helps users remember other books without cluttering their author list
                             // Add just the single book
                             onBooksFound([book])
 

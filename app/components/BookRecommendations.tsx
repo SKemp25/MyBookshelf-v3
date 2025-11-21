@@ -369,19 +369,11 @@ export default function BookRecommendations({
         // Shuffle the recommendations to show different books each time
         const shuffledRecommendations = [...filteredRecommendations].sort(() => Math.random() - 0.5)
         
-        // Use refresh counter to show different sets of recommendations
-        const startIndex = (refreshCounter * 3) % shuffledRecommendations.length
-        const endIndex = Math.min(startIndex + 3, shuffledRecommendations.length)
+        // Show more books (5-7) instead of just 3
+        const numBooksToShow = Math.min(7, shuffledRecommendations.length)
+        const selectedRecommendations = shuffledRecommendations.slice(0, numBooksToShow)
         
-        // If we're at the end, start from the beginning but shuffle again
-        let selectedRecommendations
-        if (startIndex + 3 > shuffledRecommendations.length) {
-          const reShuffled = [...filteredRecommendations].sort(() => Math.random() - 0.5)
-          selectedRecommendations = reShuffled.slice(0, 3)
-        } else {
-          selectedRecommendations = shuffledRecommendations.slice(startIndex, endIndex)
-        }
-        
+        // Replace all recommendations (don't add to existing)
         setRecommendations(selectedRecommendations)
 
         if (user?.suggestNewAuthors) {
@@ -596,19 +588,14 @@ export default function BookRecommendations({
                 )
               })}
 
-              {recommendations.length > 5 && (
-                <div className="text-center pt-2">
-                  <Button variant="link" className="text-xs text-blue-600 h-auto p-0">
-                    Show {recommendations.length - 5} more recommendations
-                  </Button>
-                </div>
-              )}
-
               <div className="pt-2 border-t border-blue-100">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={generateNewRecommendations}
+                  onClick={() => {
+                    // Replace all recommendations with new ones
+                    generateNewRecommendations()
+                  }}
                   disabled={loading}
                   className="w-full h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
                 >
