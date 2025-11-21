@@ -101,17 +101,25 @@ async function fetchWithRetry(
       // For 503/429, retry with exponential backoff
       if (attempt < maxRetries - 1) {
         const delay = baseDelay * Math.pow(2, attempt)
-        console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        // Only log in development, not in production
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        }
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
-        return response // Return the error response on final attempt
+        // On final attempt, return the error response silently
+        return response
       }
     } catch (error) {
       if (attempt < maxRetries - 1) {
         const delay = baseDelay * Math.pow(2, attempt)
-        console.log(`Network error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        // Only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Network error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        }
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
+        // On final attempt, throw silently or return error response
         throw error
       }
     }
@@ -150,11 +158,14 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
         
         if (!response.ok) {
           if (response.status === 503 || response.status === 429) {
-            console.warn(`Google Books API rate limited or unavailable (${response.status}) for query: ${query}`)
+            // Silently handle rate limiting - don't log to console in production
             // Continue to next query instead of failing completely
             continue
           }
-          console.warn(`API returned ${response.status} for query: ${query}`)
+          // Only log non-rate-limit errors in development
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`API returned ${response.status} for query: ${query}`)
+          }
           continue
         }
         
