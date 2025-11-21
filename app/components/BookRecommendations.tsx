@@ -160,18 +160,24 @@ function findSimilarAuthors(
   const uniqueMale = Array.from(new Set(maleAuthors))
   const uniqueUnknown = Array.from(new Set(unknownAuthors))
   
-  // Sort based on preference: if 50%+ are women, prioritize women; if 50%+ are men, prioritize men
+  // Sort based on preference: if 50%+ are women, ONLY show women; if 50%+ are men, ONLY show men
   let sortedAuthors: string[] = []
   
   if (preferFemale) {
-    // Prioritize women, then men, then unknown
-    sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+    // User prefers women - ONLY show women authors, exclude men completely
+    sortedAuthors = [...uniqueFemale, ...uniqueUnknown] // Include unknown in case they're women
   } else if (preferMale) {
-    // Prioritize men, then women, then unknown
-    sortedAuthors = [...uniqueMale, ...uniqueFemale, ...uniqueUnknown]
+    // User prefers men - ONLY show men authors, exclude women completely
+    sortedAuthors = [...uniqueMale, ...uniqueUnknown] // Include unknown in case they're men
   } else {
-    // Mixed or unknown - mix them together
-    sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+    // Mixed or unknown - show all but still prioritize based on majority
+    if (femaleCount > maleCount) {
+      sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+    } else if (maleCount > femaleCount) {
+      sortedAuthors = [...uniqueMale, ...uniqueFemale, ...uniqueUnknown]
+    } else {
+      sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+    }
   }
   
   return sortedAuthors
@@ -194,6 +200,35 @@ export default function BookRecommendations({
   const [rejectedBooks, setRejectedBooks] = useState<Set<string>>(new Set())
   const [rejectedAuthors, setRejectedAuthors] = useState<Set<string>>(new Set())
   const [triedAuthors, setTriedAuthors] = useState<Set<string>>(new Set())
+
+  // Load rejected authors from localStorage on mount
+  useEffect(() => {
+    if (user?.id) {
+      try {
+        const saved = localStorage.getItem(`bookshelf_rejected_authors_${user.id}`)
+        if (saved) {
+          const savedAuthors = JSON.parse(saved)
+          setRejectedAuthors(new Set(savedAuthors))
+        }
+      } catch (error) {
+        console.error("Error loading rejected authors:", error)
+      }
+    }
+  }, [user?.id])
+
+  // Save rejected authors to localStorage whenever they change
+  useEffect(() => {
+    if (user?.id && rejectedAuthors.size > 0) {
+      try {
+        localStorage.setItem(
+          `bookshelf_rejected_authors_${user.id}`,
+          JSON.stringify(Array.from(rejectedAuthors))
+        )
+      } catch (error) {
+        console.error("Error saving rejected authors:", error)
+      }
+    }
+  }, [rejectedAuthors, user?.id])
 
   const getAuthorName = (book: Book) => {
     if ((book as any).author) {
@@ -292,10 +327,10 @@ export default function BookRecommendations({
       }
 
       // Try each similar author until we find a book
-      const existingBookIds = new Set(books.map((book) => book.id))
-      const existingBookTitles = new Set(
-        books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
-      )
+        const existingBookIds = new Set(books.map((book) => book.id))
+        const existingBookTitles = new Set(
+          books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
+        )
 
       for (const authorName of similarAuthors) {
         // Skip if we've already tried this author
@@ -324,7 +359,7 @@ export default function BookRecommendations({
               if (existingBookIds.has(bookId)) return false
               
               const bookKey = `${bookTitle.toLowerCase()}-${bookAuthor.toLowerCase()}`
-              if (existingBookTitles.has(bookKey)) return false
+          if (existingBookTitles.has(bookKey)) return false
               
               // Skip rejected books
               if (rejectedBooks.has(bookId)) return false
@@ -334,15 +369,15 @@ export default function BookRecommendations({
               
               // Prefer books with descriptions
               if (!book.description || book.description.length < 50) return false
-              
-              // Filter by user language preferences
-              if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
-                const bookLanguage = book.language || "en"
+
+          // Filter by user language preferences
+          if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
+            const bookLanguage = book.language || "en"
                 if (!user.preferredLanguages.includes(bookLanguage)) return false
-              }
-              
-              return true
-            })
+          }
+
+          return true
+        })
             .map((item: any) => {
               // Convert to Book format
               let publishedDate = item.publishedDate || ""
@@ -390,12 +425,12 @@ export default function BookRecommendations({
       setCurrentRecommendation(null)
       setCurrentAuthor(null)
       setLoading(false)
-    } catch (error) {
+      } catch (error) {
       console.error("Error finding recommendation:", error)
       setCurrentRecommendation(null)
       setCurrentAuthor(null)
-      setLoading(false)
-    }
+        setLoading(false)
+      }
   }
 
   const handleBookClick = (book: Book) => {
@@ -421,6 +456,30 @@ export default function BookRecommendations({
     }
     // Find next recommendation
     findNextRecommendation()
+  }
+
+  const handleBlockAuthor = () => {
+    if (currentAuthor) {
+      // Permanently block this author
+      setRejectedAuthors(prev => {
+        const updated = new Set([...prev, currentAuthor])
+        // Save to localStorage immediately
+        if (user?.id) {
+          try {
+            localStorage.setItem(
+              `bookshelf_rejected_authors_${user.id}`,
+              JSON.stringify(Array.from(updated))
+            )
+          } catch (error) {
+            console.error("Error saving blocked author:", error)
+          }
+        }
+        return updated
+      })
+      setTriedAuthors(prev => new Set([...prev, currentAuthor]))
+      // Find next recommendation
+      findNextRecommendation()
+    }
   }
 
   const handleRefresh = () => {
@@ -473,19 +532,19 @@ export default function BookRecommendations({
           <p className="text-blue-500 text-sm">Finding your next read...</p>
         </div>
       ) : currentRecommendation ? (
-        <div className="space-y-3">
+            <div className="space-y-3">
           <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
-            <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3">
               {currentRecommendation.thumbnail && (
                 <img
                   src={currentRecommendation.thumbnail || "/placeholder.svg"}
                   alt={currentRecommendation.title}
                   className="w-16 h-24 object-cover rounded shadow-md flex-shrink-0 cursor-pointer"
                   onClick={() => handleBookClick(currentRecommendation)}
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-2">
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 cursor-pointer" onClick={() => handleBookClick(currentRecommendation)}>
                     <h4 className="font-semibold text-blue-900 text-base mb-1">{currentRecommendation.title}</h4>
                     <p className="text-blue-700 text-sm mb-2">by {getAuthorName(currentRecommendation)}</p>
@@ -495,10 +554,10 @@ export default function BookRecommendations({
                         <p className={`text-xs ${isUpcomingPublication(currentRecommendation) ? "text-green-600 font-medium" : "text-blue-600"}`}>
                           {isUpcomingPublication(currentRecommendation) ? "Coming " : ""}
                           {currentRecommendation.publishedDate}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                                </p>
+                              </div>
+                            )}
+                          </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -510,7 +569,7 @@ export default function BookRecommendations({
                   >
                     <X className="w-4 h-4 text-red-600" />
                   </button>
-                </div>
+                        </div>
 
                 {currentRecommendation.description && (
                   <p className="text-gray-700 text-xs line-clamp-3 mb-3 cursor-pointer" onClick={() => handleBookClick(currentRecommendation)}>
@@ -518,23 +577,35 @@ export default function BookRecommendations({
                   </p>
                 )}
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleBookClick(currentRecommendation)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
-                  >
-                    <BookOpen className="w-3 h-3 mr-1" />
-                    View Details
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleBookClick(currentRecommendation)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                    >
+                      <BookOpen className="w-3 h-3 mr-1" />
+                      View Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRefresh}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 text-xs h-8"
+                      title="Get another recommendation"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                    </Button>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleRefresh}
-                    className="border-blue-200 text-blue-600 hover:bg-blue-50 text-xs h-8"
-                    title="Get another recommendation"
+                    onClick={handleBlockAuthor}
+                    className="w-full border-red-200 text-red-600 hover:bg-red-50 text-xs h-7"
+                    title="Permanently block this author from recommendations"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <X className="w-3 h-3 mr-1" />
+                    Block {getAuthorName(currentRecommendation)}
                   </Button>
                 </div>
               </div>
