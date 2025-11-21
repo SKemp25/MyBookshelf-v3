@@ -355,6 +355,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       try {
         const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
         const allBooks: Book[] = []
+        const startTime = performance.now()
+        
         for (const author of authors) {
           try {
             const authorBooks = await fetchAuthorBooksWithCache(author)
@@ -439,8 +441,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         if (allBooks.length > 0) {
           const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
           setBooks(deduplicatedBooks)
+          
+          const endTime = performance.now()
+          const duration = endTime - startTime
+          if (duration > 5000) {
+            logError(`Fetching books took ${(duration / 1000).toFixed(2)}s for ${authors.length} authors`, "warning")
+          }
         }
       } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error))
+        logError(err, "error")
         console.error("Error fetching books for authors:", error)
       }
     }
