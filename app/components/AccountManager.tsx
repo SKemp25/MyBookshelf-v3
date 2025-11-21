@@ -211,9 +211,8 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
 
       <Dialog
         open={showAuth}
-        onOpenChange={handleShowAuthChange}
         onOpenChange={(open) => {
-          setShowAuth(open)
+          handleShowAuthChange(open)
           if (!open) resetForm()
         }}
       >
