@@ -2952,6 +2952,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>My Preferences</DialogTitle>
+            <DialogDescription>
+              Customize your reading preferences, display settings, and manage your account.
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <div className="space-y-6">
