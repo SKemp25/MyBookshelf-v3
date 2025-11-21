@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -234,16 +234,14 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
               {authMode === "signup" && "Create Account"}
               {authMode === "reset" && "Reset Password"}
             </DialogTitle>
+            <DialogDescription className="text-center">
+              {authMode === "signin" && "Sign in to sync your bookshelf across devices and share recommendations."}
+              {authMode === "signup" && "Create an account to save your reading progress and connect with friends."}
+              {authMode === "reset" && "Enter your email address to reset your password."}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 sm:space-y-6 py-2">
-            <div className="text-center">
-              <p className="text-orange-600 mb-4 sm:mb-6 text-sm sm:text-base">
-                {authMode === "signin" && "Sign in to sync your bookshelf across devices and share recommendations."}
-                {authMode === "signup" && "Create an account to save your reading progress and connect with friends."}
-                {authMode === "reset" && "Enter your email address to reset your password."}
-              </p>
-            </div>
 
             {(signInState?.error || signUpState?.error || resetState?.error) && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
