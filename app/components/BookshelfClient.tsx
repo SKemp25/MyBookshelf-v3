@@ -10,6 +10,7 @@ import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
 import OnboardingTour from "./OnboardingTour"
+import ErrorLogger, { logError } from "./ErrorLogger"
 import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
@@ -566,6 +567,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       if (!isLoggedIn || !currentUser) return
 
       try {
+        const startTime = performance.now()
         // Load user-specific data
         const userDataKey = `bookshelf_data_${currentUser}`
         const savedData = localStorage.getItem(userDataKey)
@@ -590,9 +592,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           if (parsedData.bookRatings) {
             setBookRatings(new Map(Object.entries(parsedData.bookRatings)))
           }
+          
+          const endTime = performance.now()
+          const duration = endTime - startTime
+          if (duration > 1000) {
+            logError(`Loading user data took ${(duration / 1000).toFixed(2)}s`, "warning")
+          }
         }
         setIsDataLoaded(true)
       } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error))
+        logError(err, "error")
         console.error("Error loading user data:", error)
         setIsDataLoaded(true)
       }
@@ -862,7 +872,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   }
 
   const filteredAndLimitedBooks = useMemo(() => {
-    const base = (books || []).filter((book) => {
+    try {
+      const startTime = performance.now()
+      const base = (books || []).filter((book) => {
     // Create bookId once at the start of the filter function
     const bookId = `${book.title}-${getBookAuthor(book)}`
     
@@ -3448,6 +3460,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         }}
         userId={currentUser}
       />
+
+      {/* Error Logger - Shows errors on screen for mobile debugging */}
+      <ErrorLogger />
     </div>
   )
 }
