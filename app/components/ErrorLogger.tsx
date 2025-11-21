@@ -82,7 +82,7 @@ export default function ErrorLogger() {
   const [showDetails, setShowDetails] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load saved errors
+    // Load saved errors immediately
     try {
       const saved = localStorage.getItem("bookshelf_error_logs")
       if (saved) {
@@ -91,6 +91,7 @@ export default function ErrorLogger() {
           timestamp: new Date(log.timestamp),
         }))
         setErrors(logs)
+        console.log("ErrorLogger: Loaded", logs.length, "errors from localStorage")
       }
     } catch (e) {
       console.error("Failed to load error logs:", e)
@@ -98,8 +99,30 @@ export default function ErrorLogger() {
 
     // Subscribe to new errors
     const unsubscribe = subscribeToErrors((newErrors) => {
+      console.log("ErrorLogger: Received", newErrors.length, "errors")
       setErrors(newErrors)
     })
+    
+    // Also check for errors periodically (in case subscription didn't work)
+    const checkInterval = setInterval(() => {
+      const saved = localStorage.getItem("bookshelf_error_logs")
+      if (saved) {
+        try {
+          const logs = JSON.parse(saved).map((log: any) => ({
+            ...log,
+            timestamp: new Date(log.timestamp),
+          }))
+          setErrors(logs)
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }, 2000) // Check every 2 seconds
+    
+    return () => {
+      unsubscribe()
+      clearInterval(checkInterval)
+    }
 
     // Global error handlers
     const handleError = (event: ErrorEvent) => {

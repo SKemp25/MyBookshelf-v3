@@ -199,23 +199,19 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
 
   const handleNext = () => {
     setIsVisible(false)
-    // Wait a bit before showing next step to ensure smooth transition
-    setTimeout(() => {
-      if (currentStep < onboardingSteps.length - 1) {
-        setCurrentStep(prev => prev + 1)
-      } else {
-        onComplete()
-      }
-    }, 300)
+    // Immediately move to next step without delay for better responsiveness
+    if (currentStep < onboardingSteps.length - 1) {
+      setCurrentStep(prev => prev + 1)
+    } else {
+      onComplete()
+    }
   }
 
   const handlePrevious = () => {
     if (currentStep > 0) {
       setIsVisible(false)
-      // Wait a bit before showing previous step
-      setTimeout(() => {
-        setCurrentStep(prev => prev - 1)
-      }, 300)
+      // Immediately move to previous step
+      setCurrentStep(prev => prev - 1)
     }
   }
 
@@ -231,6 +227,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
   const currentStepData = onboardingSteps[currentStep]
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === onboardingSteps.length - 1
+  const stepNumber = currentStep + 1 // Display step number (1-based)
 
   return (
     <>
@@ -238,7 +235,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
         isOpen={isVisible}
         onClose={handleClose}
         targetElement={targetElement}
-        title={currentStepData.title}
+        title={currentStepData.title.replace(/Step \d+:/, `Step ${stepNumber}:`)}
         content={currentStepData.content}
         position={currentStepData.position}
       />
@@ -251,7 +248,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">
-                    Step {currentStep + 1} of {onboardingSteps.length}
+                    Step {stepNumber} of {onboardingSteps.length}
                   </span>
                   <button
                     onClick={handleClose}
