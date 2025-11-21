@@ -125,23 +125,27 @@ export default function ErrorLogger() {
     }
   }, [])
 
-  if (errors.length === 0 && !isOpen) {
-    return null
-  }
-
   const recentErrors = errors.slice(-5).reverse()
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] max-w-sm">
+    <div className="fixed bottom-20 md:bottom-4 right-4 z-[9999] max-w-sm">
       {!isOpen ? (
         <Button
           onClick={() => setIsOpen(true)}
           variant="destructive"
           size="sm"
-          className="shadow-lg"
+          className="shadow-lg relative"
+          title={errors.length > 0 ? `${errors.length} error${errors.length !== 1 ? "s" : ""} logged` : "Error logger - no errors yet"}
         >
-          <AlertTriangle className="w-4 h-4 mr-2" />
-          {errors.length} Error{errors.length !== 1 ? "s" : ""}
+          <AlertTriangle className="w-4 h-4" />
+          {errors.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
+              {errors.length > 9 ? '9+' : errors.length}
+            </span>
+          )}
+          {errors.length === 0 && (
+            <span className="ml-2 text-xs opacity-75">Debug</span>
+          )}
         </Button>
       ) : (
         <div className="bg-white border-2 border-red-500 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto">
