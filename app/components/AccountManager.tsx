@@ -177,6 +177,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   const resetForm = () => {
     setPasswordStrength({ score: 0, message: "" })
     setAuthMode("signin")
+    setShowPassword(false)
   }
 
   const handleLogout = async () => {
