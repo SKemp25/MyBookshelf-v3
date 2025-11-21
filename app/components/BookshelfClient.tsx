@@ -1221,6 +1221,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return result
     }
     return deduplicatedBase
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error))
+      logError(err, "error")
+      // Return empty array on error to prevent crash
+      return []
+    }
   }, [
     books,
     searchQuery,
