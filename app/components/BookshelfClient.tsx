@@ -2243,87 +2243,98 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   bookRatings={bookRatings}
                   user={userState}
                   onBookClick={async (book) => {
+                    console.log("onBookClick called with book:", book)
                     // Add the single book and include the author with just this one book
                     const bookAuthor = book.author || book.authors?.[0]
-                    if (bookAuthor) {
-                      const normalizedAuthor = normalizeAuthorName(bookAuthor)
-                      const authorExists = authors.some(author => 
-                        author.toLowerCase() === normalizedAuthor.toLowerCase()
-                      )
-                      
-                      if (!authorExists) {
-                        const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
-                          const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
-                          return getLastName(a).localeCompare(getLastName(b))
-                        })
-                        
-                        // Update authors state first
-                        setAuthors(updatedAuthors)
-                        
-                        // Mark as recommended origin
-                        setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
-                        
-                        // Save to database and track analytics
-                        if (currentUser) {
-                          saveUserAuthors(currentUser, updatedAuthors).catch(error => 
-                            console.error("Error saving authors to database:", error)
-                          )
-                          
-                          trackEvent(currentUser, {
-                            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-                            event_data: {
-                              author_name: normalizedAuthor,
-                              total_authors: updatedAuthors.length,
-                              source: "recommendation_book_click",
-                              timestamp: new Date().toISOString(),
-                            },
-                          }).catch(error => 
-                            console.error("Error tracking author addition:", error)
-                          )
-                        }
-                        
-                        // Ensure the book's author field matches the normalized author name
-                        // This is critical for the filtering logic to work
-                        const bookWithNormalizedAuthor = {
-                          ...book,
-                          author: normalizedAuthor,
-                          authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor)] : [normalizedAuthor]
-                        }
-                        
-                        // Add the book after a brief delay to ensure state has updated
-                        // Use requestAnimationFrame to ensure React has processed the state update
-                        requestAnimationFrame(() => {
-                          setTimeout(() => {
-                            onBooksFound([bookWithNormalizedAuthor])
-                            
-                            setTimeout(() => {
-                              const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
-                              if (bookElement) {
-                                bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                              }
-                            }, 100)
-                          }, 50)
-                        })
-                      } else {
-                        // Author already exists, just add the book
-                        // Still ensure author name matches
-                        const bookWithNormalizedAuthor = {
-                          ...book,
-                          author: normalizedAuthor,
-                          authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor)] : [normalizedAuthor]
-                        }
-                        onBooksFound([bookWithNormalizedAuthor])
-                        
-                        setTimeout(() => {
-                          const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
-                          if (bookElement) {
-                            bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                          }
-                        }, 100)
-                      }
-                    } else {
-                      // No author found, just add the book (shouldn't happen but handle gracefully)
+                    console.log("Extracted bookAuthor:", bookAuthor)
+                    
+                    if (!bookAuthor || bookAuthor === "Unknown Author") {
+                      console.error("No valid author found for book:", book.title)
+                      // Still try to add the book even without author
                       onBooksFound([book])
+                      return
+                    }
+                    
+                    const normalizedAuthor = normalizeAuthorName(bookAuthor)
+                    console.log("Normalized author:", normalizedAuthor)
+                    
+                    const authorExists = authors.some(author => 
+                      author.toLowerCase() === normalizedAuthor.toLowerCase()
+                    )
+                    console.log("Author exists:", authorExists, "Current authors:", authors)
+                    
+                    // Ensure the book's author field matches the normalized author name
+                    // This is critical for the filtering logic to work
+                    const bookWithNormalizedAuthor = {
+                      ...book,
+                      author: normalizedAuthor,
+                      authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor && a !== "Unknown Author")] : [normalizedAuthor]
+                    }
+                    
+                    if (!authorExists) {
+                      const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                        const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                        return getLastName(a).localeCompare(getLastName(b))
+                      })
+                      
+                      console.log("Adding new author:", normalizedAuthor, "Updated authors list:", updatedAuthors)
+                      
+                      // Update authors state first
+                      setAuthors(updatedAuthors)
+                      
+                      // Mark as recommended origin
+                      setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                      
+                      // Save to database and track analytics
+                      if (currentUser) {
+                        saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                          console.error("Error saving authors to database:", error)
+                        )
+                        
+                        trackEvent(currentUser, {
+                          event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                          event_data: {
+                            author_name: normalizedAuthor,
+                            total_authors: updatedAuthors.length,
+                            source: "recommendation_book_click",
+                            timestamp: new Date().toISOString(),
+                          },
+                        }).catch(error => 
+                          console.error("Error tracking author addition:", error)
+                        )
+                      }
+                      
+                      // Save to localStorage immediately
+                      if (currentUser) {
+                        localStorage.setItem(`authors_${currentUser}`, JSON.stringify(updatedAuthors))
+                      }
+                      
+                      // Add the book after a brief delay to ensure state has updated
+                      // Use requestAnimationFrame to ensure React has processed the state update
+                      requestAnimationFrame(() => {
+                        setTimeout(() => {
+                          console.log("Adding book with normalized author:", bookWithNormalizedAuthor)
+                          onBooksFound([bookWithNormalizedAuthor])
+                          
+                          setTimeout(() => {
+                            const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
+                            if (bookElement) {
+                              bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                            }
+                          }, 100)
+                        }, 100) // Increased delay slightly
+                      })
+                    } else {
+                      // Author already exists, just add the book
+                      console.log("Author already exists, adding book:", bookWithNormalizedAuthor)
+                      onBooksFound([bookWithNormalizedAuthor])
+                      
+                      setTimeout(() => {
+                        const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
+                        if (bookElement) {
+                          bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                        }
+                      }, 100)
                     }
                   }}
                   onAuthorClick={async (authorName) => {
