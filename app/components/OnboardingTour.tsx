@@ -88,6 +88,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
       return
     }
 
+    // Wait for element to be available before showing tooltip
     const showNextTooltip = () => {
       if (currentStep >= onboardingSteps.length) {
         onComplete()
@@ -101,37 +102,58 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
         setTargetElement(element)
         setIsVisible(true)
         
-        // Scroll element into view
+        // Scroll element into view with padding to account for footer
         element.scrollIntoView({ 
           behavior: "smooth", 
           block: "center",
           inline: "center"
         })
+        
+        // Add extra padding for footer
+        setTimeout(() => {
+          const rect = element.getBoundingClientRect()
+          const footer = document.querySelector('footer')
+          if (footer) {
+            const footerHeight = footer.offsetHeight
+            if (rect.bottom + footerHeight > window.innerHeight) {
+              window.scrollBy({
+                top: footerHeight + 20,
+                behavior: 'smooth'
+              })
+            }
+          }
+        }, 300)
       } else {
-        // If element not found, skip to next step after a delay
-        setCurrentStep(prev => prev + 1)
-        setTimeout(showNextTooltip, 500)
+        // If element not found, wait longer and try again (don't auto-skip)
+        console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
+        // Don't auto-advance - let user manually proceed or fix the selector
       }
     }
 
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(showNextTooltip, 500)
+    // Wait longer to ensure DOM is fully ready
+    const timer = setTimeout(showNextTooltip, 1000)
     return () => clearTimeout(timer)
   }, [isActive, currentStep, onComplete])
 
   const handleNext = () => {
     setIsVisible(false)
-    if (currentStep < onboardingSteps.length - 1) {
-      setCurrentStep(prev => prev + 1)
-    } else {
-      onComplete()
-    }
+    // Wait a bit before showing next step to ensure smooth transition
+    setTimeout(() => {
+      if (currentStep < onboardingSteps.length - 1) {
+        setCurrentStep(prev => prev + 1)
+      } else {
+        onComplete()
+      }
+    }, 300)
   }
 
   const handlePrevious = () => {
     if (currentStep > 0) {
       setIsVisible(false)
-      setCurrentStep(prev => prev - 1)
+      // Wait a bit before showing previous step
+      setTimeout(() => {
+        setCurrentStep(prev => prev - 1)
+      }, 300)
     }
   }
 
@@ -162,7 +184,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
       {/* Overlay with navigation buttons */}
       {isVisible && (
         <div className="fixed inset-0 z-40 bg-black bg-opacity-30">
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-50">
             <div className="bg-white rounded-lg shadow-xl p-4 border-2 border-orange-500 max-w-sm mx-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
