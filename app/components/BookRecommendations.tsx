@@ -390,6 +390,75 @@ export default function BookRecommendations({
                 if (!user.preferredLanguages.includes(bookLanguage)) return false
           }
 
+          // Filter by user genre preferences
+          if (user?.preferredGenres && user.preferredGenres.length > 0) {
+            const bookCategories = book.categories || []
+            const bookGenre = book.genre || ""
+            const bookDescription = (book.description || "").toLowerCase()
+            
+            // Normalize user's preferred genres to lowercase
+            const preferredGenres = user.preferredGenres.map((g: string) => g.toLowerCase())
+            
+            // Check if book matches any preferred genre
+            const bookGenres = [
+              ...bookCategories.map((cat: string) => cat.toLowerCase()),
+              bookGenre.toLowerCase()
+            ]
+            
+            // Check for genre matches
+            let hasMatchingGenre = false
+            for (const preferredGenre of preferredGenres) {
+              // Check if any book genre/category matches the preferred genre
+              if (bookGenres.some(bg => bg.includes(preferredGenre) || preferredGenre.includes(bg))) {
+                hasMatchingGenre = true
+                break
+              }
+              // Also check description for genre keywords
+              if (bookDescription.includes(preferredGenre)) {
+                hasMatchingGenre = true
+                break
+              }
+            }
+            
+            // Special handling for Fiction vs Non-Fiction
+            const hasFiction = preferredGenres.some(g => g.includes("fiction"))
+            const hasNonFiction = preferredGenres.some(g => 
+              g.includes("non-fiction") || g.includes("nonfiction") || g.includes("non fiction")
+            )
+            
+            if (hasFiction && !hasNonFiction) {
+              // User only wants Fiction - exclude non-fiction
+              const nonFictionIndicators = [
+                "non-fiction", "nonfiction", "non fiction",
+                "biography", "autobiography", "biographical", "memoir",
+                "history", "historical",
+                "reference", "academic", "scholarly",
+                "essay", "essays",
+                "self-help", "self help",
+                "business", "economics", "finance",
+                "science", "technology", "mathematics"
+              ]
+              
+              const combinedText = `${bookGenres.join(" ")} ${bookDescription}`.toLowerCase()
+              if (nonFictionIndicators.some(indicator => combinedText.includes(indicator))) {
+                return false // Exclude non-fiction
+              }
+            } else if (hasNonFiction && !hasFiction) {
+              // User only wants Non-Fiction - exclude fiction
+              const fictionIndicators = ["fiction", "novel", "literary fiction", "literature", "romance", "mystery", "thriller", "fantasy", "science fiction", "horror"]
+              const combinedText = `${bookGenres.join(" ")} ${bookDescription}`.toLowerCase()
+              if (fictionIndicators.some(indicator => combinedText.includes(indicator)) && 
+                  !bookGenres.some(bg => bg.includes("non-fiction") || bg.includes("nonfiction"))) {
+                return false // Exclude pure fiction
+              }
+            }
+            
+            // If no genre match found, exclude the book
+            if (!hasMatchingGenre) {
+              return false
+            }
+          }
+
           return true
         })
             .map((item: any) => {
