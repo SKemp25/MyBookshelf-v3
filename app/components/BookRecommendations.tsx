@@ -390,71 +390,94 @@ export default function BookRecommendations({
                 if (!user.preferredLanguages.includes(bookLanguage)) return false
           }
 
-          // Filter by user genre preferences
+          // Get book metadata for filtering
+          const bookTitle = (book.title || "").toLowerCase()
+          const bookCategories = book.categories || []
+          const bookGenre = book.genre || ""
+          const bookDescription = (book.description || "").toLowerCase()
+          
+          // Combine all text for analysis
+          const combinedText = `${bookTitle} ${bookGenres.join(" ")} ${bookGenre} ${bookDescription}`.toLowerCase()
+          const bookGenres = [
+            ...bookCategories.map((cat: string) => cat.toLowerCase()),
+            bookGenre.toLowerCase()
+          ]
+          
+          // ALWAYS exclude these types of books regardless of preferences:
+          // 1. Books about writers/authors (biographies of authors)
+          const authorBiographyIndicators = [
+            "biography of", "life of", "story of", "memoir of",
+            "the life and work", "the letters of", "the diaries of",
+            "collected letters", "selected letters", "correspondence",
+            "a writer's life", "a novelist's", "a poet's"
+          ]
+          if (authorBiographyIndicators.some(indicator => combinedText.includes(indicator))) {
+            return false
+          }
+          
+          // 2. Collections and anthologies
+          const collectionIndicators = [
+            "collected stories", "collected works", "collected poems",
+            "short stories", "story collection", "stories",
+            "anthology", "anthologies", "selected stories",
+            "complete stories", "best stories", "selected works",
+            "the collected", "the complete", "volume 1", "volume 2"
+          ]
+          if (collectionIndicators.some(indicator => combinedText.includes(indicator))) {
+            return false
+          }
+          
+          // 3. Non-fiction when Fiction is preferred
           if (user?.preferredGenres && user.preferredGenres.length > 0) {
-            const bookCategories = book.categories || []
-            const bookGenre = book.genre || ""
-            const bookDescription = (book.description || "").toLowerCase()
-            
-            // Normalize user's preferred genres to lowercase
             const preferredGenres = user.preferredGenres.map((g: string) => g.toLowerCase())
-            
-            // Check if book matches any preferred genre
-            const bookGenres = [
-              ...bookCategories.map((cat: string) => cat.toLowerCase()),
-              bookGenre.toLowerCase()
-            ]
-            
-            // Check for genre matches
-            let hasMatchingGenre = false
-            for (const preferredGenre of preferredGenres) {
-              // Check if any book genre/category matches the preferred genre
-              if (bookGenres.some(bg => bg.includes(preferredGenre) || preferredGenre.includes(bg))) {
-                hasMatchingGenre = true
-                break
-              }
-              // Also check description for genre keywords
-              if (bookDescription.includes(preferredGenre)) {
-                hasMatchingGenre = true
-                break
-              }
-            }
-            
-            // Special handling for Fiction vs Non-Fiction
             const hasFiction = preferredGenres.some(g => g.includes("fiction"))
             const hasNonFiction = preferredGenres.some(g => 
               g.includes("non-fiction") || g.includes("nonfiction") || g.includes("non fiction")
             )
             
             if (hasFiction && !hasNonFiction) {
-              // User only wants Fiction - exclude non-fiction
+              // User only wants Fiction - strictly exclude non-fiction
               const nonFictionIndicators = [
                 "non-fiction", "nonfiction", "non fiction",
                 "biography", "autobiography", "biographical", "memoir",
-                "history", "historical",
+                "history", "historical", "historian",
                 "reference", "academic", "scholarly",
-                "essay", "essays",
+                "essay", "essays", "essay collection",
                 "self-help", "self help",
                 "business", "economics", "finance",
-                "science", "technology", "mathematics"
+                "science", "technology", "mathematics",
+                "philosophy", "psychology", "sociology",
+                "art", "art history", "criticism",
+                "literary criticism", "literary analysis"
               ]
               
-              const combinedText = `${bookGenres.join(" ")} ${bookDescription}`.toLowerCase()
               if (nonFictionIndicators.some(indicator => combinedText.includes(indicator))) {
                 return false // Exclude non-fiction
               }
-            } else if (hasNonFiction && !hasFiction) {
-              // User only wants Non-Fiction - exclude fiction
-              const fictionIndicators = ["fiction", "novel", "literary fiction", "literature", "romance", "mystery", "thriller", "fantasy", "science fiction", "horror"]
-              const combinedText = `${bookGenres.join(" ")} ${bookDescription}`.toLowerCase()
-              if (fictionIndicators.some(indicator => combinedText.includes(indicator)) && 
-                  !bookGenres.some(bg => bg.includes("non-fiction") || bg.includes("nonfiction"))) {
-                return false // Exclude pure fiction
+              
+              // Also check if categories are clearly non-fiction
+              const nonFictionCategories = ["biography", "autobiography", "history", "reference", "academic"]
+              if (bookCategories.some(cat => nonFictionCategories.includes(cat.toLowerCase()))) {
+                return false
               }
             }
             
-            // If no genre match found, exclude the book
-            if (!hasMatchingGenre) {
+            // Check for genre matches (only if we haven't excluded it already)
+            let hasMatchingGenre = false
+            for (const preferredGenre of preferredGenres) {
+              // Check if any book genre/category matches the preferred genre
+              if (bookGenres.some(bg => {
+                const bgLower = bg.toLowerCase()
+                const prefLower = preferredGenre.toLowerCase()
+                return bgLower.includes(prefLower) || prefLower.includes(bgLower)
+              })) {
+                hasMatchingGenre = true
+                break
+              }
+            }
+            
+            // If no genre match found and user has genre preferences, exclude the book
+            if (!hasMatchingGenre && preferredGenres.length > 0) {
               return false
             }
           }
