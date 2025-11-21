@@ -2342,6 +2342,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         return getLastName(a).localeCompare(getLastName(b))
                       })
                       
+                      // Always add the author first, even if API fails
                       setAuthors(updatedAuthors)
                       
                       // Mark as recommended origin
@@ -2366,12 +2367,30 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         )
                       }
                       
-                      // Fetch all books by this author
+                      // Fetch all books by this author (with retry logic)
                       try {
                         const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
                         const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
                         if (authorBooks && authorBooks.length > 0) {
                           // Add all books by this author
+                          onBooksFound(authorBooks)
+                        } else {
+                          // API returned no books (might be rate limited or author has no books)
+                          console.warn(`No books found for ${normalizedAuthor} - API may be rate limited or author has no books`)
+                          // Author is still added, user can manually add books later
+                        }
+                      } catch (error) {
+                        console.error("Error fetching author books:", error)
+                        // Author is still added even if API fails
+                        // User can manually add books or try again later
+                      }
+                    } else {
+                      // Author already exists, try to fetch their books anyway
+                      try {
+                        const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
+                        const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
+                        if (authorBooks && authorBooks.length > 0) {
+                          // Add any new books by this author
                           onBooksFound(authorBooks)
                         }
                       } catch (error) {

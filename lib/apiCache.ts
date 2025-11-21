@@ -83,6 +83,43 @@ export const getBookSearchCacheKey = (query: string): string =>
   `book-search:${query.toLowerCase().trim()}`
 
 // Cached API functions
+// Retry function with exponential backoff
+async function fetchWithRetry(
+  url: string,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url)
+      
+      // If successful or non-retryable error, return immediately
+      if (response.ok || (response.status !== 503 && response.status !== 429)) {
+        return response
+      }
+      
+      // For 503/429, retry with exponential backoff
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      } else {
+        return response // Return the error response on final attempt
+      }
+    } catch (error) {
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.log(`Network error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      } else {
+        throw error
+      }
+    }
+  }
+  
+  throw new Error('Max retries exceeded')
+}
+
 export async function fetchAuthorBooksWithCache(authorName: string): Promise<any[]> {
   const cacheKey = getAuthorBooksCacheKey(authorName)
   
@@ -104,53 +141,70 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
     let allBooks: any[] = []
 
     for (const query of queries) {
-    const response = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
-    )
-      
-      if (!response.ok) continue
-      
-      const data = await response.json()
-      if (data.items) {
-        console.log(`API returned ${data.items.length} books for query: ${query}`)
-        // Process the raw API data into proper Book objects
-        const processedBooks = data.items.map((item: any) => {
-          let publishedDate = item.volumeInfo.publishedDate
-          if (publishedDate && publishedDate.length === 4) {
-            publishedDate = `${publishedDate}-01-01`
+      try {
+        const response = await fetchWithRetry(
+          `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
+          3, // max retries
+          1000 // base delay 1 second
+        )
+        
+        if (!response.ok) {
+          if (response.status === 503 || response.status === 429) {
+            console.warn(`Google Books API rate limited or unavailable (${response.status}) for query: ${query}`)
+            // Continue to next query instead of failing completely
+            continue
           }
+          console.warn(`API returned ${response.status} for query: ${query}`)
+          continue
+        }
+        
+        const data = await response.json()
+        if (data.items) {
+          console.log(`API returned ${data.items.length} books for query: ${query}`)
+          // Process the raw API data into proper Book objects
+          const processedBooks = data.items.map((item: any) => {
+            let publishedDate = item.volumeInfo.publishedDate
+            if (publishedDate && publishedDate.length === 4) {
+              publishedDate = `${publishedDate}-01-01`
+            }
 
-          const bookData = {
-            id: item.id,
-            title: item.volumeInfo.title || "Unknown Title",
-            author: item.volumeInfo.authors?.[0] || "Unknown Author",
-            authors: item.volumeInfo.authors || [],
-            publishedDate: publishedDate || "Unknown Date",
-            description: item.volumeInfo.description || "",
-            categories: item.volumeInfo.categories || [],
-            language: item.volumeInfo.language || "en",
-            pageCount: item.volumeInfo.pageCount || 0,
-            imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-            thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-            previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
-            infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
-            canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
-          }
-          
-          
-          return bookData
-        })
-        allBooks = [...allBooks, ...processedBooks]
+            const bookData = {
+              id: item.id,
+              title: item.volumeInfo.title || "Unknown Title",
+              author: item.volumeInfo.authors?.[0] || "Unknown Author",
+              authors: item.volumeInfo.authors || [],
+              publishedDate: publishedDate || "Unknown Date",
+              description: item.volumeInfo.description || "",
+              categories: item.volumeInfo.categories || [],
+              language: item.volumeInfo.language || "en",
+              pageCount: item.volumeInfo.pageCount || 0,
+              imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+              thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+              previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
+              infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
+              canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
+            }
+            
+            return bookData
+          })
+          allBooks = [...allBooks, ...processedBooks]
+        }
+      } catch (queryError) {
+        console.error(`Error fetching books for query "${query}":`, queryError)
+        // Continue to next query
+        continue
       }
     }
 
     // Cache the result for 10 minutes (longer for author books)
+    // Even if we got no books, cache the empty result to avoid repeated failed requests
     apiCache.set(cacheKey, allBooks, 10 * 60 * 1000)
     
     return allBooks
   } catch (error) {
     console.error('Error fetching author books:', error)
-    throw error
+    // Return empty array instead of throwing, so the author can still be added
+    return []
   }
 }
 
