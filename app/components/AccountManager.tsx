@@ -224,8 +224,8 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
       >
         <DialogContent className="w-[95vw] max-w-md bg-white border-orange-200 rounded-2xl max-h-[90vh] overflow-y-auto mx-4 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-orange-800 font-display text-2xl flex items-center gap-3">
-              <Shield className="w-7 h-7" />
+            <DialogTitle className="text-orange-800 font-display text-xl sm:text-2xl flex items-center gap-2 sm:gap-3">
+              <Shield className="w-5 h-5 sm:w-7 sm:h-7" />
               {authMode === "signin" && "Sign In"}
               {authMode === "signup" && "Create Account"}
               {authMode === "reset" && "Reset Password"}
