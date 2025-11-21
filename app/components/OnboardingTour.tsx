@@ -63,7 +63,7 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     id: "complete",
-    selector: "[data-onboarding='complete']",
+    selector: "[data-onboarding='welcome']",
     title: "You're All Set! 🎉",
     content: "You're ready to start building your personal library! Add your first author to get started, or explore the app at your own pace. Happy reading!",
     position: "bottom"
