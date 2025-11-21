@@ -216,7 +216,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
           if (!open) resetForm()
         }}
       >
-        <DialogContent className="sm:max-w-md bg-white border-orange-200 rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md bg-white border-orange-200 rounded-2xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
             <DialogTitle className="text-orange-800 font-display text-2xl flex items-center gap-3">
               <Shield className="w-7 h-7" />
@@ -226,7 +226,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-6 py-2">
             <div className="text-center">
               <p className="text-orange-600 mb-6">
                 {authMode === "signin" && "Sign in to sync your bookshelf across devices and share recommendations."}
