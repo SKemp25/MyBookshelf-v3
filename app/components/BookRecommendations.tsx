@@ -391,17 +391,19 @@ export default function BookRecommendations({
           }
 
           // Get book metadata for filtering
-          const bookTitle = (book.title || "").toLowerCase()
+          const bookTitleLower = bookTitle.toLowerCase()
           const bookCategories = book.categories || []
           const bookGenre = book.genre || ""
           const bookDescription = (book.description || "").toLowerCase()
           
-          // Combine all text for analysis
-          const combinedText = `${bookTitle} ${bookGenres.join(" ")} ${bookGenre} ${bookDescription}`.toLowerCase()
+          // Build book genres array
           const bookGenres = [
             ...bookCategories.map((cat: string) => cat.toLowerCase()),
             bookGenre.toLowerCase()
           ]
+          
+          // Combine all text for analysis
+          const combinedText = `${bookTitleLower} ${bookGenres.join(" ")} ${bookGenre} ${bookDescription}`.toLowerCase()
           
           // ALWAYS exclude these types of books regardless of preferences:
           // 1. Books about writers/authors (biographies of authors)
@@ -430,8 +432,8 @@ export default function BookRecommendations({
           // 3. Non-fiction when Fiction is preferred
           if (user?.preferredGenres && user.preferredGenres.length > 0) {
             const preferredGenres = user.preferredGenres.map((g: string) => g.toLowerCase())
-            const hasFiction = preferredGenres.some(g => g.includes("fiction"))
-            const hasNonFiction = preferredGenres.some(g => 
+            const hasFiction = preferredGenres.some((g: string) => g.includes("fiction"))
+            const hasNonFiction = preferredGenres.some((g: string) => 
               g.includes("non-fiction") || g.includes("nonfiction") || g.includes("non fiction")
             )
             
@@ -457,7 +459,7 @@ export default function BookRecommendations({
               
               // Also check if categories are clearly non-fiction
               const nonFictionCategories = ["biography", "autobiography", "history", "reference", "academic"]
-              if (bookCategories.some(cat => nonFictionCategories.includes(cat.toLowerCase()))) {
+              if (bookCategories.some((cat: string) => nonFictionCategories.includes(cat.toLowerCase()))) {
                 return false
               }
             }
