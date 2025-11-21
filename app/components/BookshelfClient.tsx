@@ -209,14 +209,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     
     const checkLoginState = () => {
       try {
-        const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-        const user = localStorage.getItem("bookshelf_current_user") || ""
+    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+    const user = localStorage.getItem("bookshelf_current_user") || ""
         
         // Only update state if values actually changed to prevent unnecessary re-renders
         if (loggedIn !== lastLoggedIn || user !== lastUser) {
           console.log("Login state changed:", { loggedIn, user, wasLoggedIn: lastLoggedIn, wasUser: lastUser })
-          setIsLoggedIn(loggedIn)
-          setCurrentUser(user)
+    setIsLoggedIn(loggedIn)
+    setCurrentUser(user)
           lastLoggedIn = loggedIn
           lastUser = user
         }
@@ -1558,7 +1558,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </div>
             </div>
           )}
-          </div>
+        </div>
       </header>
 
       {/* Main Content Area with Optional Sidebar */}
@@ -1599,7 +1599,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </label>
                   ))}
                 </div>
-              </div>
+            </div>
 
               {/* Genres Filter */}
               <div>
@@ -3304,6 +3304,16 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Account Manager for Mobile - Always rendered but hidden, needed for dialog */}
+      <div className="hidden">
+        <AccountManager 
+          user={user} 
+          isLoggedIn={isLoggedIn}
+          showAuthDialog={showAuthDialog}
+          onAuthDialogChange={setShowAuthDialog}
+        />
+      </div>
 
       {/* Contextual Tooltip Tour */}
       <TooltipManager
