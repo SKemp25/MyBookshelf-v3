@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { signOut } from "@/lib/actions"
 
@@ -2155,6 +2155,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Export Data</DialogTitle>
+            <DialogDescription>
+              Export your bookshelf data including books, authors, and reading status.
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <DataExport 
@@ -3450,6 +3453,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Authors & Books</DialogTitle>
+            <DialogDescription>
+              Add authors to your bookshelf. We'll automatically find all their books for you.
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <AuthorManager
@@ -3472,6 +3478,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Advanced Filters</DialogTitle>
+            <DialogDescription>
+              Filter your books by various criteria including date, genre, and reading status.
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <AdvancedFilters
