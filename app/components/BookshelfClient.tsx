@@ -2279,7 +2279,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       
                       console.log("Adding new author:", normalizedAuthor, "Updated authors list:", updatedAuthors)
                       
-                      // Update authors state first
+                      // Save to localStorage FIRST before updating state
+                      if (currentUser) {
+                        localStorage.setItem(`authors_${currentUser}`, JSON.stringify(updatedAuthors))
+                      }
+                      
+                      // Update authors state
                       setAuthors(updatedAuthors)
                       
                       // Mark as recommended origin
@@ -2304,26 +2309,20 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         )
                       }
                       
-                      // Save to localStorage immediately
-                      if (currentUser) {
-                        localStorage.setItem(`authors_${currentUser}`, JSON.stringify(updatedAuthors))
-                      }
-                      
-                      // Add the book after a brief delay to ensure state has updated
-                      // Use requestAnimationFrame to ensure React has processed the state update
-                      requestAnimationFrame(() => {
+                      // Add the book - use a longer delay to ensure author state is fully updated
+                      // The filtering logic checks if author is in authors list, so we need to wait
+                      setTimeout(() => {
+                        console.log("Adding book with normalized author:", bookWithNormalizedAuthor)
+                        console.log("Current authors at time of adding book:", updatedAuthors)
+                        onBooksFound([bookWithNormalizedAuthor])
+                        
                         setTimeout(() => {
-                          console.log("Adding book with normalized author:", bookWithNormalizedAuthor)
-                          onBooksFound([bookWithNormalizedAuthor])
-                          
-                          setTimeout(() => {
-                            const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
-                            if (bookElement) {
-                              bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                            }
-                          }, 100)
-                        }, 100) // Increased delay slightly
-                      })
+                          const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
+                          if (bookElement) {
+                            bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                          }
+                        }, 200)
+                      }, 300) // Longer delay to ensure state propagation
                     } else {
                       // Author already exists, just add the book
                       console.log("Author already exists, adding book:", bookWithNormalizedAuthor)
