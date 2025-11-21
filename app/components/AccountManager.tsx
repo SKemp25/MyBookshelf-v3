@@ -21,6 +21,8 @@ import {
   CheckCircle,
   KeyRound,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { signIn, signUp, signOut, resetPassword } from "@/lib/actions"
 import { useRouter } from "next/navigation"
@@ -88,6 +90,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "reset">("signin")
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: "" })
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Sync with parent-controlled dialog state
   useEffect(() => {
@@ -476,12 +479,24 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
                       <Input
                         id="password"
                         name="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
-                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        className="border-orange-200 focus:border-orange-400 pl-10 pr-10"
                         onChange={(e) => handlePasswordChange(e.target.value)}
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-orange-400 hover:text-orange-600 focus:outline-none"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                     {passwordStrength.message && (
                       <div className="mt-2 flex items-center gap-2">
@@ -684,11 +699,23 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
                       <Input
                         id="password"
                         name="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
-                        className="border-orange-200 focus:border-orange-400 pl-10"
+                        className="border-orange-200 focus:border-orange-400 pl-10 pr-10"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-orange-400 hover:text-orange-600 focus:outline-none"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
                   <SubmitButton>
