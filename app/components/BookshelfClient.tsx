@@ -1665,6 +1665,126 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   Clear Filters
                 </Button>
               )}
+
+              {/* Recommendations Section */}
+              {userState.suggestNewAuthors && (
+                <div className="border-t border-gray-200 pt-4">
+                  <h4 className="text-xs font-medium text-gray-600 mb-2">Recommendations</h4>
+                  <div className="max-h-96 overflow-y-auto">
+                    <APIErrorBoundary>
+                      <ComponentErrorBoundary componentName="Book Recommendations">
+                        <BookRecommendations
+                          authors={authors.map(name => ({ id: name, name }))}
+                          books={books}
+                          readBooks={readBooks}
+                          wantToReadBooks={wantToReadBooks}
+                          bookRatings={bookRatings}
+                          user={userState}
+                          onBookClick={async (book) => {
+                            // Add the single book and include the author with just this one book
+                            const bookAuthor = book.author || book.authors?.[0]
+                            if (bookAuthor) {
+                              const normalizedAuthor = normalizeAuthorName(bookAuthor)
+                              const authorExists = authors.some(author => 
+                                author.toLowerCase() === normalizedAuthor.toLowerCase()
+                              )
+                              
+                              if (!authorExists) {
+                                const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                                  const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                                  return getLastName(a).localeCompare(getLastName(b))
+                                })
+                                
+                                setAuthors(updatedAuthors)
+                                
+                                // Mark as recommended origin
+                                setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                                
+                                // Save to database and track analytics
+                                if (currentUser) {
+                                  saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                                    console.error("Error saving authors to database:", error)
+                                  )
+                                  
+                                  trackEvent(currentUser, {
+                                    event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                                    event_data: {
+                                      author_name: normalizedAuthor,
+                                      total_authors: updatedAuthors.length,
+                                      source: "recommendation_book_click",
+                                      timestamp: new Date().toISOString(),
+                                    },
+                                  }).catch(error => 
+                                    console.error("Error tracking author addition:", error)
+                                  )
+                                }
+                              }
+                            }
+                            
+                            // Add just the single book
+                            onBooksFound([book])
+
+                            setTimeout(() => {
+                              const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
+                              if (bookElement) {
+                                bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                              }
+                            }, 100)
+                          }}
+                          onAuthorClick={async (authorName) => {
+                            // Add the author to the authors list if not already present
+                            const normalizedAuthor = normalizeAuthorName(authorName)
+                            const authorExists = authors.some(author => 
+                              author.toLowerCase() === normalizedAuthor.toLowerCase()
+                            )
+                            
+                            if (!authorExists) {
+                              const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                                const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                                return getLastName(a).localeCompare(getLastName(b))
+                              })
+                              
+                              setAuthors(updatedAuthors)
+                              
+                              // Mark as recommended origin
+                              setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                              
+                              // Save to database
+                              if (currentUser) {
+                                await saveUserAuthors(currentUser, updatedAuthors)
+                                
+                                trackEvent(currentUser, {
+                                  event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                                  event_data: {
+                                    author_name: normalizedAuthor,
+                                    total_authors: updatedAuthors.length,
+                                    source: "recommendation_add_author",
+                                    timestamp: new Date().toISOString(),
+                                  },
+                                }).catch(error => 
+                                  console.error("Error tracking author addition:", error)
+                                )
+                              }
+                              
+                              // Fetch all books by this author
+                              try {
+                                const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
+                                const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
+                                if (authorBooks && authorBooks.length > 0) {
+                                  // Add all books by this author
+                                  onBooksFound(authorBooks)
+                                }
+                              } catch (error) {
+                                console.error("Error fetching author books:", error)
+                              }
+                            }
+                          }}
+                        />
+                      </ComponentErrorBoundary>
+                    </APIErrorBoundary>
+                  </div>
+                </div>
+              )}
             </div>
           </aside>
           </>
