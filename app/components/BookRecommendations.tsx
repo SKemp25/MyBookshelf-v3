@@ -3,19 +3,151 @@
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Calendar, User, X } from "lucide-react"
-import type { Author, Book } from "@/lib/types"
+import { RefreshCw, Calendar, X, Heart, BookOpen } from "lucide-react"
+import type { Book } from "@/lib/types"
+import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 import RecommendationBookModal from "./RecommendationBookModal"
 
 interface BookRecommendationsProps {
-  authors: Author[]
+  authors: Array<{ id: string; name: string }>
   books: Book[]
   readBooks: Set<string>
   wantToReadBooks: Set<string>
   bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
   user: any
   onBookClick?: (book: Book) => void
-  onAuthorClick?: (authorName: string) => void
+}
+
+// Author similarity database - maps authors to similar authors
+// This could be expanded with more sophisticated matching
+const similarAuthorsMap: { [key: string]: string[] } = {
+  "Madeline Miller": ["Jennifer Saint", "Pat Barker", "Stephen Fry", "Natalie Haynes"],
+  "Jennifer Saint": ["Madeline Miller", "Pat Barker", "Natalie Haynes", "Stephen Fry"],
+  "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Hilary Mantel", "Sarah Waters"],
+  "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith", "Maggie O'Farrell"],
+  "Ali Smith": ["Kate Atkinson", "Sarah Waters", "Zadie Smith", "Rachel Cusk"],
+  "Sarah Waters": ["Kate Atkinson", "Ali Smith", "Hilary Mantel", "Maggie O'Farrell"],
+  "Zadie Smith": ["Kate Atkinson", "Ali Smith", "Rachel Cusk", "Chimamanda Ngozi Adichie"],
+  "Kristin Hannah": ["Jodi Picoult", "Liane Moriarty", "Taylor Jenkins Reid", "Diane Chamberlain"],
+  "Jodi Picoult": ["Kristin Hannah", "Liane Moriarty", "Diane Chamberlain", "Jacqueline Mitchard"],
+  "Liane Moriarty": ["Kristin Hannah", "Jodi Picoult", "Taylor Jenkins Reid", "Marian Keyes"],
+  "Taylor Jenkins Reid": ["Kristin Hannah", "Liane Moriarty", "Emily Giffin", "Elin Hilderbrand"],
+  "Daniel Mason": ["Anthony Doerr", "Hanya Yanagihara", "Colson Whitehead", "Amor Towles"],
+  "Anthony Doerr": ["Daniel Mason", "Amor Towles", "Hanya Yanagihara", "Ian McEwan"],
+  "Hanya Yanagihara": ["Daniel Mason", "Anthony Doerr", "Colson Whitehead", "Kazuo Ishiguro"],
+  "Colson Whitehead": ["Daniel Mason", "Hanya Yanagihara", "Jesmyn Ward", "Toni Morrison"],
+  "Philip Pullman": ["Neil Gaiman", "Terry Pratchett", "Susanna Clarke", "Ursula K. Le Guin"],
+  "Neil Gaiman": ["Philip Pullman", "Terry Pratchett", "Susanna Clarke", "China Miéville"],
+  "Terry Pratchett": ["Neil Gaiman", "Philip Pullman", "Douglas Adams", "Jasper Fforde"],
+  "Susanna Clarke": ["Philip Pullman", "Neil Gaiman", "Ursula K. Le Guin", "Erin Morgenstern"],
+  "Stephen Fry": ["Madeline Miller", "Jennifer Saint", "Tom Holland", "Mary Beard"],
+  "Hilary Mantel": ["Pat Barker", "Sarah Waters", "Maggie O'Farrell", "A.S. Byatt"],
+  "Maggie O'Farrell": ["Hilary Mantel", "Kate Atkinson", "Sarah Waters", "Ali Smith"],
+  "Ian McEwan": ["Anthony Doerr", "Kazuo Ishiguro", "Julian Barnes", "Martin Amis"],
+  "Kazuo Ishiguro": ["Ian McEwan", "Hanya Yanagihara", "Julian Barnes", "Haruki Murakami"],
+  "Amor Towles": ["Anthony Doerr", "Daniel Mason", "Ian McEwan", "Donna Tartt"],
+  "Donna Tartt": ["Amor Towles", "Ian McEwan", "Jonathan Franzen", "Zadie Smith"],
+  "Jonathan Franzen": ["Donna Tartt", "Zadie Smith", "David Foster Wallace", "Michael Chabon"],
+  "Michael Chabon": ["Jonathan Franzen", "David Foster Wallace", "Zadie Smith", "Jennifer Egan"],
+  "Jennifer Egan": ["Michael Chabon", "Jonathan Franzen", "Zadie Smith", "Rachel Kushner"],
+  "Rachel Cusk": ["Ali Smith", "Zadie Smith", "Deborah Levy", "Elena Ferrante"],
+  "Elena Ferrante": ["Rachel Cusk", "Deborah Levy", "Ali Smith", "Jhumpa Lahiri"],
+  "Jhumpa Lahiri": ["Elena Ferrante", "Zadie Smith", "Chimamanda Ngozi Adichie", "Arundhati Roy"],
+  "Chimamanda Ngozi Adichie": ["Jhumpa Lahiri", "Zadie Smith", "Arundhati Roy", "Toni Morrison"],
+  "Toni Morrison": ["Chimamanda Ngozi Adichie", "Jesmyn Ward", "Colson Whitehead", "Zora Neale Hurston"],
+  "Jesmyn Ward": ["Toni Morrison", "Colson Whitehead", "Chimamanda Ngozi Adichie", "Ta-Nehisi Coates"],
+  "Ursula K. Le Guin": ["Susanna Clarke", "Philip Pullman", "Neil Gaiman", "Octavia Butler"],
+  "Octavia Butler": ["Ursula K. Le Guin", "N.K. Jemisin", "Margaret Atwood", "Ursula K. Le Guin"],
+  "Margaret Atwood": ["Octavia Butler", "Ursula K. Le Guin", "Doris Lessing", "Angela Carter"],
+  "N.K. Jemisin": ["Octavia Butler", "Ursula K. Le Guin", "Nnedi Okorafor", "Ann Leckie"],
+}
+
+// Helper to infer author gender from name (simple heuristic)
+function inferAuthorGender(authorName: string): "male" | "female" | "unknown" {
+  const name = authorName.toLowerCase()
+  // Common female first names
+  const femaleNames = ["madeline", "jennifer", "kate", "ali", "sarah", "zadie", "kristin", "jodi", "liane", "taylor", "susan", "elena", "rachel", "jennifer", "maggie", "hilary", "toni", "jesmyn", "ursula", "octavia", "margaret", "natalie", "diane", "jacqueline", "marian", "emily", "elin", "deborah", "arundhati", "zora", "nnedi", "ann", "doris", "angela"]
+  // Common male first names
+  const maleNames = ["stephen", "daniel", "philip", "neil", "terry", "anthony", "hanya", "colson", "ian", "kazuo", "amor", "donna", "jonathan", "michael", "david", "tom", "julian", "martin", "haruki", "ta-nehisi"]
+  
+  const firstName = name.split(" ")[0]
+  if (femaleNames.includes(firstName)) return "female"
+  if (maleNames.includes(firstName)) return "male"
+  return "unknown"
+}
+
+// Get average publication year from loved books
+function getAveragePublicationYear(books: Book[]): number | null {
+  const years: number[] = []
+  books.forEach(book => {
+    if (book.publishedDate) {
+      const year = parseInt(book.publishedDate.substring(0, 4))
+      if (!isNaN(year)) years.push(year)
+    }
+  })
+  if (years.length === 0) return null
+  return Math.round(years.reduce((a, b) => a + b, 0) / years.length)
+}
+
+// Get common genres from loved books
+function getCommonGenres(books: Book[]): string[] {
+  const genreCounts: { [key: string]: number } = {}
+  books.forEach(book => {
+    const genres = book.categories || book.genre ? [book.genre || ""] : []
+    genres.forEach(genre => {
+      if (genre) {
+        const normalized = genre.toLowerCase()
+        genreCounts[normalized] = (genreCounts[normalized] || 0) + 1
+      }
+    })
+  })
+  // Return top 3 most common genres
+  return Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([genre]) => genre)
+}
+
+// Find similar authors based on loved book authors
+function findSimilarAuthors(
+  lovedBookAuthors: string[],
+  existingAuthors: string[],
+  rejectedAuthors: Set<string>,
+  lovedBooks: Book[]
+): string[] {
+  const similarAuthors = new Set<string>()
+  const avgYear = getAveragePublicationYear(lovedBooks)
+  const commonGenres = getCommonGenres(lovedBooks)
+  
+  // Get gender distribution of loved authors
+  const lovedAuthorGenders = lovedBookAuthors.map(inferAuthorGender)
+  const hasFemaleAuthors = lovedAuthorGenders.some(g => g === "female")
+  const hasMaleAuthors = lovedAuthorGenders.some(g => g === "male")
+  
+  // Find similar authors from the map
+  lovedBookAuthors.forEach(author => {
+    const similar = similarAuthorsMap[author] || []
+    similar.forEach(simAuthor => {
+      // Filter out existing authors and rejected authors
+      if (!existingAuthors.includes(simAuthor) && !rejectedAuthors.has(simAuthor)) {
+        // Prefer authors with similar gender distribution
+        const simGender = inferAuthorGender(simAuthor)
+        if (hasFemaleAuthors && hasMaleAuthors) {
+          // Mixed gender - accept all
+          similarAuthors.add(simAuthor)
+        } else if (hasFemaleAuthors && simGender === "female") {
+          similarAuthors.add(simAuthor)
+        } else if (hasMaleAuthors && simGender === "male") {
+          similarAuthors.add(simAuthor)
+        } else if (simGender === "unknown") {
+          // Unknown gender - include it
+          similarAuthors.add(simAuthor)
+        }
+      }
+    })
+  })
+  
+  return Array.from(similarAuthors)
 }
 
 export default function BookRecommendations({
@@ -26,150 +158,15 @@ export default function BookRecommendations({
   bookRatings = new Map(),
   user,
   onBookClick,
-  onAuthorClick,
 }: BookRecommendationsProps) {
-  const [recommendations, setRecommendations] = useState<Book[]>([])
-  const [authorRecommendations, setAuthorRecommendations] = useState<string[]>([])
+  const [currentRecommendation, setCurrentRecommendation] = useState<Book | null>(null)
+  const [currentAuthor, setCurrentAuthor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [passedBooks, setPassedBooks] = useState<Set<string>>(new Set())
   const [rejectedBooks, setRejectedBooks] = useState<Set<string>>(new Set())
   const [rejectedAuthors, setRejectedAuthors] = useState<Set<string>>(new Set())
-  const [refreshCounter, setRefreshCounter] = useState(0)
-
-  const curatedRecommendations: Book[] = [
-    {
-      id: "rec-1",
-      title: "The Song of Achilles",
-      author: "Madeline Miller",
-      authorId: "Madeline Miller",
-      publishedDate: "2011-09-20",
-      description:
-        "A tale of gods, kings, immortal fame and the human heart, The Song of Achilles is a dazzling literary feat that brilliantly reimagines Homer's enduring masterwork, The Iliad.",
-      pageCount: 416,
-      categories: ["Historical Fiction", "Mythology"],
-      thumbnail: "/song-of-achilles-cover.png",
-      language: "en",
-    },
-    {
-      id: "rec-2",
-      title: "Circe",
-      author: "Madeline Miller",
-      authorId: "Madeline Miller",
-      publishedDate: "2018-04-10",
-      description:
-        "In the house of Helios, god of the sun and mightiest of the Titans, a daughter is born. But Circe is a strange child—not powerful, like her father, nor viciously alluring like her mother.",
-      pageCount: 393,
-      categories: ["Historical Fiction", "Mythology"],
-      thumbnail: "/placeholder-tsbaq.png",
-      language: "en",
-    },
-    {
-      id: "rec-3",
-      title: "The Seven Husbands of Evelyn Hugo",
-      author: "Taylor Jenkins Reid",
-      authorId: "Taylor Jenkins Reid",
-      publishedDate: "2017-06-13",
-      description:
-        "Aging and reclusive Hollywood movie icon Evelyn Hugo is finally ready to tell the truth about her glamorous and scandalous life.",
-      pageCount: 400,
-      categories: ["Historical Fiction", "Romance"],
-      thumbnail: "/seven-husbands-evelyn-hugo.png",
-      language: "en",
-    },
-    {
-      id: "rec-4",
-      title: "All the Light We Cannot See",
-      author: "Anthony Doerr",
-      authorId: "Anthony Doerr",
-      publishedDate: "2014-05-06",
-      description:
-        "From the highly acclaimed, multiple award-winning Anthony Doerr, the beautiful, stunningly ambitious instant New York Times bestseller about a blind French girl and a German boy whose paths collide in occupied France as both try to survive the devastation of World War II.",
-      pageCount: 531,
-      categories: ["Historical Fiction", "War"],
-      thumbnail: "/all-the-light-we-cannot-see-cover.png",
-      language: "en",
-    },
-    {
-      id: "rec-5",
-      title: "The Midnight Library",
-      author: "Matt Haig",
-      authorId: "Matt Haig",
-      publishedDate: "2020-08-13",
-      description:
-        "Between life and death there is a library, and within that library, the shelves go on forever. Every book provides a chance to try another life you could have lived.",
-      pageCount: 288,
-      categories: ["Literary Fiction", "Philosophy"],
-      thumbnail: "/midnight-library.png",
-      language: "en",
-    },
-    {
-      id: "rec-6",
-      title: "Klara and the Sun",
-      author: "Kazuo Ishiguro",
-      authorId: "Kazuo Ishiguro",
-      publishedDate: "2021-03-02",
-      description:
-        "From the Nobel Prize-winning author of Never Let Me Go and The Remains of the Day, a beautiful novel about an artificial friend and the human heart.",
-      pageCount: 320,
-      categories: ["Science Fiction", "Literary Fiction"],
-      thumbnail: "/klara-and-the-sun.png",
-      language: "en",
-    },
-    {
-      id: "rec-7",
-      title: "Project Hail Mary",
-      author: "Andy Weir",
-      authorId: "Andy Weir",
-      publishedDate: "2021-05-04",
-      description:
-        "Ryland Grace is the sole survivor on a desperate, last-chance mission—and if he fails, humanity and the earth itself will perish.",
-      pageCount: 496,
-      categories: ["Science Fiction", "Adventure"],
-      thumbnail: "/project-hail-mary.png",
-      language: "en",
-    },
-    {
-      id: "rec-8",
-      title: "The Thursday Murder Club",
-      author: "Richard Osman",
-      authorId: "Richard Osman",
-      publishedDate: "2020-09-03",
-      description:
-        "Four septuagenarians with a few tricks up their sleeves investigate a murder in their retirement village.",
-      pageCount: 384,
-      categories: ["Mystery", "Humor"],
-      thumbnail: "/thursday-murder-club.png",
-      language: "en",
-    },
-    {
-      id: "rec-9",
-      title: "Nineteen Minutes",
-      author: "Jodi Picoult",
-      authorId: "Jodi Picoult",
-      publishedDate: "2007-03-06",
-      description:
-        "In nineteen minutes, you can mow the front lawn, color your hair, watch a third of a hockey game. In nineteen minutes, you can bake scones or get a tooth filled by a dentist.",
-      pageCount: 464,
-      categories: ["Contemporary Fiction", "Drama"],
-      thumbnail: "/nineteen-minutes-book-cover.png",
-      language: "en",
-    },
-    {
-      id: "rec-10",
-      title: "The Ocean at the End of the Lane",
-      author: "Neil Gaiman",
-      authorId: "Neil Gaiman",
-      publishedDate: "2013-06-18",
-      description:
-        "A novel about memory, magic and survival, about the power of stories and the darkness inside each of us.",
-      pageCount: 181,
-      categories: ["Fantasy", "Literary Fiction"],
-      thumbnail: "/ocean-end-lane-book-cover.png",
-      language: "en",
-    },
-  ]
+  const [triedAuthors, setTriedAuthors] = useState<Set<string>>(new Set())
 
   const getAuthorName = (book: Book) => {
     if ((book as any).author) {
@@ -209,189 +206,169 @@ export default function BookRecommendations({
     }
   }
 
-  const generateAuthorRecommendations = () => {
-    if (!user?.suggestNewAuthors || !authors.length) return []
-
-    // Only use authors from books that have been marked as "loved" (heart icon)
-    const lovedBookIds = new Set<string>()
-    bookRatings.forEach((rating, bookId) => {
-      if (rating === "loved") {
-        lovedBookIds.add(bookId)
-      }
-    })
-
-    // Get authors only from loved books
-    const lovedBookAuthors = new Set<string>()
-    books.forEach((book) => {
-      const bookId = `${book.title}-${book.author}`
-      if (lovedBookIds.has(bookId)) {
-        const authorName = getAuthorName(book)
-        if (authorName && authorName !== "Unknown Author") {
-          lovedBookAuthors.add(authorName)
-        }
-      }
-    })
-
-    // If no loved books, return empty (don't recommend based on other books)
-    if (lovedBookAuthors.size === 0) {
-      return []
-    }
-
-    const existingAuthors = authors.map((author) => {
-      if (typeof author === "string") {
-        return author
-      } else if (author && typeof author === "object" && author.name) {
-        return author.name
-      } else {
-        return "Unknown Author"
-      }
-    })
-
-    // Only use authors from loved books for recommendations
-    const allRelevantAuthors = Array.from(lovedBookAuthors)
-
-    // Shared author recommendation map
-    const authorMap: { [key: string]: string[] } = {
-      "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Stephen Fry"],
-      "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith"],
-      "Kristin Hannah": ["Jodi Picoult", "Liane Moriarty", "Taylor Jenkins Reid"],
-      "Daniel Mason": ["Anthony Doerr", "Hanya Yanagihara", "Colson Whitehead"],
-      "Philip Pullman": ["Neil Gaiman", "Terry Pratchett", "Susanna Clarke"],
-      "Madeline Miller": ["Pat Barker", "Jennifer Saint", "Stephen Fry"],
-      "Jennifer Saint": ["Pat Barker", "Madeline Miller", "Stephen Fry"],
-      "Ali Smith": ["Kate Atkinson", "Sarah Waters", "Zadie Smith"],
-      "Sarah Waters": ["Kate Atkinson", "Ali Smith", "Zadie Smith"],
-      "Zadie Smith": ["Kate Atkinson", "Ali Smith", "Sarah Waters"],
-    }
-
-    const potentialAuthors = new Set<string>()
-    allRelevantAuthors.forEach((author) => {
-      if (authorMap[author]) {
-        authorMap[author].forEach((rec) => potentialAuthors.add(rec))
-      }
-    })
-
-    return Array.from(potentialAuthors)
-      .filter((author) => !existingAuthors.includes(author) && !rejectedAuthors.has(author))
-      .slice(0, 3)
-  }
-
-  const generateNewRecommendations = () => {
+  // Find and fetch a book from a similar author
+  const findNextRecommendation = async () => {
     setLoading(true)
-    setRefreshCounter(prev => prev + 1)
+    
+    try {
+      // Get loved books
+      const lovedBookIds = new Set<string>()
+      bookRatings.forEach((rating, bookId) => {
+        if (rating === "loved") {
+          lovedBookIds.add(bookId)
+        }
+      })
 
-    // Use requestAnimationFrame to batch state updates and avoid blocking
-    requestAnimationFrame(() => {
-      setTimeout(() => {
+      if (lovedBookIds.size === 0) {
+        setCurrentRecommendation(null)
+        setCurrentAuthor(null)
+        setLoading(false)
+        return
+      }
+
+      // Get authors from loved books
+      const lovedBookAuthors = new Set<string>()
+      const lovedBooks: Book[] = []
+      books.forEach((book) => {
+        const bookId = `${book.title}-${book.author}`
+        if (lovedBookIds.has(bookId)) {
+          const authorName = getAuthorName(book)
+          if (authorName && authorName !== "Unknown Author") {
+            lovedBookAuthors.add(authorName)
+            lovedBooks.push(book)
+          }
+        }
+      })
+
+      if (lovedBookAuthors.size === 0) {
+        setCurrentRecommendation(null)
+        setCurrentAuthor(null)
+        setLoading(false)
+        return
+      }
+
+      const existingAuthors = authors.map(a => a.name)
+      
+      // Find similar authors
+      const similarAuthors = findSimilarAuthors(
+        Array.from(lovedBookAuthors),
+        existingAuthors,
+        rejectedAuthors,
+        lovedBooks
+      )
+
+      if (similarAuthors.length === 0) {
+        setCurrentRecommendation(null)
+        setCurrentAuthor(null)
+        setLoading(false)
+        return
+      }
+
+      // Try each similar author until we find a book
+      const existingBookIds = new Set(books.map((book) => book.id))
+      const existingBookTitles = new Set(
+        books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
+      )
+
+      for (const authorName of similarAuthors) {
+        // Skip if we've already tried this author
+        if (triedAuthors.has(authorName)) continue
+        
         try {
-        // Only use books that have been marked as "loved" (heart icon) as the basis for recommendations
-        const lovedBookIds = new Set<string>()
-        bookRatings.forEach((rating, bookId) => {
-          if (rating === "loved") {
-            lovedBookIds.add(bookId)
-          }
-        })
-
-        // If no loved books, don't show recommendations
-        if (lovedBookIds.size === 0) {
-          setRecommendations([])
-          setAuthorRecommendations([])
-          setLoading(false)
-          return
-        }
-
-        // Get authors from loved books
-        const lovedBookAuthors = new Set<string>()
-        books.forEach((book) => {
-          const bookId = `${book.title}-${book.author}`
-          if (lovedBookIds.has(bookId)) {
-            const authorName = getAuthorName(book)
-            if (authorName && authorName !== "Unknown Author") {
-              lovedBookAuthors.add(authorName)
-            }
-          }
-        })
-
-        const existingBookIds = new Set(books.map((book) => book.id))
-        const existingBookTitles = new Set(
-          books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
-        )
-
-        // Get recommended authors based on loved book authors
-        const recommendedAuthors = new Set<string>()
-        const authorMap: { [key: string]: string[] } = {
-          "Pat Barker": ["Madeline Miller", "Jennifer Saint", "Stephen Fry"],
-          "Kate Atkinson": ["Ali Smith", "Sarah Waters", "Zadie Smith"],
-          "Kristin Hannah": ["Jodi Picoult", "Liane Moriarty", "Taylor Jenkins Reid"],
-          "Daniel Mason": ["Anthony Doerr", "Hanya Yanagihara", "Colson Whitehead"],
-          "Philip Pullman": ["Neil Gaiman", "Terry Pratchett", "Susanna Clarke"],
-          "Madeline Miller": ["Pat Barker", "Jennifer Saint", "Stephen Fry"],
-          "Jennifer Saint": ["Pat Barker", "Madeline Miller", "Stephen Fry"],
-          "Ali Smith": ["Kate Atkinson", "Sarah Waters", "Zadie Smith"],
-          "Sarah Waters": ["Kate Atkinson", "Ali Smith", "Zadie Smith"],
-          "Zadie Smith": ["Kate Atkinson", "Ali Smith", "Sarah Waters"],
-        }
-        
-        // Get recommended authors based on loved book authors
-        Array.from(lovedBookAuthors).forEach((author) => {
-          if (authorMap[author]) {
-            authorMap[author].forEach((rec) => recommendedAuthors.add(rec))
-          }
-        })
-
-        // Filter recommendations based on authors from loved books
-        const filteredRecommendations = curatedRecommendations.filter((book) => {
-          if (existingBookIds.has(book.id)) return false
-          const bookKey = `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`
-          if (existingBookTitles.has(bookKey)) return false
-          if (passedBooks.has(book.id)) return false
-          if (rejectedBooks.has(book.id)) return false
-
-          // Only recommend books by authors similar to loved book authors
-          const bookAuthor = getAuthorName(book)
-          // Exclude rejected authors
-          if (rejectedAuthors.has(bookAuthor)) return false
+          // Fetch books by this author
+          const authorBooks = await fetchAuthorBooksWithCache(authorName)
           
-          // Check if this book's author is in the recommended authors list
-          if (recommendedAuthors.size > 0 && !recommendedAuthors.has(bookAuthor)) {
-            return false
+          if (!authorBooks || authorBooks.length === 0) {
+            setTriedAuthors(prev => new Set([...prev, authorName]))
+            continue
           }
 
-          // Filter by user language preferences
-          if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
-            const bookLanguage = book.language || "en"
-            if (!user.preferredLanguages.includes(bookLanguage)) {
-              return false
-            }
-          }
+          // Filter to find a suitable book
+          const suitableBooks = authorBooks
+            .filter((item: any) => {
+              const book = item as any
+              
+              // Convert API response to Book format
+              const bookId = book.id || `${book.title}-${book.author}`
+              const bookTitle = book.title || ""
+              const bookAuthor = book.author || book.authors?.[0] || ""
+              
+              // Skip if already in collection
+              if (existingBookIds.has(bookId)) return false
+              
+              const bookKey = `${bookTitle.toLowerCase()}-${bookAuthor.toLowerCase()}`
+              if (existingBookTitles.has(bookKey)) return false
+              
+              // Skip rejected books
+              if (rejectedBooks.has(bookId)) return false
+              
+              // Skip if no title or author
+              if (!bookTitle || !bookAuthor) return false
+              
+              // Prefer books with descriptions
+              if (!book.description || book.description.length < 50) return false
+              
+              // Filter by user language preferences
+              if (user?.preferredLanguages && user.preferredLanguages.length > 0) {
+                const bookLanguage = book.language || "en"
+                if (!user.preferredLanguages.includes(bookLanguage)) return false
+              }
+              
+              return true
+            })
+            .map((item: any) => {
+              // Convert to Book format
+              let publishedDate = item.publishedDate || ""
+              if (publishedDate && publishedDate.length === 4) {
+                publishedDate = `${publishedDate}-01-01`
+              }
+              
+              return {
+                id: item.id || `${item.title}-${item.author}`,
+                title: item.title || "Unknown Title",
+                author: item.author || item.authors?.[0] || "Unknown Author",
+                authors: item.authors || [item.author],
+                publishedDate: publishedDate || "Unknown Date",
+                description: item.description || "",
+                categories: item.categories || [],
+                language: item.language || "en",
+                pageCount: item.pageCount || 0,
+                thumbnail: item.thumbnail || item.imageUrl || "",
+              } as Book
+            })
 
-          return true
-        })
-
-        // Shuffle the recommendations to show different books each time
-        const shuffledRecommendations = [...filteredRecommendations].sort(() => Math.random() - 0.5)
-        
-        // Show more books (5-7) instead of just 3
-        const numBooksToShow = Math.min(7, shuffledRecommendations.length)
-        const selectedRecommendations = shuffledRecommendations.slice(0, numBooksToShow)
-        
-        // Replace all recommendations (don't add to existing)
-        setRecommendations(selectedRecommendations)
-
-        if (user?.suggestNewAuthors) {
-          const newAuthors = generateAuthorRecommendations()
-          setAuthorRecommendations(newAuthors)
-        }
-      } catch (error) {
-        console.error("Error generating recommendations:", error)
-        } finally {
-          // Batch state update
-          requestAnimationFrame(() => {
+          if (suitableBooks.length > 0) {
+            // Pick a random book from suitable books
+            const selectedBook = suitableBooks[Math.floor(Math.random() * suitableBooks.length)]
+            setCurrentRecommendation(selectedBook)
+            setCurrentAuthor(authorName)
             setLoading(false)
-          })
+            return
+          }
+          
+          // Mark this author as tried
+          setTriedAuthors(prev => new Set([...prev, authorName]))
+        } catch (error) {
+          console.error(`Error fetching books for ${authorName}:`, error)
+          setTriedAuthors(prev => new Set([...prev, authorName]))
+          continue
         }
-      }, 500) // Small delay to show loading state
-    })
+      }
+
+      // If we've tried all authors, reset tried authors and try again
+      if (triedAuthors.size >= similarAuthors.length) {
+        setTriedAuthors(new Set())
+      }
+
+      setCurrentRecommendation(null)
+      setCurrentAuthor(null)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error finding recommendation:", error)
+      setCurrentRecommendation(null)
+      setCurrentAuthor(null)
+      setLoading(false)
+    }
   }
 
   const handleBookClick = (book: Book) => {
@@ -403,20 +380,26 @@ export default function BookRecommendations({
     if (onBookClick) {
       onBookClick(book)
     }
+    // After adding, find next recommendation
+    setTimeout(() => findNextRecommendation(), 500)
   }
 
-  const handleAddAuthor = (authorName: string) => {
-    if (onAuthorClick) {
-      onAuthorClick(authorName)
+  const handleReject = () => {
+    if (currentRecommendation) {
+      setRejectedBooks(prev => new Set([...prev, currentRecommendation.id]))
     }
+    if (currentAuthor) {
+      setRejectedAuthors(prev => new Set([...prev, currentAuthor]))
+      setTriedAuthors(prev => new Set([...prev, currentAuthor]))
+    }
+    // Find next recommendation
+    findNextRecommendation()
   }
 
-  const handlePass = () => {
-    if (selectedBook) {
-      setPassedBooks(prev => new Set([...prev, selectedBook.id]))
-      // Generate new recommendations after passing
-      generateNewRecommendations()
-    }
+  const handleRefresh = () => {
+    // Reset tried authors to get fresh recommendations
+    setTriedAuthors(new Set())
+    findNextRecommendation()
   }
 
   // Create a string representation of loved book IDs to track changes
@@ -433,184 +416,117 @@ export default function BookRecommendations({
     // Only generate recommendations if there are loved books
     const hasLovedBooks = lovedBooksKey.length > 0
     
-    if (hasLovedBooks && authors.length > 0) {
-      setRefreshCounter(0) // Reset refresh counter when dependencies change
-      generateNewRecommendations()
-    } else {
-      setRecommendations([])
-      setAuthorRecommendations([])
+    if (hasLovedBooks && authors.length > 0 && !currentRecommendation) {
+      findNextRecommendation()
+    } else if (!hasLovedBooks) {
+      setCurrentRecommendation(null)
+      setCurrentAuthor(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authors.length, books.length, readBooks.size, wantToReadBooks.size, lovedBooksKey])
+  }, [authors.length, books.length, lovedBooksKey])
+
+  const hasLovedBooks = useMemo(() => {
+    return Array.from(bookRatings.values()).some(rating => rating === "loved")
+  }, [bookRatings])
+
+  if (!hasLovedBooks) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
+        <p className="text-blue-500 text-xs">Mark books you loved with a ❤️ to get personalized recommendations!</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       {loading ? (
         <div className="text-center py-6">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400 mx-auto mb-2"></div>
-          <p className="text-blue-500 text-sm">Finding books for you...</p>
+          <p className="text-blue-500 text-sm">Finding your next read...</p>
+        </div>
+      ) : currentRecommendation ? (
+        <div className="space-y-3">
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+            <div className="flex items-start gap-3">
+              {currentRecommendation.thumbnail && (
+                <img
+                  src={currentRecommendation.thumbnail || "/placeholder.svg"}
+                  alt={currentRecommendation.title}
+                  className="w-16 h-24 object-cover rounded shadow-md flex-shrink-0 cursor-pointer"
+                  onClick={() => handleBookClick(currentRecommendation)}
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 cursor-pointer" onClick={() => handleBookClick(currentRecommendation)}>
+                    <h4 className="font-semibold text-blue-900 text-base mb-1">{currentRecommendation.title}</h4>
+                    <p className="text-blue-700 text-sm mb-2">by {getAuthorName(currentRecommendation)}</p>
+                    {currentRecommendation.publishedDate && (
+                      <div className="flex items-center gap-1 mb-2">
+                        {isUpcomingPublication(currentRecommendation) && <Calendar className="w-3 h-3 text-green-600" />}
+                        <p className={`text-xs ${isUpcomingPublication(currentRecommendation) ? "text-green-600 font-medium" : "text-blue-600"}`}>
+                          {isUpcomingPublication(currentRecommendation) ? "Coming " : ""}
+                          {currentRecommendation.publishedDate}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleReject()
+                    }}
+                    className="p-1.5 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                    title="Not interested"
+                    aria-label="Not interested"
+                  >
+                    <X className="w-4 h-4 text-red-600" />
+                  </button>
+                </div>
+
+                {currentRecommendation.description && (
+                  <p className="text-gray-700 text-xs line-clamp-3 mb-3 cursor-pointer" onClick={() => handleBookClick(currentRecommendation)}>
+                    {currentRecommendation.description}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleBookClick(currentRecommendation)}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                  >
+                    <BookOpen className="w-3 h-3 mr-1" />
+                    View Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRefresh}
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 text-xs h-8"
+                    title="Get another recommendation"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {user?.suggestNewAuthors && authorRecommendations.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide flex items-center gap-1">
-                <User className="w-3 h-3" />
-                New Authors for You
-              </h4>
-              <div className="space-y-1">
-                {authorRecommendations.map((author) => (
-                  <div
-                    key={author}
-                    className="p-2 bg-gradient-to-r from-orange-50 to-red-50 rounded border border-orange-100 hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div 
-                        className="flex-1 cursor-pointer"
-                        onClick={() => onAuthorClick && onAuthorClick(author)}
-                      >
-                        <p className="text-red-700 text-xs font-medium">{author}</p>
-                        <p className="text-red-600 text-xs opacity-75">Tap to explore their books</p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setRejectedAuthors(prev => new Set([...prev, author]))
-                          // Remove from current recommendations and generate new ones
-                          setAuthorRecommendations(prev => prev.filter(a => a !== author))
-                          setTimeout(() => generateNewRecommendations(), 300)
-                        }}
-                        className="p-1 hover:bg-red-100 rounded transition-colors flex-shrink-0"
-                        title="Reject this author"
-                        aria-label="Reject this author"
-                      >
-                        <X className="w-3 h-3 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {recommendations.length === 0 ? (
-            <div className="text-center py-6">
-              {(() => {
-                const hasLovedBooks = Array.from(bookRatings.values()).some(rating => rating === "loved")
-                if (!hasLovedBooks) {
-                  return (
-                    <>
-                      <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
-                      <p className="text-blue-500 text-xs">Mark books you loved with a ❤️ to get personalized recommendations!</p>
-                    </>
-                  )
-                }
-                if (authors.length === 0) {
-                  return (
-                <>
-                  <p className="text-blue-600 text-sm mb-1">No recommendations yet</p>
-                  <p className="text-blue-500 text-xs">Add your favorite authors to get book suggestions!</p>
-                </>
-                  )
-                }
-                return (
-                <>
-                  <p className="text-blue-600 text-sm mb-1">Generating recommendations...</p>
-                    <p className="text-blue-500 text-xs">Based on books you loved ❤️</p>
-                </>
-                )
-              })()}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recommendations.slice(0, 5).map((book) => {
-                const authorName = getAuthorName(book)
-                const isUpcoming = isUpcomingPublication(book)
-
-                return (
-                  <div
-                    key={book.id}
-                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start gap-3">
-                      {book.thumbnail && (
-                        <img
-                          src={book.thumbnail || "/placeholder.svg"}
-                          alt={book.title}
-                          className="w-10 h-14 object-cover rounded shadow-sm flex-shrink-0 cursor-pointer"
-                          onClick={() => handleBookClick(book)}
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1 cursor-pointer" onClick={() => handleBookClick(book)}>
-                            <h4 className="font-medium text-blue-900 text-sm line-clamp-1">{book.title}</h4>
-                            <p className="text-blue-700 text-xs mb-1">by {authorName}</p>
-                            {book.publishedDate && (
-                              <div className="flex items-center gap-1">
-                                {isUpcoming && <Calendar className="w-3 h-3 text-green-600" />}
-                                <p className={`text-xs ${isUpcoming ? "text-green-600 font-medium" : "text-blue-600"}`}>
-                                  {isUpcoming ? "Coming " : ""}
-                                  {book.publishedDate}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setRejectedBooks(prev => new Set([...prev, book.id]))
-                                // Remove from current recommendations and generate new ones
-                                setRecommendations(prev => prev.filter(b => b.id !== book.id))
-                                setTimeout(() => generateNewRecommendations(), 300)
-                              }}
-                              className="p-1 hover:bg-red-100 rounded transition-colors"
-                              title="Reject this book"
-                              aria-label="Reject this book"
-                            >
-                              <X className="w-3 h-3 text-red-600" />
-                            </button>
-                            {isUpcoming && (
-                              <Badge
-                                variant="outline"
-                                className="border-emerald-500 text-emerald-700 bg-emerald-50 text-xs px-2 py-0.5 font-medium"
-                              >
-                                UPCOMING
-                              </Badge>
-                            )}
-                            {book.seriesInfo && (
-                              <Badge variant="outline" className="border-blue-200 text-blue-600 text-xs px-1 py-0">
-                                #{book.seriesInfo.number}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {book.description && <p className="text-gray-600 text-xs line-clamp-2 cursor-pointer" onClick={() => handleBookClick(book)}>{book.description}</p>}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-
-              <div className="pt-2 border-t border-blue-100">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    // Replace all recommendations with new ones
-                    generateNewRecommendations()
-                  }}
-                  disabled={loading}
-                  className="w-full h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
-                >
-                  <RefreshCw className={`w-3 h-3 mr-1 ${loading ? "animate-spin" : ""}`} />
-                  {loading ? "..." : "Refresh"}
-                </Button>
-              </div>
-            </div>
-          )}
+        <div className="text-center py-6">
+          <p className="text-blue-600 text-sm mb-1">No more recommendations</p>
+          <p className="text-blue-500 text-xs">Try refreshing or mark more books as loved!</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefresh}
+            className="mt-2 border-blue-200 text-blue-600 hover:bg-blue-50 text-xs"
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Refresh
+          </Button>
         </div>
       )}
 
@@ -620,8 +536,8 @@ export default function BookRecommendations({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAddBook={handleAddBook}
-        onAddAuthor={handleAddAuthor}
-        onPass={handlePass}
+        onAddAuthor={() => {}} // Not used in new system - user adds books, not authors
+        onPass={handleReject}
       />
     </div>
   )

@@ -2295,7 +2295,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     }, 100)
                   }}
                   onAuthorClick={async (authorName) => {
-                    // Add the author to the authors list if not already present
+                    // Note: This is kept for modal compatibility but not used in the new single-book recommendation system
+                    // Users add individual books, not entire authors
+                    // However, if user explicitly clicks "Add Author" in modal, we'll still support it
                     const normalizedAuthor = normalizeAuthorName(authorName)
                     const authorExists = authors.some(author => 
                       author.toLowerCase() === normalizedAuthor.toLowerCase()
