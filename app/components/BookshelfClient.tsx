@@ -2258,6 +2258,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           return getLastName(a).localeCompare(getLastName(b))
                         })
                         
+                        // Update authors state first
                         setAuthors(updatedAuthors)
                         
                         // Mark as recommended origin
@@ -2281,18 +2282,50 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             console.error("Error tracking author addition:", error)
                           )
                         }
+                        
+                        // Ensure the book's author field matches the normalized author name
+                        // This is critical for the filtering logic to work
+                        const bookWithNormalizedAuthor = {
+                          ...book,
+                          author: normalizedAuthor,
+                          authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor)] : [normalizedAuthor]
+                        }
+                        
+                        // Add the book after a brief delay to ensure state has updated
+                        // Use requestAnimationFrame to ensure React has processed the state update
+                        requestAnimationFrame(() => {
+                          setTimeout(() => {
+                            onBooksFound([bookWithNormalizedAuthor])
+                            
+                            setTimeout(() => {
+                              const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
+                              if (bookElement) {
+                                bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                              }
+                            }, 100)
+                          }, 50)
+                        })
+                      } else {
+                        // Author already exists, just add the book
+                        // Still ensure author name matches
+                        const bookWithNormalizedAuthor = {
+                          ...book,
+                          author: normalizedAuthor,
+                          authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor)] : [normalizedAuthor]
+                        }
+                        onBooksFound([bookWithNormalizedAuthor])
+                        
+                        setTimeout(() => {
+                          const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
+                          if (bookElement) {
+                            bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                          }
+                        }, 100)
                       }
+                    } else {
+                      // No author found, just add the book (shouldn't happen but handle gracefully)
+                      onBooksFound([book])
                     }
-                    
-                    // Add just the single book
-                    onBooksFound([book])
-
-                    setTimeout(() => {
-                      const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
-                      if (bookElement) {
-                        bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                      }
-                    }, 100)
                   }}
                   onAuthorClick={async (authorName) => {
                     // Note: This is kept for modal compatibility but not used in the new single-book recommendation system
