@@ -102,27 +102,32 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
         setTargetElement(element)
         setIsVisible(true)
         
-        // Scroll element into view with padding to account for footer
-        element.scrollIntoView({ 
-          behavior: "smooth", 
-          block: "center",
-          inline: "center"
-        })
-        
-        // Add extra padding for footer
-        setTimeout(() => {
-          const rect = element.getBoundingClientRect()
-          const footer = document.querySelector('footer')
-          if (footer) {
-            const footerHeight = footer.offsetHeight
-            if (rect.bottom + footerHeight > window.innerHeight) {
-              window.scrollBy({
-                top: footerHeight + 20,
-                behavior: 'smooth'
-              })
+        // Use requestAnimationFrame to batch DOM operations and avoid forced reflows
+        requestAnimationFrame(() => {
+          // Scroll element into view with padding to account for footer
+          element.scrollIntoView({ 
+            behavior: "smooth", 
+            block: "center",
+            inline: "center"
+          })
+          
+          // Add extra padding for footer - batch DOM reads
+          requestAnimationFrame(() => {
+            const rect = element.getBoundingClientRect()
+            const footer = document.querySelector('footer')
+            if (footer) {
+              const footerHeight = footer.offsetHeight
+              if (rect.bottom + footerHeight > window.innerHeight) {
+                requestAnimationFrame(() => {
+                  window.scrollBy({
+                    top: footerHeight + 20,
+                    behavior: 'smooth'
+                  })
+                })
+              }
             }
-          }
-        }, 300)
+          })
+        })
       } else {
         // If element not found, wait longer and try again (don't auto-skip)
         console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)

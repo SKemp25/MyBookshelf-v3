@@ -280,8 +280,10 @@ export default function BookRecommendations({
     setLoading(true)
     setRefreshCounter(prev => prev + 1)
 
-    setTimeout(() => {
-      try {
+    // Use requestAnimationFrame to batch state updates and avoid blocking
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
         // Only use books that have been marked as "loved" (heart icon) as the basis for recommendations
         const lovedBookIds = new Set<string>()
         bookRatings.forEach((rating, bookId) => {
@@ -382,10 +384,14 @@ export default function BookRecommendations({
         }
       } catch (error) {
         console.error("Error generating recommendations:", error)
-      } finally {
-        setLoading(false)
-      }
-    }, 500) // Small delay to show loading state
+        } finally {
+          // Batch state update
+          requestAnimationFrame(() => {
+            setLoading(false)
+          })
+        }
+      }, 500) // Small delay to show loading state
+    })
   }
 
   const handleBookClick = (book: Book) => {

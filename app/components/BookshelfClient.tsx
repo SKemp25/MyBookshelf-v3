@@ -234,29 +234,53 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     
     // Throttle storage change handler to prevent excessive calls
     let storageChangeTimeout: NodeJS.Timeout | null = null
+    let lastStorageCheck = 0
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "bookshelf_is_logged_in" || e.key === "bookshelf_current_user") {
-        if (storageChangeTimeout) {
-          clearTimeout(storageChangeTimeout)
+        const now = Date.now()
+        // Throttle to max once per 500ms to prevent violations
+        if (now - lastStorageCheck < 500) {
+          if (storageChangeTimeout) {
+            clearTimeout(storageChangeTimeout)
+          }
+          storageChangeTimeout = setTimeout(() => {
+            lastStorageCheck = Date.now()
+            checkLoginState()
+          }, 500 - (now - lastStorageCheck))
+          return
         }
-        storageChangeTimeout = setTimeout(() => {
-          console.log("Storage changed, re-checking login state")
+        lastStorageCheck = now
+        // Use requestAnimationFrame to avoid blocking
+        requestAnimationFrame(() => {
           checkLoginState()
-        }, 100) // Throttle to max once per 100ms
+        })
       }
     }
     
     window.addEventListener("storage", handleStorageChange)
     
-    // Throttle focus handler
+    // Throttle focus handler - use longer delay to prevent violations
     let focusTimeout: NodeJS.Timeout | null = null
+    let lastFocusCheck = 0
     const handleFocus = () => {
-      if (focusTimeout) {
-        clearTimeout(focusTimeout)
+      const now = Date.now()
+      // Throttle to max once per 1000ms
+      if (now - lastFocusCheck < 1000) {
+        if (focusTimeout) {
+          clearTimeout(focusTimeout)
+        }
+        focusTimeout = setTimeout(() => {
+          lastFocusCheck = Date.now()
+          requestAnimationFrame(() => {
+            checkLoginState()
+          })
+        }, 1000 - (now - lastFocusCheck))
+        return
       }
-      focusTimeout = setTimeout(() => {
+      lastFocusCheck = now
+      requestAnimationFrame(() => {
         checkLoginState()
-      }, 200) // Only check after 200ms of focus
+      })
     }
     window.addEventListener("focus", handleFocus)
     
@@ -265,16 +289,29 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       checkLoginState()
     }, 200)
     
-    // Throttle visibility change handler
+    // Throttle visibility change handler - use longer delay
     let visibilityTimeout: NodeJS.Timeout | null = null
+    let lastVisibilityCheck = 0
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        if (visibilityTimeout) {
-          clearTimeout(visibilityTimeout)
+        const now = Date.now()
+        // Throttle to max once per 1000ms
+        if (now - lastVisibilityCheck < 1000) {
+          if (visibilityTimeout) {
+            clearTimeout(visibilityTimeout)
+          }
+          visibilityTimeout = setTimeout(() => {
+            lastVisibilityCheck = Date.now()
+            requestAnimationFrame(() => {
+              checkLoginState()
+            })
+          }, 1000 - (now - lastVisibilityCheck))
+          return
         }
-        visibilityTimeout = setTimeout(() => {
+        lastVisibilityCheck = now
+        requestAnimationFrame(() => {
           checkLoginState()
-        }, 200)
+        })
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange)
@@ -1708,12 +1745,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             // Add just the single book
                             onBooksFound([book])
 
-                            setTimeout(() => {
+                            // Use requestAnimationFrame to avoid forced reflows
+                            requestAnimationFrame(() => {
                               const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
                               if (bookElement) {
-                                bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                                requestAnimationFrame(() => {
+                                  bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                                })
                               }
-                            }, 100)
+                            })
                           }}
                           onAuthorClick={async (authorName) => {
                             // Add the author to the authors list if not already present
