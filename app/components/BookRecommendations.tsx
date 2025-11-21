@@ -34,6 +34,8 @@ export default function BookRecommendations({
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [passedBooks, setPassedBooks] = useState<Set<string>>(new Set())
+  const [rejectedBooks, setRejectedBooks] = useState<Set<string>>(new Set())
+  const [rejectedAuthors, setRejectedAuthors] = useState<Set<string>>(new Set())
   const [refreshCounter, setRefreshCounter] = useState(0)
 
   const curatedRecommendations: Book[] = [
@@ -270,7 +272,7 @@ export default function BookRecommendations({
     })
 
     return Array.from(potentialAuthors)
-      .filter((author) => !existingAuthors.includes(author))
+      .filter((author) => !existingAuthors.includes(author) && !rejectedAuthors.has(author))
       .slice(0, 3)
   }
 
@@ -341,9 +343,13 @@ export default function BookRecommendations({
           const bookKey = `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`
           if (existingBookTitles.has(bookKey)) return false
           if (passedBooks.has(book.id)) return false
+          if (rejectedBooks.has(book.id)) return false
 
           // Only recommend books by authors similar to loved book authors
           const bookAuthor = getAuthorName(book)
+          // Exclude rejected authors
+          if (rejectedAuthors.has(bookAuthor)) return false
+          
           // Check if this book's author is in the recommended authors list
           if (recommendedAuthors.size > 0 && !recommendedAuthors.has(bookAuthor)) {
             return false
@@ -458,11 +464,31 @@ export default function BookRecommendations({
                 {authorRecommendations.map((author) => (
                   <div
                     key={author}
-                    onClick={() => onAuthorClick && onAuthorClick(author)}
-                    className="p-2 bg-gradient-to-r from-orange-50 to-red-50 rounded border border-orange-100 hover:shadow-sm transition-shadow cursor-pointer"
+                    className="p-2 bg-gradient-to-r from-orange-50 to-red-50 rounded border border-orange-100 hover:shadow-sm transition-shadow"
                   >
-                    <p className="text-red-700 text-xs font-medium">{author}</p>
-                    <p className="text-red-600 text-xs opacity-75">Tap to explore their books</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => onAuthorClick && onAuthorClick(author)}
+                      >
+                        <p className="text-red-700 text-xs font-medium">{author}</p>
+                        <p className="text-red-600 text-xs opacity-75">Tap to explore their books</p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setRejectedAuthors(prev => new Set([...prev, author]))
+                          // Remove from current recommendations and generate new ones
+                          setAuthorRecommendations(prev => prev.filter(a => a !== author))
+                          setTimeout(() => generateNewRecommendations(), 300)
+                        }}
+                        className="p-1 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                        title="Reject this author"
+                        aria-label="Reject this author"
+                      >
+                        <X className="w-3 h-3 text-red-600" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -506,20 +532,20 @@ export default function BookRecommendations({
                 return (
                   <div
                     key={book.id}
-                    onClick={() => handleBookClick(book)}
-                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 hover:shadow-md transition-shadow cursor-pointer"
+                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start gap-3">
                       {book.thumbnail && (
                         <img
                           src={book.thumbnail || "/placeholder.svg"}
                           alt={book.title}
-                          className="w-10 h-14 object-cover rounded shadow-sm flex-shrink-0"
+                          className="w-10 h-14 object-cover rounded shadow-sm flex-shrink-0 cursor-pointer"
+                          onClick={() => handleBookClick(book)}
                         />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1">
+                          <div className="flex-1 cursor-pointer" onClick={() => handleBookClick(book)}>
                             <h4 className="font-medium text-blue-900 text-sm line-clamp-1">{book.title}</h4>
                             <p className="text-blue-700 text-xs mb-1">by {authorName}</p>
                             {book.publishedDate && (
@@ -533,6 +559,20 @@ export default function BookRecommendations({
                             )}
                           </div>
                           <div className="flex flex-col gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setRejectedBooks(prev => new Set([...prev, book.id]))
+                                // Remove from current recommendations and generate new ones
+                                setRecommendations(prev => prev.filter(b => b.id !== book.id))
+                                setTimeout(() => generateNewRecommendations(), 300)
+                              }}
+                              className="p-1 hover:bg-red-100 rounded transition-colors"
+                              title="Reject this book"
+                              aria-label="Reject this book"
+                            >
+                              <X className="w-3 h-3 text-red-600" />
+                            </button>
                             {isUpcoming && (
                               <Badge
                                 variant="outline"
@@ -549,7 +589,7 @@ export default function BookRecommendations({
                           </div>
                         </div>
 
-                        {book.description && <p className="text-gray-600 text-xs line-clamp-2">{book.description}</p>}
+                        {book.description && <p className="text-gray-600 text-xs line-clamp-2 cursor-pointer" onClick={() => handleBookClick(book)}>{book.description}</p>}
                       </div>
                     </div>
                   </div>
