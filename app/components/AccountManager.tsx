@@ -92,9 +92,15 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   // Sync with parent-controlled dialog state
   useEffect(() => {
     if (showAuthDialog !== undefined) {
+      console.log('AccountManager: Syncing showAuthDialog prop:', showAuthDialog)
       setShowAuth(showAuthDialog)
     }
   }, [showAuthDialog])
+  
+  // Debug: Log when showAuth changes
+  useEffect(() => {
+    console.log('AccountManager: showAuth state changed to:', showAuth)
+  }, [showAuth])
 
   // Notify parent when dialog state changes
   const handleShowAuthChange = (open: boolean) => {
