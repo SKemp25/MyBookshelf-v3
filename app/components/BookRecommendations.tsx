@@ -121,33 +121,60 @@ function findSimilarAuthors(
   
   // Get gender distribution of loved authors
   const lovedAuthorGenders = lovedBookAuthors.map(inferAuthorGender)
-  const hasFemaleAuthors = lovedAuthorGenders.some(g => g === "female")
-  const hasMaleAuthors = lovedAuthorGenders.some(g => g === "male")
+  const femaleCount = lovedAuthorGenders.filter(g => g === "female").length
+  const maleCount = lovedAuthorGenders.filter(g => g === "male").length
+  const totalKnown = femaleCount + maleCount
+  
+  // Calculate percentages
+  const femalePercentage = totalKnown > 0 ? (femaleCount / totalKnown) * 100 : 0
+  const malePercentage = totalKnown > 0 ? (maleCount / totalKnown) * 100 : 0
+  
+  // Determine preferred gender (50% or more threshold)
+  const preferFemale = femalePercentage >= 50
+  const preferMale = malePercentage >= 50
   
   // Find similar authors from the map
+  const femaleAuthors: string[] = []
+  const maleAuthors: string[] = []
+  const unknownAuthors: string[] = []
+  
   lovedBookAuthors.forEach(author => {
     const similar = similarAuthorsMap[author] || []
     similar.forEach(simAuthor => {
       // Filter out existing authors and rejected authors
       if (!existingAuthors.includes(simAuthor) && !rejectedAuthors.has(simAuthor)) {
-        // Prefer authors with similar gender distribution
         const simGender = inferAuthorGender(simAuthor)
-        if (hasFemaleAuthors && hasMaleAuthors) {
-          // Mixed gender - accept all
-          similarAuthors.add(simAuthor)
-        } else if (hasFemaleAuthors && simGender === "female") {
-          similarAuthors.add(simAuthor)
-        } else if (hasMaleAuthors && simGender === "male") {
-          similarAuthors.add(simAuthor)
-        } else if (simGender === "unknown") {
-          // Unknown gender - include it
-          similarAuthors.add(simAuthor)
+        if (simGender === "female") {
+          femaleAuthors.push(simAuthor)
+        } else if (simGender === "male") {
+          maleAuthors.push(simAuthor)
+        } else {
+          unknownAuthors.push(simAuthor)
         }
       }
     })
   })
   
-  return Array.from(similarAuthors)
+  // Remove duplicates
+  const uniqueFemale = Array.from(new Set(femaleAuthors))
+  const uniqueMale = Array.from(new Set(maleAuthors))
+  const uniqueUnknown = Array.from(new Set(unknownAuthors))
+  
+  // Sort based on preference: if 50%+ are women, prioritize women; if 50%+ are men, prioritize men
+  let sortedAuthors: string[] = []
+  
+  if (preferFemale) {
+    // Prioritize women, then men, then unknown
+    sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+  } else if (preferMale) {
+    // Prioritize men, then women, then unknown
+    sortedAuthors = [...uniqueMale, ...uniqueFemale, ...uniqueUnknown]
+  } else {
+    // Mixed or unknown - mix them together
+    sortedAuthors = [...uniqueFemale, ...uniqueMale, ...uniqueUnknown]
+  }
+  
+  return sortedAuthors
 }
 
 export default function BookRecommendations({
