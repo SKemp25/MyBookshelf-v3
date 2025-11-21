@@ -311,11 +311,25 @@ export default function BookRecommendations({
 
       const existingAuthors = authors.map(a => a.name)
       
-      // Find similar authors
+      // Load persisted rejected authors from localStorage
+      let persistedRejectedAuthors = rejectedAuthors
+      if (user?.id) {
+        try {
+          const saved = localStorage.getItem(`bookshelf_rejected_authors_${user.id}`)
+          if (saved) {
+            const savedAuthors = JSON.parse(saved)
+            persistedRejectedAuthors = new Set([...Array.from(rejectedAuthors), ...savedAuthors])
+          }
+        } catch (error) {
+          console.error("Error loading persisted rejected authors:", error)
+        }
+      }
+      
+      // Find similar authors (using persisted rejected authors)
       const similarAuthors = findSimilarAuthors(
         Array.from(lovedBookAuthors),
         existingAuthors,
-        rejectedAuthors,
+        persistedRejectedAuthors,
         lovedBooks
       )
 
