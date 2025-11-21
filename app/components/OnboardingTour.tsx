@@ -14,9 +14,9 @@ interface OnboardingStep {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: "authors",
-    selector: "[data-onboarding='authors']",
+    selector: "[data-onboarding='settings']",
     title: "Step 1: Add Your Favorite Authors",
-    content: "Click here to add authors you love. We'll automatically find all their books for you! You can add multiple authors to build your collection.",
+    content: "Click the Settings button, then select 'Authors & Books' to add authors you love. We'll automatically find all their books for you! You can add multiple authors to build your collection.",
     position: "bottom"
   },
   {
@@ -96,38 +96,7 @@ export default function OnboardingTour({ isActive, onComplete, userId }: Onboard
       const step = onboardingSteps[currentStep]
       let element = document.querySelector(step.selector) as HTMLElement
       
-      // Special handling for elements inside dropdowns
-      if (!element && step.id === "authors") {
-        // Try to find the Settings button and open the dropdown
-        const settingsButton = document.querySelector('[data-onboarding="settings"]') as HTMLElement
-        if (settingsButton && isMounted) {
-          // Click to open dropdown
-          settingsButton.click()
-          // Wait a bit for dropdown to open, then try again
-          retryTimeout = setTimeout(() => {
-            if (!isMounted) return
-            element = document.querySelector(step.selector) as HTMLElement
-            if (element) {
-              setTargetElement(element)
-              setIsVisible(true)
-              requestAnimationFrame(() => {
-                if (!isMounted) return
-                element.scrollIntoView({ 
-                  behavior: "smooth", 
-                  block: "center",
-                  inline: "center"
-                })
-              })
-            } else if (attempt < 2) {
-              // Retry up to 2 times (reduced from 3)
-              showNextTooltip(attempt + 1)
-            } else {
-              console.warn(`Onboarding tour: Element not found for step ${currentStep + 1}: ${step.selector}`)
-            }
-          }, 500)
-          return
-        }
-      }
+      // No special handling needed - we're now targeting the Settings button directly for authors step
       
       if (element && isMounted) {
         setTargetElement(element)
