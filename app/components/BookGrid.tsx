@@ -831,9 +831,9 @@ export default function BookGrid({
                     {/* Platform Links - Compact */}
                     {platforms.length > 0 && (
                       <div className="flex flex-wrap gap-1 justify-center pt-2 border-t border-gray-200">
-                        {platforms.slice(0, 4).map((platform) => (
+                        {platforms.slice(0, 4).map((platform, index) => (
                           <Button
-                            key={platform.name}
+                            key={`${platform.name}-${platform.category || 'default'}-${index}`}
                             variant="outline"
                             size="sm"
                             onClick={(e) => {
@@ -1065,9 +1065,9 @@ export default function BookGrid({
                       <div className="space-y-2">
                         <div className="text-xs font-bold text-red-600 uppercase tracking-wide">Find on:</div>
                         <div className="flex flex-wrap gap-1 justify-center">
-                          {platforms.slice(0, 4).map((platform) => (
+                          {platforms.slice(0, 4).map((platform, index) => (
                             <Button
-                              key={platform.name}
+                              key={`${platform.name}-${platform.category || 'default'}-${index}`}
                               variant="outline"
                               size="sm"
                               onClick={() => openPlatformLink(book, platform)}

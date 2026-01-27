@@ -15,7 +15,7 @@ import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/li
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
 import { saveUserAuthors } from "@/lib/database"
-import { deduplicateBooks } from "@/lib/utils"
+import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
 import DataExport from "./DataExport"
 import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 import { Card, CardContent } from "@/components/ui/card"
@@ -1300,6 +1300,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       // AuthorManager already ensures only matching books are passed
       // The real filtering by authors list happens in filteredAndLimitedBooks
       const validNewBooks = newBooks.filter(book => {
+        // First, filter out special editions, graded readers, and abridged versions
+        if (isSpecialEdition(book)) {
+          console.log("Filtered out special edition/graded reader:", book.title)
+          return false
+        }
+        
         const author = getBookAuthor(book)
         const isValid = author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
         if (!isValid) {
@@ -1382,18 +1388,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       {/* Header - Sticky Top */}
       <header className={`sticky top-0 z-50 ${highContrast ? 'bg-black text-white border-b-4 border-white' : `${currentTheme.headerGradient} text-white`} shadow-sm`}>
         <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
-          {/* Left: Sidebar Toggle & App Title */}
+          {/* Left: App Title */}
           <div className="flex items-center gap-2">
-            {!isMobileLayout && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 text-white hover:bg-white/20"
-              >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </Button>
-            )}
               <button
                 onClick={() => {
                   setSearchQuery("")
@@ -1434,10 +1430,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <DropdownMenuLabel>Menu</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
-                {/* Quick Filters */}
-                <DropdownMenuItem onClick={() => { setSidebarOpen(!sidebarOpen); setMobileMenuOpen(false); }}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Quick Filters
+                {/* Authors - Prominent placement */}
+                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }} data-onboarding="authors">
+                  <Users className="w-4 h-4 mr-2" />
+                  Authors & Books
                 </DropdownMenuItem>
                 
                 {/* View Options */}
@@ -1499,15 +1495,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 <DropdownMenuSeparator />
                 
                 {/* Settings Options */}
-                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }} data-onboarding="authors">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Authors & Books
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setShowSettingsDialog(true); setMobileMenuOpen(false); }}>
                   <User className="w-4 h-4 mr-2" />
                   My Preferences
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setShowExportDialog(true); setMobileMenuOpen(false); }}>
                   <Download className="w-4 h-4 mr-2" />
                   Export Data
                 </DropdownMenuItem>
@@ -1595,6 +1587,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Authors Button - Opens Authors & Books dialog */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2"
+              onClick={() => setShowAuthorsDialog(true)}
+              data-onboarding="authors"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden lg:inline">Authors</span>
+            </Button>
+
             {/* Filter Button - Opens Advanced Filters directly */}
             <Button 
               variant="ghost" 
@@ -1606,219 +1610,23 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               <span className="hidden lg:inline">Filter</span>
             </Button>
 
-            {/* Settings Dropdown - Always visible */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2">
-                  <Settings className="w-4 h-4" />
-                  <ChevronDown className="w-3 h-3 hidden sm:inline" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowAuthorsDialog(true)} data-onboarding="authors">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Authors & Books
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
-                  <User className="w-4 h-4 mr-2" />
-                  My Preferences
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Data
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Account Manager - Always visible on desktop */}
             <div className="flex-shrink-0">
-                <AccountManager 
-                  user={user} 
-                  isLoggedIn={isLoggedIn}
-                  showAuthDialog={showAuthDialog}
-                  onAuthDialogChange={setShowAuthDialog}
-                />
-              </div>
+              <AccountManager 
+                user={user} 
+                isLoggedIn={isLoggedIn}
+                showAuthDialog={showAuthDialog}
+                onAuthDialogChange={setShowAuthDialog}
+              />
             </div>
+
+          </div>
           )}
         </div>
       </header>
 
-      {/* Main Content Area with Optional Sidebar */}
+      {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Optional Sidebar - Overlay on mobile, side panel on desktop */}
-        {showSidebar && (
-          <>
-            {/* Mobile overlay backdrop */}
-            {isMobileLayout && (
-              <div 
-                className="fixed inset-0 bg-black/50 z-40"
-                onClick={() => setSidebarOpen(false)}
-              />
-            )}
-            <aside className={`${isMobileLayout ? 'fixed left-0 top-0 bottom-0 z-50 shadow-2xl' : 'relative'} w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto`}>
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide">Quick Filters</h3>
-              
-              {/* Authors Filter */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-600 mb-2">Authors</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {authors.slice(0, 10).map((author) => (
-                    <label key={author} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={selectedAuthors.includes(author)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAuthors([...selectedAuthors, author])
-                          } else {
-                            setSelectedAuthors(selectedAuthors.filter(a => a !== author))
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="truncate">{author}</span>
-                    </label>
-                  ))}
-                </div>
-            </div>
-
-              {/* Genres Filter */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-600 mb-2">Genres</h4>
-                <div className="space-y-1">
-                  {["Fiction", "Mystery", "Romance", "Science Fiction", "Fantasy", "Thriller", "Historical Fiction", "Memoir/Biography"].map((genre) => (
-                    <label key={genre} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={selectedGenres.includes(genre)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedGenres([...selectedGenres, genre])
-                          } else {
-                            setSelectedGenres(selectedGenres.filter(g => g !== genre))
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span>{genre}</span>
-                    </label>
-                  ))}
-            </div>
-        </div>
-
-              {/* Clear Filters */}
-              {(selectedAuthors.length > 0 || selectedGenres.length > 0) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedAuthors([])
-                    setSelectedGenres([])
-                  }}
-                  className="w-full"
-                >
-                  Clear Filters
-                </Button>
-              )}
-
-              {/* Recommendations Section */}
-              {userState.suggestNewAuthors && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-xs font-medium text-gray-600 mb-2">Recommendations</h4>
-                  <div className="max-h-96 overflow-y-auto">
-                    <APIErrorBoundary>
-                      <ComponentErrorBoundary componentName="Book Recommendations">
-                        <BookRecommendations
-                          authors={authors.map(name => ({ id: name, name }))}
-                          books={books}
-                          readBooks={readBooks}
-                          wantToReadBooks={wantToReadBooks}
-                          bookRatings={bookRatings}
-                          user={userState}
-                          onBookClick={async (book) => {
-                            // For memory support: Just add the book, don't add the author
-                            // This helps users remember other books without cluttering their author list
-                            // Add just the single book
-                            onBooksFound([book])
-
-                            // Use requestAnimationFrame to avoid forced reflows
-                            requestAnimationFrame(() => {
-                              const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
-                              if (bookElement) {
-                                requestAnimationFrame(() => {
-                                  bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                                })
-                              }
-                            })
-                          }}
-                          onAuthorClick={async (authorName) => {
-                            // Add the author to the authors list if not already present
-                            const normalizedAuthor = normalizeAuthorName(authorName)
-                            const authorExists = authors.some(author => 
-                              author.toLowerCase() === normalizedAuthor.toLowerCase()
-                            )
-                            
-                            if (!authorExists) {
-                              const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
-                                const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
-                                return getLastName(a).localeCompare(getLastName(b))
-                              })
-                              
-                              setAuthors(updatedAuthors)
-                              
-                              // Mark as recommended origin
-                              setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
-                              
-                              // Save to database
-                              if (currentUser) {
-                                await saveUserAuthors(currentUser, updatedAuthors)
-                                
-                                trackEvent(currentUser, {
-                                  event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-                                  event_data: {
-                                    author_name: normalizedAuthor,
-                                    total_authors: updatedAuthors.length,
-                                    source: "recommendation_add_author",
-                                    timestamp: new Date().toISOString(),
-                                  },
-                                }).catch(error => 
-                                  console.error("Error tracking author addition:", error)
-                                )
-                              }
-                              
-                              // Fetch all books by this author
-                              try {
-                                const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
-                                const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
-                                if (authorBooks && authorBooks.length > 0) {
-                                  // Add all books by this author
-                                  onBooksFound(authorBooks)
-                                }
-                              } catch (error) {
-                                console.error("Error fetching author books:", error)
-                              }
-                            }
-                          }}
-                        />
-                      </ComponentErrorBoundary>
-                    </APIErrorBoundary>
-                  </div>
-                </div>
-              )}
-            </div>
-          </aside>
-          </>
-        )}
-
         {/* Main Content - Book Grid */}
         <main className="flex-1 px-4 md:px-6 py-6 overflow-y-auto" style={{ maxHeight: isMobileLayout ? 'calc(100vh - 180px)' : 'calc(100vh - 140px)' }}>
           {/* Reading Progress */}
@@ -2052,25 +1860,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           <Button 
             variant="ghost" 
             size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
-            onClick={() => setShowAuthorsDialog(true)}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }}
-          >
-            <Users className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Authors</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
             className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "favorites" ? "bg-white/20" : ""}`}
             onClick={() => setFooterView(footerView === "favorites" ? null : "favorites")}
             style={{ color: 'white' }}
@@ -2123,6 +1912,25 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           >
             <BookCheck className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
             <span className="text-xs">Finished</span>
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
+            onClick={() => setShowSettingsDialog(true)}
+            style={{ color: 'white' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
+          >
+            <Settings className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
+            <span className="text-xs">Settings</span>
           </Button>
           
           <Button 
@@ -2226,7 +2034,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <Users className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
-                  <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">RECOMMENDATIONS</span>
+                  <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">AUTHORS</span>
                   {isRecommendationsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
               </button>
 
@@ -3543,9 +3351,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       <Dialog open={showFiltersDialog} onOpenChange={setShowFiltersDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Advanced Filters</DialogTitle>
+            <DialogTitle>Filters</DialogTitle>
             <DialogDescription>
-              Filter your books by various criteria including date, genre, and reading status.
+              Filter your books by author, genre, date, and reading status.
             </DialogDescription>
           </DialogHeader>
           <div className="p-4">
@@ -3556,6 +3364,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               authors={authors.map(name => ({ id: name, name }))}
               showHeartedBooks={showHeartedBooks}
               setShowHeartedBooks={setShowHeartedBooks}
+              selectedAuthors={selectedAuthors}
+              setSelectedAuthors={setSelectedAuthors}
+              recommendedAuthors={recommendedAuthors}
             />
           </div>
         </DialogContent>

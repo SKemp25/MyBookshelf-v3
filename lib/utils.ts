@@ -1,3 +1,63 @@
+// Check if a book is a special edition, graded reader, or abridged version
+export function isSpecialEdition(book: any): boolean {
+  const title = (book.title || "").toLowerCase()
+  const description = (book.description || "").toLowerCase()
+  const categories = (book.categories || []).map((cat: string) => cat.toLowerCase()).join(" ")
+  const pageCount = book.pageCount || 0
+  
+  // Combined text for checking
+  const combinedText = `${title} ${description} ${categories}`.toLowerCase()
+  
+  // Special edition indicators - graded readers, ELT, abridged versions
+  const specialEditionIndicators = [
+    "penguin readers",
+    "elt graded reader",
+    "graded reader",
+    "elt reader",
+    "english language teaching",
+    "level 1", "level 2", "level 3", "level 4", "level 5", "level 6", "level 7",
+    "level one", "level two", "level three", "level four", "level five", "level six", "level seven",
+    "abridged", "abridged edition", "abridged version",
+    "simplified", "simplified edition", "simplified version",
+    "easy reader", "beginner reader", "intermediate reader",
+    "adapted", "adapted edition", "adapted version",
+    "retold", "retold edition",
+    "oxford bookworms", "macmillan readers", "cambridge readers",
+    "black cat", "green apple", "dominoes",
+    "young adult reader", "ya reader" // if it's a simplified YA version
+  ]
+  
+  // Check for special edition indicators in title/description
+  if (specialEditionIndicators.some(indicator => combinedText.includes(indicator))) {
+    return true
+  }
+  
+  // Check for "Level" followed by a number (e.g., "Level 6", "Level Six")
+  if (/\blevel\s+\d+\b/i.test(title) || /\blevel\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(title)) {
+    return true
+  }
+  
+  // Check for suspiciously short page counts that might indicate graded readers
+  // Most full novels are 200+ pages. Graded readers are often under 100-150 pages
+  // But we need to be careful - some legitimate books can be short
+  // So we'll only flag if it's very short AND has other indicators
+  if (pageCount > 0 && pageCount < 100 && (
+    combinedText.includes("reader") || 
+    combinedText.includes("graded") ||
+    combinedText.includes("elt") ||
+    combinedText.includes("level")
+  )) {
+    return true
+  }
+  
+  // Check for "ELT" or "English Language Teaching" in any form
+  if (combinedText.includes("elt") || combinedText.includes("english language teaching")) {
+    return true
+  }
+  
+  return false
+}
+
 export function cn(...inputs: (string | undefined | null | boolean | Record<string, boolean>)[]) {
   return inputs
     .filter(Boolean)
@@ -20,6 +80,11 @@ export function deduplicateBooks(books: any[], userCountry: string = "US") {
 
   // First, filter out unwanted editions and group books by normalized title+author
   books.forEach((book) => {
+    // Filter out special editions, graded readers, and abridged versions
+    if (isSpecialEdition(book)) {
+      return
+    }
+    
     const title = book.title?.toLowerCase() || ""
     const description = book.description?.toLowerCase() || ""
 

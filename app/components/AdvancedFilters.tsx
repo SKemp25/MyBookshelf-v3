@@ -20,6 +20,9 @@ interface AdvancedFiltersProps {
   authors: Author[]
   showHeartedBooks?: boolean
   setShowHeartedBooks?: (show: boolean) => void
+  selectedAuthors?: string[]
+  setSelectedAuthors?: (authors: string[]) => void
+  recommendedAuthors?: Set<string>
 }
 
 export const defaultAdvancedFilters: AdvancedFilterState = {
@@ -39,9 +42,19 @@ export const defaultAdvancedFilters: AdvancedFilterState = {
   showPassedBooks: false,
 }
 
-export default function AdvancedFilters({ filters, onFiltersChange, books, authors, showHeartedBooks, setShowHeartedBooks }: AdvancedFiltersProps) {
+export default function AdvancedFilters({ 
+  filters, 
+  onFiltersChange, 
+  books, 
+  authors, 
+  showHeartedBooks, 
+  setShowHeartedBooks,
+  selectedAuthors = [],
+  setSelectedAuthors,
+  recommendedAuthors
+}: AdvancedFiltersProps) {
   const [newExcludeWord, setNewExcludeWord] = useState("")
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true) // start collapsed by default
 
   const safeFilters = {
     ...defaultAdvancedFilters,
@@ -100,7 +113,22 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
 
   const resetFilters = () => {
     onFiltersChange(defaultAdvancedFilters)
+    if (setSelectedAuthors) {
+      setSelectedAuthors([])
+    }
   }
+
+  // Helper to get author name from book
+  const getBookAuthor = (book: Book): string => {
+    return book.author || book.authors?.[0] || "Unknown"
+  }
+
+  // Calculate book count by author
+  const bookCountByAuthor = authors.reduce((acc, author) => {
+    const authorName = typeof author === "string" ? author : author.name
+    acc[authorName] = books.filter((book) => getBookAuthor(book) === authorName).length
+    return acc
+  }, {} as Record<string, number>)
 
   const activeFiltersCount = Object.entries(safeFilters).filter(([key, value]) => {
     if (key === "yearRange") {
@@ -120,11 +148,65 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
       return value !== "" && value !== "all"
     }
     return false
-  }).length
+  }).length + (selectedAuthors && selectedAuthors.length > 0 ? 1 : 0)
 
   return (
-    <div className="space-y-2">
-      {/* Header - outside the card */}
+    <div className="space-y-3">
+      {/* Simple Filters - always visible */}
+      {authors.length > 0 && setSelectedAuthors && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-bold text-orange-700">Filter by Author</div>
+            {selectedAuthors.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedAuthors([])}
+                className="text-orange-600 hover:text-orange-800 h-auto p-1 text-xs"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+            {authors.map((author, index) => {
+              const authorName = typeof author === "string" ? author : author.name
+              const isSelected = selectedAuthors.includes(authorName)
+              const bookCount = bookCountByAuthor[authorName] || 0
+              return (
+                <Badge
+                  key={`${authorName}-${index}`}
+                  variant={isSelected ? "default" : "outline"}
+                  className={`cursor-pointer transition-colors text-xs ${
+                    isSelected
+                      ? "bg-orange-500 hover:bg-orange-600 text-white"
+                      : "border-orange-300 text-orange-700 hover:bg-orange-50"
+                  }`}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedAuthors(selectedAuthors.filter(a => a !== authorName))
+                    } else {
+                      setSelectedAuthors([...selectedAuthors, authorName])
+                    }
+                  }}
+                >
+                  {authorName} ({bookCount})
+                </Badge>
+              )
+            })}
+          </div>
+          {selectedAuthors.length > 0 && (
+            <p className="text-xs text-orange-600">
+              Showing books by {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} authors`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Simple Genre Filter moved into Advanced section below */}
+
+      {/* Advanced header - collapsible card below */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -132,7 +214,7 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
         >
           {isCollapsed ? <ChevronDown className="w-3 h-3 text-orange-600 flex-shrink-0" /> : <ChevronUp className="w-3 h-3 text-orange-600 flex-shrink-0" />}
           <Filter className="w-4 h-4 text-orange-600 flex-shrink-0" />
-          <span className="text-sm font-medium text-orange-700">Advanced Filters</span>
+          <span className="text-sm font-medium text-orange-700">Advanced</span>
           {activeFiltersCount > 0 && (
             <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs ml-1">
               {activeFiltersCount}
@@ -151,10 +233,44 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
           </Button>
         )}
       </div>
-      {/* Content - inside the card */}
+
+      {/* Content - inside the advanced card */}
       {!isCollapsed && (
         <Card className="bg-white border-orange-200">
           <CardContent className="space-y-3 pt-2">
+          {/* Genre Filter (now part of Advanced) */}
+          <div className="space-y-2">
+            <div className="text-sm font-bold text-orange-700">Genre</div>
+            <Select value={safeFilters.genre} onValueChange={(value) => updateFilter("genre", value)}>
+              <SelectTrigger className="border-orange-200 focus:border-orange-400 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Genres</SelectItem>
+                <SelectItem value="Fiction">Fiction</SelectItem>
+                <SelectItem value="Non-Fiction">Non-Fiction</SelectItem>
+                <SelectItem value="Biography/Autobiography">Biography/Autobiography</SelectItem>
+                <SelectItem value="Mystery/Thriller">Mystery/Thriller</SelectItem>
+                <SelectItem value="Romance">Romance</SelectItem>
+                <SelectItem value="Science Fiction">Science Fiction</SelectItem>
+                <SelectItem value="Fantasy">Fantasy</SelectItem>
+                <SelectItem value="Historical Fiction">Historical Fiction</SelectItem>
+                <SelectItem value="Literary Fiction">Literary Fiction</SelectItem>
+                <SelectItem value="Poetry">Poetry</SelectItem>
+                <SelectItem value="Drama/Plays">Drama/Plays</SelectItem>
+                <SelectItem value="Philosophy">Philosophy</SelectItem>
+                <SelectItem value="History">History</SelectItem>
+                <SelectItem value="Science">Science</SelectItem>
+                <SelectItem value="Self-Help">Self-Help</SelectItem>
+                <SelectItem value="Travel">Travel</SelectItem>
+                <SelectItem value="Cooking">Cooking</SelectItem>
+                <SelectItem value="Art/Design">Art/Design</SelectItem>
+                <SelectItem value="Religion/Spirituality">Religion/Spirituality</SelectItem>
+                <SelectItem value="Politics">Politics</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Publication Settings */}
           <div className="space-y-2">
             <div className="text-sm font-bold text-orange-700">Publication Settings</div>
@@ -268,39 +384,6 @@ export default function AdvancedFilters({ filters, onFiltersChange, books, autho
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Genre Filter */}
-          <div className="space-y-2">
-            <div className="text-sm font-bold text-orange-700">Genre</div>
-            <Select value={safeFilters.genre} onValueChange={(value) => updateFilter("genre", value)}>
-              <SelectTrigger className="border-orange-200 focus:border-orange-400 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Genres</SelectItem>
-                <SelectItem value="Fiction">Fiction</SelectItem>
-                <SelectItem value="Non-Fiction">Non-Fiction</SelectItem>
-                <SelectItem value="Biography/Autobiography">Biography/Autobiography</SelectItem>
-                <SelectItem value="Mystery/Thriller">Mystery/Thriller</SelectItem>
-                <SelectItem value="Romance">Romance</SelectItem>
-                <SelectItem value="Science Fiction">Science Fiction</SelectItem>
-                <SelectItem value="Fantasy">Fantasy</SelectItem>
-                <SelectItem value="Historical Fiction">Historical Fiction</SelectItem>
-                <SelectItem value="Literary Fiction">Literary Fiction</SelectItem>
-                <SelectItem value="Poetry">Poetry</SelectItem>
-                <SelectItem value="Drama/Plays">Drama/Plays</SelectItem>
-                <SelectItem value="Philosophy">Philosophy</SelectItem>
-                <SelectItem value="History">History</SelectItem>
-                <SelectItem value="Science">Science</SelectItem>
-                <SelectItem value="Self-Help">Self-Help</SelectItem>
-                <SelectItem value="Travel">Travel</SelectItem>
-                <SelectItem value="Cooking">Cooking</SelectItem>
-                <SelectItem value="Art/Design">Art/Design</SelectItem>
-                <SelectItem value="Religion/Spirituality">Religion/Spirituality</SelectItem>
-                <SelectItem value="Politics">Politics</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Year Range */}

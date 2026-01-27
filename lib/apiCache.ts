@@ -5,6 +5,64 @@ function ensureHttps(url: string): string {
   return url.replace(/^http:\/\//, "https://")
 }
 
+// Check if a book is a special edition, graded reader, or abridged version
+function isSpecialEdition(book: any): boolean {
+  const title = (book.title || "").toLowerCase()
+  const description = (book.description || "").toLowerCase()
+  const categories = (book.categories || []).map((cat: string) => cat.toLowerCase()).join(" ")
+  const pageCount = book.pageCount || 0
+  
+  // Combined text for checking
+  const combinedText = `${title} ${description} ${categories}`.toLowerCase()
+  
+  // Special edition indicators - graded readers, ELT, abridged versions
+  const specialEditionIndicators = [
+    "penguin readers",
+    "elt graded reader",
+    "graded reader",
+    "elt reader",
+    "english language teaching",
+    "level 1", "level 2", "level 3", "level 4", "level 5", "level 6", "level 7",
+    "level one", "level two", "level three", "level four", "level five", "level six", "level seven",
+    "abridged", "abridged edition", "abridged version",
+    "simplified", "simplified edition", "simplified version",
+    "easy reader", "beginner reader", "intermediate reader",
+    "adapted", "adapted edition", "adapted version",
+    "retold", "retold edition",
+    "oxford bookworms", "macmillan readers", "cambridge readers",
+    "black cat", "green apple", "dominoes",
+    "young adult reader", "ya reader"
+  ]
+  
+  // Check for special edition indicators in title/description
+  if (specialEditionIndicators.some(indicator => combinedText.includes(indicator))) {
+    return true
+  }
+  
+  // Check for "Level" followed by a number (e.g., "Level 6", "Level Six")
+  if (/\blevel\s+\d+\b/i.test(title) || /\blevel\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(title)) {
+    return true
+  }
+  
+  // Check for suspiciously short page counts that might indicate graded readers
+  // Only flag if it's very short AND has other indicators
+  if (pageCount > 0 && pageCount < 100 && (
+    combinedText.includes("reader") || 
+    combinedText.includes("graded") ||
+    combinedText.includes("elt") ||
+    combinedText.includes("level")
+  )) {
+    return true
+  }
+  
+  // Check for "ELT" or "English Language Teaching" in any form
+  if (combinedText.includes("elt") || combinedText.includes("english language teaching")) {
+    return true
+  }
+  
+  return false
+}
+
 // Simple in-memory cache for API responses
 class APICache {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
@@ -173,31 +231,35 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
         if (data.items) {
           console.log(`API returned ${data.items.length} books for query: ${query}`)
           // Process the raw API data into proper Book objects
-          const processedBooks = data.items.map((item: any) => {
-            let publishedDate = item.volumeInfo.publishedDate
-            if (publishedDate && publishedDate.length === 4) {
-              publishedDate = `${publishedDate}-01-01`
-            }
+          // Filter out special editions, graded readers, and abridged versions
+          const processedBooks = data.items
+            .map((item: any) => {
+              let publishedDate = item.volumeInfo.publishedDate
+              if (publishedDate && publishedDate.length === 4) {
+                publishedDate = `${publishedDate}-01-01`
+              }
 
-            const bookData = {
-              id: item.id,
-              title: item.volumeInfo.title || "Unknown Title",
-              author: item.volumeInfo.authors?.[0] || "Unknown Author",
-              authors: item.volumeInfo.authors || [],
-              publishedDate: publishedDate || "Unknown Date",
-              description: item.volumeInfo.description || "",
-              categories: item.volumeInfo.categories || [],
-              language: item.volumeInfo.language || "en",
-              pageCount: item.volumeInfo.pageCount || 0,
-              imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-              thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-              previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
-              infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
-              canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
-            }
-            
-            return bookData
-          })
+              const bookData = {
+                id: item.id,
+                title: item.volumeInfo.title || "Unknown Title",
+                author: item.volumeInfo.authors?.[0] || "Unknown Author",
+                authors: item.volumeInfo.authors || [],
+                publishedDate: publishedDate || "Unknown Date",
+                description: item.volumeInfo.description || "",
+                categories: item.volumeInfo.categories || [],
+                language: item.volumeInfo.language || "en",
+                pageCount: item.volumeInfo.pageCount || 0,
+                imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+                thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
+                previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
+                infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
+                canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
+              }
+              
+              return bookData
+            })
+            .filter((book: any) => !isSpecialEdition(book))
+          
           allBooks = [...allBooks, ...processedBooks]
         }
       } catch (queryError) {

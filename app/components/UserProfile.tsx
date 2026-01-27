@@ -152,8 +152,8 @@ export default function UserProfile({
               <div>
                 <Label className="text-orange-700 mb-3 block">Preferred Reading Platforms</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  {platforms.map((platform) => (
-                    <div key={platform.name} className="flex items-center space-x-3">
+                  {platforms.map((platform, index) => (
+                    <div key={`${platform.name}-${platform.category || 'default'}-${index}`} className="flex items-center space-x-3">
                       <input
                         type="checkbox"
                         id={`platform-${platform.name}`}

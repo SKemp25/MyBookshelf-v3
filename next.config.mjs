@@ -12,9 +12,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  turbo: {
-    root: __dirname,
-  },
   // Ensure proper chunk generation
   webpack: (config, { isServer }) => {
     if (!isServer) {
