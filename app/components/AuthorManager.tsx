@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -89,6 +89,16 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
   const [authorCandidates, setAuthorCandidates] = useState<Array<{name: string, sampleBooks: Book[], allBooks: Book[], bookCount: number}>>([])
   const [pendingAuthorName, setPendingAuthorName] = useState<string>("")
   const { toast } = useToast()
+
+  // Scroll focused input into view after keyboard opens (fixes iPhone keyboard blocking)
+  const scrollInputIntoView = useCallback(() => {
+    setTimeout(() => {
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" })
+      }
+    }, 400)
+  }, [])
 
   // Clear found books when user manually clears the search field
   useEffect(() => {
@@ -693,7 +703,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             onChange={(e) => setNewAuthor(e.target.value)}
             placeholder="Enter author name..."
             onKeyPress={(e) => e.key === "Enter" && addAuthor()}
-            className="flex-1 border-orange-200 focus:border-orange-400"
+            onFocus={scrollInputIntoView}
+            className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
             disabled={isAddingAuthor}
           />
           <Button
@@ -730,7 +741,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             onChange={(e) => setSearchTitle(e.target.value)}
             placeholder="Type a book title here (e.g., 'The Great Gatsby')"
             onKeyPress={(e) => e.key === "Enter" && searchBooks()}
-            className="flex-1 border-orange-200 focus:border-orange-400"
+            onFocus={scrollInputIntoView}
+            className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
           />
           <Button
             onClick={searchBooks}

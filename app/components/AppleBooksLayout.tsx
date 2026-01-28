@@ -14,7 +14,6 @@ import {
   Search, 
   Grid3x3, 
   List, 
-  Image as ImageIcon,
   ArrowUpDown,
   Filter,
   Settings,
@@ -50,7 +49,7 @@ interface AppleBooksLayoutProps {
 }
 
 export default function AppleBooksLayout({}: AppleBooksLayoutProps) {
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "cover">("grid")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("newest")
   const [searchQuery, setSearchQuery] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -106,7 +105,6 @@ export default function AppleBooksLayout({}: AppleBooksLayoutProps) {
                 <Button variant="ghost" size="sm" className="gap-2">
                   {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
                   {viewMode === "list" && <List className="w-4 h-4" />}
-                  {viewMode === "cover" && <ImageIcon className="w-4 h-4" />}
                   <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -120,10 +118,6 @@ export default function AppleBooksLayout({}: AppleBooksLayoutProps) {
                 <DropdownMenuItem onClick={() => setViewMode("list")}>
                   <List className="w-4 h-4 mr-2" />
                   List View
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setViewMode("cover")}>
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  Cover Only
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -325,9 +319,7 @@ export default function AppleBooksLayout({}: AppleBooksLayoutProps) {
           <div className={`grid gap-4 md:gap-6 ${
             viewMode === "grid" 
               ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8"
-              : viewMode === "list"
-              ? "grid-cols-1"
-              : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8"
+              : "grid-cols-1"
           }`}>
           {/* Mock book cards for design preview */}
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((i) => (
