@@ -199,8 +199,9 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
   console.log(`Cache miss for author: ${authorName}, fetching from Open Library API`)
   
   try {
+    // Filter to English only at the API level
     const response = await fetchWithRetry(
-      `https://openlibrary.org/search.json?author=${encodeURIComponent(authorName)}&limit=100&sort=new`,
+      `https://openlibrary.org/search.json?author=${encodeURIComponent(authorName)}&language=eng&limit=100&sort=new`,
       3,
       700
     )
@@ -253,7 +254,18 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
             'jpn': 'ja',
             'kor': 'ko',
           }
-          const language = languageMap[langCode] || langCode.substring(0, 2) || "en"
+          let language = languageMap[langCode] || langCode.substring(0, 2) || "en"
+          
+          // If language is still not recognized, try to detect from title/description
+          // Spanish titles often have accents and Spanish words
+          if (!languageMap[langCode] && langCode.length > 2) {
+            const title = (doc.title || "").toLowerCase()
+            // Common Spanish words/patterns in titles
+            const spanishIndicators = ['la ', 'el ', 'de los', 'de las', 'del ', 'una ', 'un ', 'y ', 'con ', 'sin ', 'por ', 'para ']
+            if (spanishIndicators.some(indicator => title.startsWith(indicator) || title.includes(' ' + indicator))) {
+              language = "es"
+            }
+          }
           
           return {
             id,
@@ -277,12 +289,8 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
           // Filter out special editions using title only
           if (isSpecialEdition(book)) return false
           
-          // Prefer English (or allow user's preferred language later)
-          // For now, filter to English only
-          if (book.language && book.language !== "en") return false
-          
-          // Prefer books with descriptions (but don't require - some classics don't have them)
-          // We'll prioritize later, but include all for now
+          // Language filtering is done in BookshelfClient based on user preferences
+          // Don't filter here - let the user's preferred languages setting control it
           
           // Filter out unwanted keywords in title
           const title = (book.title || "").toLowerCase()

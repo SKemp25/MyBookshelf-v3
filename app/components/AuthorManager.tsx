@@ -509,8 +509,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         }
       }
 
-      // Search Open Library by title
-      const apiUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&limit=20&sort=new`
+      // Search Open Library by title, filter to English only
+      const apiUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&language=eng&limit=20&sort=new`
       console.log("🌐 Open Library API URL:", apiUrl)
       
       const response = await fetch(apiUrl)
@@ -570,8 +570,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             }
           })
           .filter((book: Book) => {
-            // Filter to English only (or user's preferred language later)
-            if (book.language && book.language !== "en") return false
+            // Language filtering is done in BookshelfClient based on user preferences
+            // Don't filter here - let the user's preferred languages setting control it
             
             // Filter out unwanted keywords in title
             const title = (book.title || "").toLowerCase()
