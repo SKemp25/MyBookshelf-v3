@@ -36,18 +36,27 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         const author = doc.author_name?.[0] || doc.author_name || "Unknown Author"
         const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
         
-        // Get cover from OpenLibrary
+        // Get cover from OpenLibrary (try multiple sources)
         let thumbnail = ""
         if (doc.cover_i) {
+          // Use cover_i if available (most reliable)
           thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
         } else if (isbn) {
+          // Try ISBN-based cover
           const cleanIsbn = isbn.replace(/-/g, "")
           thumbnail = `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg`
         } else if (doc.oclc?.[0]) {
+          // Try OCLC-based cover
           thumbnail = `https://covers.openlibrary.org/b/oclc/${doc.oclc[0]}-L.jpg`
+        } else if (workKey) {
+          // Try work key-based cover as last resort
+          thumbnail = `https://covers.openlibrary.org/b/olid/${workKey}-L.jpg`
         }
         
-        // Get description from first_sentence if available
+        // Get work key first (needed for fetching full description and covers)
+        const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
+        
+        // Get description from first_sentence if available (we'll fetch full description later if needed)
         let description = ""
         if (doc.first_sentence) {
           if (Array.isArray(doc.first_sentence)) {
@@ -56,6 +65,9 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
             description = doc.first_sentence
           }
         }
+        
+        // Mark if we only have first_sentence (need to fetch full description)
+        const hasOnlyFirstSentence = description.length > 0 && description.length < 200
         
         // Format publish date
         let publishedDate = "Unknown Date"
@@ -69,7 +81,7 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         const id = doc.key ? `OL-${doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "")}` : 
                    `OL-${title.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
         
-        return {
+        const book: any = {
           id,
           title,
           author,
@@ -82,7 +94,17 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
           categories: doc.subject || [],
           language: doc.language?.[0] || "en",
           publisher: doc.publisher?.[0] || "",
-        } as any
+        }
+        
+        // Store work key and flag for fetching full description
+        if (workKey) {
+          (book as any).olWorkKey = workKey
+        }
+        if (hasOnlyFirstSentence) {
+          (book as any).needsFullDescription = true
+        }
+        
+        return book
       })
       .filter((book: Book) => {
         // Filter out non-English books

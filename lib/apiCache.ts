@@ -261,11 +261,29 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
       const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
       const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
       if (openLibraryBooks.length > 0) {
-        // Enhance OpenLibrary books with additional data from OpenLibrary Works API
+        // Only enhance books that are missing descriptions or covers (much faster)
         const { enhanceBooksData } = await import("./bookDataMiddleware")
-        const enhancedBooks = await enhanceBooksData(openLibraryBooks, 300)
-        apiCache.set(cacheKey, enhancedBooks, 10 * 60 * 1000)
-        return enhancedBooks
+        // Only enhance books that need it - skip books that already have both cover and description
+        const booksToEnhance = openLibraryBooks.filter(book => 
+          (!book.description || book.description.trim().length === 0) || 
+          (!book.thumbnail || book.thumbnail.trim().length === 0)
+        )
+        
+        if (booksToEnhance.length > 0) {
+          console.log(`🔍 Enhancing ${booksToEnhance.length} out of ${openLibraryBooks.length} books that need descriptions/covers...`)
+          const enhancedBooks = await enhanceBooksData(booksToEnhance, 200) // Faster delay
+          
+          // Merge enhanced books back into the full list
+          const enhancedMap = new Map(enhancedBooks.map(b => [b.id, b]))
+          const finalBooks = openLibraryBooks.map(book => enhancedMap.get(book.id) || book)
+          
+          apiCache.set(cacheKey, finalBooks, 10 * 60 * 1000)
+          return finalBooks
+        } else {
+          // All books already have covers and descriptions
+          apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
+          return openLibraryBooks
+        }
       }
       // If OpenLibrary also fails, return empty array
       console.error(`❌ Both Google Books and OpenLibrary failed for ${authorName}`)

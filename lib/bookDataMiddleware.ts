@@ -24,29 +24,30 @@ interface BookDataSource {
 }
 
 /**
- * Fetch description from OpenLibrary Works API using ISBN or title+author
+ * Fetch description from OpenLibrary Works API using work key, ISBN, or title+author
  */
-async function fetchDescriptionFromOpenLibrary(isbn?: string, title?: string, author?: string): Promise<string | null> {
+async function fetchDescriptionFromOpenLibrary(workKey?: string, isbn?: string, title?: string, author?: string): Promise<string | null> {
   try {
     let url = ""
     
-    // Try ISBN first (most reliable)
-    if (isbn) {
-      // Remove hyphens from ISBN
+    // Try work key first (fastest, most direct)
+    if (workKey) {
+      url = `https://openlibrary.org/works/${workKey}.json`
+    } else if (isbn) {
+      // Try ISBN (most reliable)
       const cleanIsbn = isbn.replace(/-/g, "")
       url = `https://openlibrary.org/isbn/${cleanIsbn}.json`
     } else if (title && author) {
       // Fallback to search by title and author
-      const searchQuery = encodeURIComponent(`${title} ${author}`)
       const searchUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1`
       
       const searchResponse = await fetch(searchUrl)
       if (searchResponse.ok) {
         const searchData = await searchResponse.json()
         if (searchData.docs && searchData.docs.length > 0) {
-          const workKey = searchData.docs[0].key // e.g., "/works/OL123456W"
-          if (workKey) {
-            url = `https://openlibrary.org${workKey}.json`
+          const foundWorkKey = searchData.docs[0].key // e.g., "/works/OL123456W"
+          if (foundWorkKey) {
+            url = `https://openlibrary.org${foundWorkKey}.json`
           }
         }
       }
@@ -68,7 +69,7 @@ async function fetchDescriptionFromOpenLibrary(isbn?: string, title?: string, au
       }
     }
     
-    // Try first_sentence as fallback
+    // Try first_sentence as fallback (but only if we don't already have it)
     if (data.first_sentence) {
       if (typeof data.first_sentence === "string") {
         return data.first_sentence
@@ -158,14 +159,21 @@ export async function enhanceBookData(book: Book): Promise<Book> {
   console.log(`🔍 Enhancing book data for "${book.title}" by ${book.author}...`)
   console.log(`   Missing: ${needsDescription ? "description " : ""}${needsCover ? "cover" : ""}`)
   
-  // Try to fetch missing description
-  if (needsDescription) {
-    console.log(`   📝 Fetching description from OpenLibrary...`)
-    const description = await fetchDescriptionFromOpenLibrary(book.isbn, book.title, book.author)
+  // Try to fetch missing description (or upgrade first_sentence to full description)
+  if (needsDescription || (book as any).needsFullDescription) {
+    console.log(`   📝 Fetching ${(book as any).needsFullDescription ? 'full ' : ''}description from OpenLibrary...`)
+    // Use work key if available (faster), otherwise fall back to ISBN/title+author
+    const workKey = (book as any).olWorkKey
+    const description = await fetchDescriptionFromOpenLibrary(workKey, book.isbn, book.title, book.author)
     if (description && description.trim().length > 0) {
-      enhanced.description = description
-      needsDescription = false
-      console.log(`   ✅ Found description (${description.length} chars)`)
+      // Only use if it's longer than what we have (full description vs first_sentence)
+      if (!enhanced.description || description.length > enhanced.description.length) {
+        enhanced.description = description
+        needsDescription = false
+        console.log(`   ✅ Found description (${description.length} chars)`)
+      } else {
+        console.log(`   ℹ️ Already have description (${enhanced.description.length} chars)`)
+      }
     } else {
       console.log(`   ⚠️ No description found`)
     }
