@@ -646,11 +646,55 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       const data = await response.json()
       console.log("📚 API Response:", data)
 
-      if (data.items && data.items.length > 0) {
+      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
         // Use middleware to process and enhance books with fallback sources
-        const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
-        const books: Book[] = await processGoogleBooksResponse(data.items, "")
-          .filter((book: Book) => {
+        let processedBooks: Book[] = []
+        try {
+          const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
+          processedBooks = await processGoogleBooksResponse(data.items, "")
+          
+          // Ensure we have an array before filtering
+          if (!Array.isArray(processedBooks)) {
+            console.error("processGoogleBooksResponse did not return an array:", processedBooks)
+            processedBooks = []
+          }
+        } catch (processError) {
+          console.error("Error processing Google Books response:", processError)
+          // Fallback: process books directly without middleware
+          processedBooks = data.items.map((item: any) => {
+            const volumeInfo = item.volumeInfo || {}
+            const author = volumeInfo.authors?.[0] || "Unknown Author"
+            let publishedDate = volumeInfo.publishedDate || "Unknown Date"
+            if (publishedDate && publishedDate.length === 4) {
+              publishedDate = `${publishedDate}-01-01`
+            }
+            const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                        volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier || ""
+            const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+            const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
+                             volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
+            return {
+              id,
+              title: volumeInfo.title || "Unknown Title",
+              author,
+              authors: volumeInfo.authors || [author],
+              publishedDate,
+              description: volumeInfo.description || "",
+              thumbnail,
+              isbn,
+              pageCount: volumeInfo.pageCount || 0,
+              categories: volumeInfo.categories || [],
+              language: volumeInfo.language || "en",
+              publisher: volumeInfo.publisher || "",
+              previewLink: volumeInfo.previewLink || "",
+              infoLink: volumeInfo.infoLink || "",
+              canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
+              imageUrl: thumbnail,
+            } as any
+          })
+        }
+        
+        const books: Book[] = processedBooks.filter((book: Book) => {
             // Filter out non-English books
             if (book.language && book.language !== "en") {
               if (process.env.NODE_ENV === 'development') {
