@@ -196,87 +196,166 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
     return cached
   }
 
-  console.log(`Cache miss for author: ${authorName}, fetching from API`)
+  console.log(`Cache miss for author: ${authorName}, fetching from Open Library API`)
   
   try {
-    const primaryQuery = `inauthor:"${encodeURIComponent(authorName)}"`
-    const fallbackQuery = `"${encodeURIComponent(authorName)}" author`
-    const queries = [primaryQuery, fallbackQuery]
-    let allBooks: any[] = []
-
-    for (let i = 0; i < queries.length; i++) {
-      const query = queries[i]
-      const isFallback = i === 1
-      try {
-        const response = await fetchWithRetry(
-          `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
-          3,
-          700
-        )
-        
-        if (!response.ok) {
-          if (response.status === 503 || response.status === 429) {
-            // Silently handle rate limiting - don't log to console in production
-            // Continue to next query instead of failing completely
-            continue
-          }
-          // Only log non-rate-limit errors in development
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(`API returned ${response.status} for query: ${query}`)
-          }
-          continue
-        }
-        
-        const data = await response.json()
-        if (data.items?.length) {
-          const processedBooks = data.items
-            .map((item: any) => {
-              let publishedDate = item.volumeInfo?.publishedDate
-              if (publishedDate && publishedDate.length === 4) {
-                publishedDate = `${publishedDate}-01-01`
-              }
-              return {
-                id: item.id,
-                title: item.volumeInfo?.title || "Unknown Title",
-                author: item.volumeInfo?.authors?.[0] || "Unknown Author",
-                authors: item.volumeInfo?.authors || [],
-                publishedDate: publishedDate || "Unknown Date",
-                description: item.volumeInfo?.description || "",
-                categories: item.volumeInfo?.categories || [],
-                language: item.volumeInfo?.language || "en",
-                pageCount: item.volumeInfo?.pageCount || 0,
-                imageUrl: ensureHttps(item.volumeInfo?.imageLinks?.thumbnail || ""),
-                thumbnail: ensureHttps(item.volumeInfo?.imageLinks?.thumbnail || ""),
-                previewLink: ensureHttps(item.volumeInfo?.previewLink || ""),
-                infoLink: ensureHttps(item.volumeInfo?.infoLink || ""),
-                canonicalVolumeLink: ensureHttps(item.volumeInfo?.canonicalVolumeLink || ""),
-              }
-            })
-            .filter((book: any) => !isSpecialEdition(book))
-          const seen = new Set(allBooks.map((b: any) => b.id))
-          for (const b of processedBooks) {
-            if (!seen.has(b.id)) {
-              seen.add(b.id)
-              allBooks.push(b)
-            }
-          }
-          if (!isFallback && allBooks.length >= 5) break
-        }
-      } catch (queryError) {
-        if (process.env.NODE_ENV === "development") {
-          console.error(`Error fetching books for query "${query}":`, queryError)
-        }
-        if (!isFallback) continue
-      }
-    }
-
-    // Cache the result for 10 minutes (longer for author books)
-    // Even if we got no books, cache the empty result to avoid repeated failed requests
-    apiCache.set(cacheKey, allBooks, 10 * 60 * 1000)
+    const response = await fetchWithRetry(
+      `https://openlibrary.org/search.json?author=${encodeURIComponent(authorName)}&limit=100&sort=new`,
+      3,
+      700
+    )
     
-    return allBooks
+    if (!response.ok) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Open Library API returned ${response.status} for author: ${authorName}`)
+      }
+      return []
+    }
+    
+    const data = await response.json()
+    if (data.docs && data.docs.length > 0) {
+      const processedBooks = data.docs
+        .map((doc: any) => {
+          // Extract author name (first author from array)
+          const author = doc.author_name?.[0] || "Unknown Author"
+          
+          // Format publish date
+          let publishedDate = doc.first_publish_year ? `${doc.first_publish_year}-01-01` : "Unknown Date"
+          
+          // Get cover image if available
+          const coverId = doc.cover_i
+          const thumbnail = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : ""
+          
+          // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
+          const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
+          
+          // Use Open Library work key as ID
+          const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+          
+          // Get description from first sentence if available
+          const description = doc.first_sentence?.[0] || ""
+          
+          // Get categories from subjects
+          const categories = doc.subject?.slice(0, 5) || []
+          
+          // Get language (Open Library uses language codes like 'eng', 'spa', etc.)
+          const langCode = doc.language?.[0] || "eng"
+          // Map common language codes to our format
+          const languageMap: { [key: string]: string } = {
+            'eng': 'en',
+            'spa': 'es',
+            'fre': 'fr',
+            'ger': 'de',
+            'ita': 'it',
+            'por': 'pt',
+            'rus': 'ru',
+            'chi': 'zh',
+            'jpn': 'ja',
+            'kor': 'ko',
+          }
+          const language = languageMap[langCode] || langCode.substring(0, 2) || "en"
+          
+          return {
+            id,
+            title: doc.title || "Unknown Title",
+            author,
+            authors: doc.author_name || [author],
+            publishedDate,
+            description,
+            categories,
+            language,
+            pageCount: doc.number_of_pages_median || doc.number_of_pages?.[0] || 0,
+            imageUrl: thumbnail,
+            thumbnail,
+            previewLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+            infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+            canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+            isbn,
+          }
+        })
+        .filter((book: any) => {
+          // Filter out special editions using title only
+          if (isSpecialEdition(book)) return false
+          
+          // Prefer English (or allow user's preferred language later)
+          // For now, filter to English only
+          if (book.language && book.language !== "en") return false
+          
+          // Prefer books with descriptions (but don't require - some classics don't have them)
+          // We'll prioritize later, but include all for now
+          
+          // Filter out unwanted keywords in title
+          const title = (book.title || "").toLowerCase()
+          const unwantedKeywords = [
+            "free preview",
+            "sample",
+            "showcard",
+            "promotional",
+            "marketing",
+            "advertisement",
+            "ad copy",
+            "book trailer",
+            "excerpt",
+            "preview edition",
+            "advance reader",
+            "arc",
+            "galley",
+            "proof",
+            "uncorrected",
+            "not for sale",
+            "review copy",
+            "promotional copy",
+            "media kit",
+            "press kit",
+            "catalog",
+            "catalogue",
+            "brochure",
+            "flyer",
+            "leaflet",
+            "pamphlet",
+          ]
+          
+          if (unwantedKeywords.some(keyword => title.includes(keyword))) {
+            return false
+          }
+          
+          return true
+        })
+      
+      // Remove duplicates by title+author
+      const seen = new Map<string, any>()
+      const uniqueBooks: any[] = []
+      for (const book of processedBooks) {
+        const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`
+        if (!seen.has(key)) {
+          seen.set(key, book)
+          uniqueBooks.push(book)
+        }
+      }
+      
+      // Sort: books with descriptions first, then by publication date (newest first)
+      uniqueBooks.sort((a, b) => {
+        const aHasDesc = a.description && a.description.length > 0
+        const bHasDesc = b.description && b.description.length > 0
+        if (aHasDesc && !bHasDesc) return -1
+        if (!aHasDesc && bHasDesc) return 1
+        
+        const aDate = a.publishedDate && a.publishedDate !== "Unknown Date" ? new Date(a.publishedDate).getTime() : 0
+        const bDate = b.publishedDate && b.publishedDate !== "Unknown Date" ? new Date(b.publishedDate).getTime() : 0
+        return bDate - aDate
+      })
+      
+      // Cache the result for 10 minutes
+      apiCache.set(cacheKey, uniqueBooks, 10 * 60 * 1000)
+      
+      return uniqueBooks
+    }
+    
+    // No results
+    apiCache.set(cacheKey, [], 10 * 60 * 1000)
+    return []
   } catch (error) {
-    console.error('Error fetching author books:', error)
+    console.error('Error fetching author books from Open Library:', error)
     // Return empty array instead of throwing, so the author can still be added
     return []
   }

@@ -9,7 +9,7 @@ import type { Book } from "@/lib/types"
 import AuthorImport from "./AuthorImport"
 import { saveUserAuthors } from "@/lib/database"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
-import { deduplicateBooks } from "@/lib/utils"
+import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 
@@ -120,11 +120,12 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         
         // Filter out books where author name appears in title but author is different
         // Only include books where the author field actually matches EXACTLY
+        // Open Library returns already-processed books with title, author, etc.
         const validBooks = apiResults.filter((item: any) => {
-          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
+          const apiAuthor = item.author || ""
           if (!apiAuthor) return false
           
-          const bookTitle = (item.volumeInfo?.title || item.title || "").toLowerCase()
+          const bookTitle = (item.title || "").toLowerCase()
           const bookAuthor = normalizeAuthorName(apiAuthor).toLowerCase()
           
           // Exclude books where the searched name appears in title but author is different
@@ -153,7 +154,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         const authorGroups = new Map<string, Book[]>()
         
         validBooks.forEach((item: any) => {
-          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
+          const apiAuthor = item.author || ""
           if (!apiAuthor) return
           
           const normalizedApiAuthor = normalizeAuthorName(apiAuthor)
@@ -189,39 +190,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         setAuthors(updatedAuthors)
         setNewAuthor("")
 
-        // Use the already-filtered validBooks instead of re-filtering apiResults
-        // This ensures we get all books that matched the author, not just exact matches
-        // First, process raw API data into Book format if needed
-        const processedBooks = validBooks.map((item: any) => {
-          // If already processed (has title directly), return as-is
-          if (item.title && !item.volumeInfo) {
-            return item
-          }
-          
-          // Process raw API data
-          const volumeInfo = item.volumeInfo || {}
-          let publishedDate = volumeInfo.publishedDate
-          if (publishedDate && publishedDate.length === 4) {
-            publishedDate = `${publishedDate}-01-01`
-          }
-          
-          return {
-            id: item.id,
-            title: volumeInfo.title || "Unknown Title",
-            author: volumeInfo.authors?.[0] || "Unknown Author",
-            authors: volumeInfo.authors || [],
-            publishedDate: publishedDate || "Unknown Date",
-            description: volumeInfo.description || "",
-            categories: volumeInfo.categories || [],
-            language: volumeInfo.language || "en",
-            pageCount: volumeInfo.pageCount || 0,
-            imageUrl: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
-            thumbnail: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
-            previewLink: ensureHttps(volumeInfo.previewLink || ""),
-            infoLink: ensureHttps(volumeInfo.infoLink || ""),
-            canonicalVolumeLink: ensureHttps(volumeInfo.canonicalVolumeLink || ""),
-          }
-        })
+        // Open Library returns already-processed books, so use validBooks directly
+        const processedBooks = validBooks
 
         const filteredBooks = processedBooks.filter((book) => {
           const title = (book.title || "").toLowerCase()
@@ -529,64 +499,112 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         }
       }
 
-      // Try title search (more flexible than exact quotes)
-      const searchQuery = `intitle:${searchTitle.trim()}`
-      const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=10`
-      console.log("🌐 API URL:", apiUrl)
+      // Search Open Library by title
+      const apiUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&limit=20&sort=new`
+      console.log("🌐 Open Library API URL:", apiUrl)
       
       const response = await fetch(apiUrl)
       console.log("📡 Response status:", response.status)
       
+      if (!response.ok) {
+        throw new Error(`Open Library API returned ${response.status}`)
+      }
+      
       const data = await response.json()
       console.log("📚 API Response:", data)
 
-      if (data.items) {
-        const books: Book[] = data.items.map((item: any) => {
-          let publishedDate = item.volumeInfo.publishedDate
-
-          if (publishedDate) {
-            // Parse the date
-            let dateObj: Date
-
-            if (publishedDate.length === 4) {
-              dateObj = new Date(`${publishedDate}-01-01`)
-              publishedDate = `${publishedDate}-01-01`
-            } else if (publishedDate.length === 7) {
-              dateObj = new Date(`${publishedDate}-01`)
-              publishedDate = `${publishedDate}-01`
-            } else {
-              dateObj = new Date(publishedDate)
+      if (data.docs && data.docs.length > 0) {
+        // Map common language codes to our format
+        const languageMap: { [key: string]: string } = {
+          'eng': 'en',
+          'spa': 'es',
+          'fre': 'fr',
+          'ger': 'de',
+          'ita': 'it',
+          'por': 'pt',
+          'rus': 'ru',
+          'chi': 'zh',
+          'jpn': 'ja',
+          'kor': 'ko',
+        }
+        
+        const books: Book[] = data.docs
+          .map((doc: any) => {
+            // Format publish date
+            let publishedDate: string | null = null
+            if (doc.first_publish_year) {
+              publishedDate = `${doc.first_publish_year}-01-01`
             }
 
-            // Only validate that the date isn't unreasonably far in the future (more than 2 years)
-            const now = new Date()
-            const twoYearsFromNow = new Date()
-            twoYearsFromNow.setFullYear(now.getFullYear() + 2)
+            // Get cover image if available
+            const coverId = doc.cover_i
+            const thumbnail = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : ""
 
-            if (dateObj > twoYearsFromNow) {
-              publishedDate = null
+            // Use Open Library work key as ID
+            const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${doc.author_name?.[0]?.replace(/\s+/g, '') || ''}`
+
+            // Get language
+            const langCode = doc.language?.[0] || "eng"
+            const language = languageMap[langCode] || langCode.substring(0, 2) || "en"
+
+            return {
+              id,
+              title: doc.title || "Unknown Title",
+              author: doc.author_name?.[0] || "Unknown Author",
+              publishedDate: publishedDate,
+              description: doc.first_sentence?.[0] || "",
+              pageCount: doc.number_of_pages_median || doc.number_of_pages?.[0] || 0,
+              categories: doc.subject?.slice(0, 5) || [],
+              thumbnail,
+              language,
             }
-
-            // If the date is invalid, set to null
-            if (isNaN(dateObj.getTime())) {
-              publishedDate = null
+          })
+          .filter((book: Book) => {
+            // Filter to English only (or user's preferred language later)
+            if (book.language && book.language !== "en") return false
+            
+            // Filter out unwanted keywords in title
+            const title = (book.title || "").toLowerCase()
+            const unwantedKeywords = [
+              "free preview",
+              "sample",
+              "showcard",
+              "promotional",
+              "marketing",
+              "advertisement",
+              "ad copy",
+              "book trailer",
+              "excerpt",
+              "preview edition",
+              "advance reader",
+              "arc",
+              "galley",
+              "proof",
+              "uncorrected",
+              "not for sale",
+              "review copy",
+              "promotional copy",
+              "media kit",
+              "press kit",
+              "catalog",
+              "catalogue",
+              "brochure",
+              "flyer",
+              "leaflet",
+              "pamphlet",
+            ]
+            
+            if (unwantedKeywords.some(keyword => title.includes(keyword))) {
+              return false
             }
-          }
+            
+            // Filter out special editions (title only)
+            if (isSpecialEdition(book)) return false
+            
+            return true
+          })
 
-          return {
-            id: item.id,
-            title: item.volumeInfo.title || "Unknown Title",
-            author: item.volumeInfo.authors?.[0] || "Unknown Author",
-            publishedDate: publishedDate,
-            description: item.volumeInfo.description,
-            pageCount: item.volumeInfo.pageCount,
-            categories: item.volumeInfo.categories,
-            thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://"),
-            language: item.volumeInfo.language || "en",
-          }
-        })
-
-        // Sort books by relevance (exact title matches first, then by publication date)
+        // Sort books by relevance: exact title match > has description > publication date (newest first)
         const sortedBooks = books.sort((a, b) => {
           const searchTerm = searchTitle.trim().toLowerCase()
           const aTitle = a.title.toLowerCase()
@@ -596,7 +614,13 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           if (aTitle === searchTerm && bTitle !== searchTerm) return -1
           if (bTitle === searchTerm && aTitle !== searchTerm) return 1
           
-          // If both or neither are exact matches, sort by publication date (newest first)
+          // Then prioritize books with descriptions
+          const aHasDesc = a.description && a.description.length > 0
+          const bHasDesc = b.description && b.description.length > 0
+          if (aHasDesc && !bHasDesc) return -1
+          if (!aHasDesc && bHasDesc) return 1
+          
+          // Finally, sort by publication date (newest first)
           const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
           const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
           return bDate - aDate
@@ -610,82 +634,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         // Don't auto-add books to bookshelf - just show as suggestions
         // Don't clear search title - let user see what they searched for
       } else {
-        console.log("⚠️ No results from title search, trying fallback...")
-        // If title search returns no results, try a broader search
-        const fallbackUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchTitle.trim())}&maxResults=10`
-        console.log("🔄 Fallback URL:", fallbackUrl)
-        
-        const fallbackResponse = await fetch(fallbackUrl)
-        console.log("📡 Fallback response status:", fallbackResponse.status)
-        
-        const fallbackData = await fallbackResponse.json()
-        console.log("📚 Fallback response:", fallbackData)
-
-        if (fallbackData.items) {
-          const fallbackBooks: Book[] = fallbackData.items.map((item: any) => {
-            let publishedDate = item.volumeInfo.publishedDate
-
-            if (publishedDate) {
-              let dateObj: Date
-              if (publishedDate.length === 4) {
-                dateObj = new Date(`${publishedDate}-01-01`)
-                publishedDate = `${publishedDate}-01-01`
-              } else if (publishedDate.length === 7) {
-                dateObj = new Date(`${publishedDate}-01`)
-                publishedDate = `${publishedDate}-01`
-              } else {
-                dateObj = new Date(publishedDate)
-              }
-
-              const now = new Date()
-              const twoYearsFromNow = new Date()
-              twoYearsFromNow.setFullYear(now.getFullYear() + 2)
-
-              if (dateObj > twoYearsFromNow) {
-                publishedDate = null
-              }
-
-              if (isNaN(dateObj.getTime())) {
-                publishedDate = null
-              }
-            }
-
-            return {
-              id: item.id,
-              title: item.volumeInfo.title || "Unknown Title",
-              author: item.volumeInfo.authors?.[0] || "Unknown Author",
-              publishedDate: publishedDate,
-              description: item.volumeInfo.description,
-              pageCount: item.volumeInfo.pageCount,
-              categories: item.volumeInfo.categories,
-              thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://"),
-              language: item.volumeInfo.language || "en",
-            }
-          })
-
-          // Sort fallback results by relevance
-          const sortedFallbackBooks = fallbackBooks.sort((a, b) => {
-            const searchTerm = searchTitle.trim().toLowerCase()
-            const aTitle = a.title.toLowerCase()
-            const bTitle = b.title.toLowerCase()
-            
-            if (aTitle === searchTerm && bTitle !== searchTerm) return -1
-            if (bTitle === searchTerm && aTitle !== searchTerm) return 1
-            
-            const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
-            const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
-            return bDate - aDate
-          })
-
-          const topFallbackBooks = sortedFallbackBooks.slice(0, 5)
-          console.log("📖 Fallback books found:", topFallbackBooks.length, topFallbackBooks)
-          
-          setFoundBooks(topFallbackBooks)
-          // Don't auto-add books to bookshelf - just show as suggestions
-          // Don't clear search title - let user see what they searched for
-        } else {
-          console.log("❌ No results from fallback search either")
-        }
+        console.log("❌ No results from Open Library search")
+        setFoundBooks([])
       }
     } catch (error) {
       console.error("Error searching books:", error)
