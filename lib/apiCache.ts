@@ -255,6 +255,24 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     
     let allBooks: any[] = []
     
+    // Check if Google Books is rate-limited
+    if (response.status === 429) {
+      console.warn(`⚠️ Google Books API rate-limited (429). Falling back to OpenLibrary...`)
+      const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
+      const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
+      if (openLibraryBooks.length > 0) {
+        // Enhance OpenLibrary books with additional data from OpenLibrary Works API
+        const { enhanceBooksData } = await import("./bookDataMiddleware")
+        const enhancedBooks = await enhanceBooksData(openLibraryBooks, 300)
+        apiCache.set(cacheKey, enhancedBooks, 10 * 60 * 1000)
+        return enhancedBooks
+      }
+      // If OpenLibrary also fails, return empty array
+      console.error(`❌ Both Google Books and OpenLibrary failed for ${authorName}`)
+      apiCache.set(cacheKey, [], 10 * 60 * 1000)
+      return []
+    }
+    
     if (response.ok) {
       const data = await response.json()
       if (data.items && data.items.length > 0) {
@@ -271,9 +289,22 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
       await new Promise(resolve => setTimeout(resolve, 1000))
       const fallbackResponse = await fetchWithRetry(
         `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
-        3,
-        700
+        2, // Reduce retries
+        2000 // Longer delay
       )
+      
+      // Check for rate limiting on fallback too
+      if (fallbackResponse.status === 429) {
+        console.warn(`⚠️ Google Books fallback also rate-limited. Using OpenLibrary...`)
+        const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
+        const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
+        if (openLibraryBooks.length > 0) {
+          const { enhanceBooksData } = await import("./bookDataMiddleware")
+          const enhancedBooks = await enhanceBooksData(openLibraryBooks, 300)
+          apiCache.set(cacheKey, enhancedBooks, 10 * 60 * 1000)
+          return enhancedBooks
+        }
+      }
       
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json()
