@@ -744,7 +744,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             return true
           })
 
-        // Sort books by relevance: exact title match > has description > publication date (newest first)
+        // Sort books by relevance: exact title match > publication date (newest first) > has description > has cover
         const sortedBooks = books.sort((a, b) => {
           const searchTerm = searchTitle.trim().toLowerCase()
           const aTitle = a.title.toLowerCase()
@@ -754,20 +754,36 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           if (aTitle === searchTerm && bTitle !== searchTerm) return -1
           if (bTitle === searchTerm && aTitle !== searchTerm) return 1
           
-          // Then prioritize books with descriptions
+          // Then prioritize by publication date (newest first) - this is more important than description
+          const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
+          const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
+          // Only use date if both dates are valid (not 0)
+          if (aDate > 0 && bDate > 0) {
+            const dateDiff = bDate - aDate
+            // If dates are significantly different (more than 1 year), prioritize newer
+            if (Math.abs(dateDiff) > 365 * 24 * 60 * 60 * 1000) {
+              return dateDiff
+            }
+          }
+          
+          // Then prioritize books with covers
+          const aHasCover = a.thumbnail && a.thumbnail.length > 0
+          const bHasCover = b.thumbnail && b.thumbnail.length > 0
+          if (aHasCover && !bHasCover) return -1
+          if (!aHasCover && bHasCover) return 1
+          
+          // Finally, prioritize books with descriptions
           const aHasDesc = a.description && a.description.length > 0
           const bHasDesc = b.description && b.description.length > 0
           if (aHasDesc && !bHasDesc) return -1
           if (!aHasDesc && bHasDesc) return 1
           
-          // Finally, sort by publication date (newest first)
-          const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
-          const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
+          // If still tied, use date
           return bDate - aDate
         })
 
-        // Limit to top 5 most relevant results
-        const topBooks = sortedBooks.slice(0, 5)
+        // Limit to top 10 most relevant results (increased from 5 to show more options)
+        const topBooks = sortedBooks.slice(0, 10)
         
         // Google Books already provides descriptions, no need to fetch separately
         const booksWithDescriptions = topBooks.filter(book => book.description && book.description.length > 0).length

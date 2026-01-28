@@ -1,39 +1,24 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import AccountManager from "./AccountManager"
 import AuthorManager from "./AuthorManager"
 import BookGrid from "./BookGrid"
 import BookFilters from "./BookFilters"
-import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
-import { logError } from "./ErrorLogger"
-import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
+import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
 import { saveUserAuthors } from "@/lib/database"
-import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
+import { deduplicateBooks } from "@/lib/utils"
 import DataExport from "./DataExport"
 import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { signOut } from "@/lib/actions"
 
 interface BookshelfClientProps {
   user: any // Updated comment to reflect localStorage-based auth system
@@ -52,18 +37,15 @@ export const colorThemes = {
   orange: {
     name: 'Penguin Orange',
     description: 'Classic Penguin Books inspired',
-    bgGradient: 'bg-gradient-to-br from-orange-100 via-orange-50 to-orange-100',
-    headerGradient: 'bg-gradient-to-r from-orange-200 to-orange-300',
+    bgGradient: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600',
+    headerGradient: 'bg-gradient-to-r from-orange-500 to-orange-600',
     accent: 'orange',
     accentLight: 'orange-50',
     accentMedium: 'orange-200',
     accentDark: 'orange-600',
     textAccent: 'text-orange-700',
     borderAccent: 'border-orange-200',
-    footerColor: '#fb923c',
-    emptyStateIcon: 'text-orange-500',
-    emptyStateTitle: 'text-orange-900',
-    emptyStateDesc: 'text-orange-700',
+    footerColor: '#ea580c',
   },
   blue: {
     name: 'Literary Blue',
@@ -77,9 +59,6 @@ export const colorThemes = {
     textAccent: 'text-blue-700',
     borderAccent: 'border-blue-200',
     footerColor: '#2563eb',
-    emptyStateIcon: 'text-blue-200',
-    emptyStateTitle: 'text-white',
-    emptyStateDesc: 'text-blue-100',
   },
   green: {
     name: 'British Racing Green',
@@ -93,9 +72,6 @@ export const colorThemes = {
     textAccent: 'text-green-900',
     borderAccent: 'border-green-200',
     footerColor: '#14532d',
-    emptyStateIcon: 'text-green-300',
-    emptyStateTitle: 'text-white',
-    emptyStateDesc: 'text-green-100',
   },
   purple: {
     name: 'Creative Purple',
@@ -109,9 +85,6 @@ export const colorThemes = {
     textAccent: 'text-purple-700',
     borderAccent: 'border-purple-200',
     footerColor: '#9333ea',
-    emptyStateIcon: 'text-purple-200',
-    emptyStateTitle: 'text-white',
-    emptyStateDesc: 'text-purple-100',
   },
   teal: {
     name: 'Modern Teal',
@@ -125,9 +98,6 @@ export const colorThemes = {
     textAccent: 'text-teal-700',
     borderAccent: 'border-teal-200',
     footerColor: '#0d9488',
-    emptyStateIcon: 'text-teal-200',
-    emptyStateTitle: 'text-white',
-    emptyStateDesc: 'text-teal-100',
   },
   neutral: {
     name: 'Neutral',
@@ -141,9 +111,6 @@ export const colorThemes = {
     textAccent: 'text-gray-700',
     borderAccent: 'border-gray-200',
     footerColor: '#4b5563',
-    emptyStateIcon: 'text-gray-400',
-    emptyStateTitle: 'text-gray-900',
-    emptyStateDesc: 'text-gray-700',
   },
 }
 
@@ -197,8 +164,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isAuthorsOpen, setIsAuthorsOpen] = useState(false)
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
-  const [footerView, setFooterView] = useState<"library" | "favorites" | "want-to-read" | "finished" | null>(null)
-  const [showExportDialog, setShowExportDialog] = useState(false)
   // Initialize color theme from localStorage if available
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
     if (typeof window !== 'undefined') {
@@ -210,7 +175,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return 'orange'
   })
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([])
-
+  
   // Collapsible sections for Preferences
   const [isAccountInfoOpen, setIsAccountInfoOpen] = useState(false)
   const [isReadingPrefsOpen, setIsReadingPrefsOpen] = useState(false)
@@ -223,21 +188,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Set hydrated immediately to prevent infinite loading
     setIsHydrated(true)
     
-    let lastLoggedIn: boolean | null = null
-    let lastUser: string | null = null
-    
     const checkLoginState = () => {
       try {
-    const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
-    const user = localStorage.getItem("bookshelf_current_user") || ""
-        
-        // Only update state if values actually changed to prevent unnecessary re-renders
-        if (loggedIn !== lastLoggedIn || user !== lastUser) {
-    setIsLoggedIn(loggedIn)
-    setCurrentUser(user)
-          lastLoggedIn = loggedIn
-          lastUser = user
-        }
+        const loggedIn = localStorage.getItem("bookshelf_is_logged_in") === "true"
+        const user = localStorage.getItem("bookshelf_current_user") || ""
+        console.log("Checking login state:", { loggedIn, user })
+        setIsLoggedIn(loggedIn)
+        setCurrentUser(user)
       } catch (error) {
         console.error("Error checking login state:", error)
         // Still set hydrated even if there's an error
@@ -248,55 +205,19 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     // Check immediately
     checkLoginState()
     
-    // Throttle storage change handler to prevent excessive calls
-    let storageChangeTimeout: NodeJS.Timeout | null = null
-    let lastStorageCheck = 0
+    // Listen for storage changes (in case login happens in another tab/window)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "bookshelf_is_logged_in" || e.key === "bookshelf_current_user") {
-        const now = Date.now()
-        // Throttle to max once per 500ms to prevent violations
-        if (now - lastStorageCheck < 500) {
-          if (storageChangeTimeout) {
-            clearTimeout(storageChangeTimeout)
-          }
-          storageChangeTimeout = setTimeout(() => {
-            lastStorageCheck = Date.now()
-            checkLoginState()
-          }, 500 - (now - lastStorageCheck))
-          return
-        }
-        lastStorageCheck = now
-        // Use requestAnimationFrame to avoid blocking
-        requestAnimationFrame(() => {
-          checkLoginState()
-        })
+        console.log("Storage changed, re-checking login state")
+        checkLoginState()
       }
     }
     
     window.addEventListener("storage", handleStorageChange)
     
-    // Throttle focus handler - use longer delay to prevent violations
-    let focusTimeout: NodeJS.Timeout | null = null
-    let lastFocusCheck = 0
+    // Also check on window focus (in case login happened and page was redirected)
     const handleFocus = () => {
-      const now = Date.now()
-      // Throttle to max once per 1000ms
-      if (now - lastFocusCheck < 1000) {
-        if (focusTimeout) {
-          clearTimeout(focusTimeout)
-        }
-        focusTimeout = setTimeout(() => {
-          lastFocusCheck = Date.now()
-          requestAnimationFrame(() => {
-            checkLoginState()
-          })
-        }, 1000 - (now - lastFocusCheck))
-        return
-      }
-      lastFocusCheck = now
-      requestAnimationFrame(() => {
-        checkLoginState()
-      })
+      checkLoginState()
     }
     window.addEventListener("focus", handleFocus)
     
@@ -305,29 +226,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       checkLoginState()
     }, 200)
     
-    // Throttle visibility change handler - use longer delay
-    let visibilityTimeout: NodeJS.Timeout | null = null
-    let lastVisibilityCheck = 0
+    // Also check when the page becomes visible (handles tab switching)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        const now = Date.now()
-        // Throttle to max once per 1000ms
-        if (now - lastVisibilityCheck < 1000) {
-          if (visibilityTimeout) {
-            clearTimeout(visibilityTimeout)
-          }
-          visibilityTimeout = setTimeout(() => {
-            lastVisibilityCheck = Date.now()
-            requestAnimationFrame(() => {
-              checkLoginState()
-            })
-          }, 1000 - (now - lastVisibilityCheck))
-          return
-        }
-        lastVisibilityCheck = now
-        requestAnimationFrame(() => {
-          checkLoginState()
-        })
+        checkLoginState()
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange)
@@ -341,9 +243,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      if (storageChangeTimeout) clearTimeout(storageChangeTimeout)
-      if (focusTimeout) clearTimeout(focusTimeout)
-      if (visibilityTimeout) clearTimeout(visibilityTimeout)
       clearTimeout(timeoutId)
       clearTimeout(safetyTimeout)
     }
@@ -352,7 +251,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false) // Added recently viewed section state
   const [isFiltersOpen, setIsFiltersOpen] = useState(false) // Added filters section state
   const [isTooltipTourActive, setIsTooltipTourActive] = useState(false) // Added contextual tooltip tour state
-  const [isOnboardingTourActive, setIsOnboardingTourActive] = useState(false) // Onboarding tour for new users
   const [recommendedAuthors, setRecommendedAuthors] = useState<Set<string>>(new Set())
   
   // Initialize platforms state - will be loaded from localStorage in useEffect
@@ -362,17 +260,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  
-  // New Apple Books layout state
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
-  const [showAuthorsDialog, setShowAuthorsDialog] = useState(false)
-  const [showFiltersDialog, setShowFiltersDialog] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const isMobileLayout = useIsMobile()
-  const showSidebar = sidebarOpen // Show sidebar on all devices when open
 
   const [userState, setUserState] = useState<UserType>({
     name: "My Bookshelf",
@@ -408,89 +295,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       try {
         const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
         const allBooks: Book[] = []
-        const startTime = performance.now()
-        
-        for (let i = 0; i < authors.length; i++) {
-          const author = authors[i]
+        for (const author of authors) {
           try {
-            // Add delay between author fetches to avoid rate limiting
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1500))
-            }
             const authorBooks = await fetchAuthorBooksWithCache(author)
             if (authorBooks && authorBooks.length > 0) {
-              // Get existing books by this author to use as reference
-              const existingBooksByAuthor = books.filter(book => {
-                const bookAuthor = getBookAuthor(book)
-                return normalizeAuthorName(bookAuthor).toLowerCase() === normalizeAuthorName(author).toLowerCase()
-              })
-              
-              // Validate books against existing books if we have any
-              const validatedBooks = authorBooks.filter((item: any) => {
-                const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
-                if (!apiAuthor) return false
-                
-                const bookAuthor = normalizeAuthorName(apiAuthor).toLowerCase()
-                const searchedAuthor = normalizeAuthorName(author).toLowerCase()
-                
-                // Require exact name match (after normalization)
-                if (bookAuthor !== searchedAuthor) {
-                  return false
-                }
-                
-                // If we have existing books by this author, use them as reference
-                if (existingBooksByAuthor.length > 0) {
-                  // Check if this book's metadata is consistent with existing books
-                  // Look at categories/genres - if existing books are fiction, exclude non-fiction
-                  const existingGenres = new Set(
-                    existingBooksByAuthor
-                      .flatMap(b => b.categories || [])
-                      .map(g => g.toLowerCase())
-                  )
-                  
-                  const bookCategories = (item.volumeInfo?.categories || []).map((c: string) => c.toLowerCase())
-                  const bookDescription = (item.volumeInfo?.description || "").toLowerCase()
-                  
-                  // If existing books are clearly fiction, exclude books that are clearly non-fiction
-                  const hasFictionGenre = Array.from(existingGenres).some(g => 
-                    g.includes("fiction") || g.includes("novel") || g.includes("literature")
-                  )
-                  
-                  if (hasFictionGenre) {
-                    const nonFictionIndicators = [
-                      "biography", "autobiography", "history", "historical", 
-                      "non-fiction", "nonfiction", "reference", "academic"
-                    ]
-                    const isNonFiction = nonFictionIndicators.some(indicator =>
-                      bookCategories.some(c => c.includes(indicator)) ||
-                      bookDescription.includes(indicator)
-                    )
-                    if (isNonFiction) {
-                      return false
-                    }
-                  }
-                  
-                  // If existing books are clearly non-fiction, exclude books that are clearly fiction
-                  const hasNonFictionGenre = Array.from(existingGenres).some(g =>
-                    g.includes("biography") || g.includes("history") || g.includes("non-fiction")
-                  )
-                  
-                  if (hasNonFictionGenre) {
-                    const fictionIndicators = ["fiction", "novel", "literature", "romance", "mystery", "thriller"]
-                    const isFiction = fictionIndicators.some(indicator =>
-                      bookCategories.some(c => c.includes(indicator)) ||
-                      bookDescription.includes(indicator)
-                    )
-                    if (isFiction && !bookCategories.some(c => c.includes("biography") || c.includes("history"))) {
-                      return false
-                    }
-                  }
-                }
-                
-                return true
-              })
-              
-              allBooks.push(...validatedBooks)
+              allBooks.push(...authorBooks)
             }
           } catch (error) {
             console.error(`Error fetching books for ${author}:`, error)
@@ -499,16 +308,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         if (allBooks.length > 0) {
           const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
           setBooks(deduplicatedBooks)
-          
-          const endTime = performance.now()
-          const duration = endTime - startTime
-          if (duration > 5000) {
-            logError(`Fetching books took ${(duration / 1000).toFixed(2)}s for ${authors.length} authors`, "warning")
-          }
         }
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
-        logError(err, "error")
         console.error("Error fetching books for authors:", error)
       }
     }
@@ -635,12 +436,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       if (!isLoggedIn || !currentUser) return
 
       try {
-        const startTime = performance.now()
         // Load user-specific data
         const userDataKey = `bookshelf_data_${currentUser}`
         const savedData = localStorage.getItem(userDataKey)
-        const isNewUser = !savedData || savedData === "{}"
-        
         if (savedData) {
           const parsedData = JSON.parse(savedData)
           setAuthors(parsedData.authors || [])
@@ -660,17 +458,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           if (parsedData.bookRatings) {
             setBookRatings(new Map(Object.entries(parsedData.bookRatings)))
           }
-          
-          const endTime = performance.now()
-          const duration = endTime - startTime
-          if (duration > 1000) {
-            logError(`Loading user data took ${(duration / 1000).toFixed(2)}s`, "warning")
-          }
         }
         setIsDataLoaded(true)
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
-        logError(err, "error")
         console.error("Error loading user data:", error)
         setIsDataLoaded(true)
       }
@@ -678,27 +468,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     loadUserData()
   }, [isLoggedIn, currentUser])
-
-  // Check for new user and trigger onboarding tour after data is loaded
-  useEffect(() => {
-    if (!isLoggedIn || !currentUser || !isDataLoaded) return
-
-    const userDataKey = `bookshelf_data_${currentUser}`
-    const savedData = localStorage.getItem(userDataKey)
-    const isNewUser = !savedData || savedData === "{}"
-    
-    // Check if user has seen onboarding tour
-    const onboardingSeenKey = `bookshelf_onboarding_seen_${currentUser}`
-    const hasSeenOnboarding = localStorage.getItem(onboardingSeenKey) === "true"
-    
-    // Show onboarding tour for new users who haven't seen it
-    if (isNewUser && !hasSeenOnboarding) {
-      // Small delay to ensure UI is fully rendered
-      setTimeout(() => {
-        setIsOnboardingTourActive(true)
-      }, 1500)
-    }
-  }, [isLoggedIn, currentUser, isDataLoaded])
 
   useEffect(() => {
     if (!isLoggedIn || !isDataLoaded || !currentUser) return
@@ -939,12 +708,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
   }
 
-  const filteredAndLimitedBooks = useMemo(() => {
-    try {
-      const startTime = performance.now()
-      const base = (books || []).filter((book) => {
-    // Create bookId once at the start of the filter function
-    const bookId = `${book.title}-${getBookAuthor(book)}`
+  const filteredAndLimitedBooks = (() => {
+    const base = (books || []).filter((book) => {
     
     // Search filter - search in title and author
     if (searchQuery.trim()) {
@@ -974,24 +739,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     // Only show books by authors in your authors list
     const bookAuthor = getBookAuthor(book)
-    // Normalize the book's author to match how we store authors
-    const normalizedBookAuthor = normalizeAuthorName(bookAuthor)
-    
     // Use case-insensitive matching to handle normalization differences
-    const authorMatches = authors.some(author => {
-      const normalizedAuthor = normalizeAuthorName(author)
-      const directMatch = author.toLowerCase().trim() === bookAuthor.toLowerCase().trim()
-      const normalizedMatch = normalizedAuthor.toLowerCase() === normalizedBookAuthor.toLowerCase()
-      // Also try matching with just last name for cases where first name might differ
-      const authorLast = author.trim().split(/\s+/).pop()?.toLowerCase() || ""
-      const bookAuthorLast = bookAuthor.trim().split(/\s+/).pop()?.toLowerCase() || ""
-      const lastNameMatch = authorLast && bookAuthorLast && authorLast === bookAuthorLast && authorLast.length > 2
-      return directMatch || normalizedMatch || lastNameMatch
-    })
+    const authorMatches = authors.some(author => 
+      author.toLowerCase().trim() === bookAuthor.toLowerCase().trim() ||
+      normalizeAuthorName(author).toLowerCase() === normalizeAuthorName(bookAuthor).toLowerCase()
+    )
     if (!authorMatches) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🚫 Book "${book.title}" by "${bookAuthor}" (normalized: "${normalizedBookAuthor}") filtered out - not in authors list:`, authors)
-      }
       return false
     }
 
@@ -1078,13 +831,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
 
-    if (safeAdvancedFilters.seriesOnly) {
-      // Only show books that are part of a series
-      if (!book.seriesInfo || !book.seriesInfo.name) {
-        return false
-      }
-    }
-
     if (safeAdvancedFilters.upcomingOnly) {
       if (!book.publishedDate) return false
 
@@ -1141,25 +887,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       }
     }
 
-    // Filter by hearted books (loved rating) - also check footer view
-    if (showHeartedBooks || footerView === "favorites") {
+    // Filter by hearted books (loved rating)
+    if (showHeartedBooks) {
+      const bookId = `${book.title}-${getBookAuthor(book)}`
       const rating = bookRatings.get(bookId)
       if (rating !== "loved") {
         return false
       }
-    }
-
-    // Filter by footer view
-    if (footerView === "want-to-read") {
-      if (!wantToReadBooks.has(bookId)) {
-        return false
-      }
-    } else if (footerView === "finished") {
-      if (!readBooks.has(bookId)) {
-        return false
-      }
-    } else if (footerView === "library") {
-      // Library shows all books (no additional filter)
     }
 
     if (safeAdvancedFilters.fromDate && book.publishedDate) {
@@ -1202,6 +936,8 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
     // Hide books based on selected statuses to hide
     if (Array.isArray(safeAdvancedFilters.readingStatus) && safeAdvancedFilters.readingStatus.length > 0) {
+      const bookId = `${book.title}-${book.author}`
+      
       // Check if this book should be hidden based on its status
       for (const statusToHide of safeAdvancedFilters.readingStatus) {
         if (statusToHide === "read" && (readBooks || new Set()).has(bookId)) {
@@ -1222,6 +958,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     // Hide passed books by default unless showPassedBooks is true
+    const bookId = `${book.title}-${book.author}`
     if ((dontWantBooks || new Set()).has(bookId) && !(safeAdvancedFilters as any).showPassedBooks) {
       return false // Hide passed books unless explicitly shown
     }
@@ -1249,30 +986,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return result
     }
     return deduplicatedBase
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      logError(err, "error")
-      // Return empty array on error to prevent crash
-      return []
-    }
-  }, [
-    books,
-    searchQuery,
-    userState.preferredLanguages,
-    userState.ageRange,
-    authors,
-    selectedAuthors,
-    selectedGenres,
-    advancedFilters,
-    showHeartedBooks,
-    footerView,
-    bookRatings,
-    readBooks,
-    wantToReadBooks,
-    dontWantBooks,
-    userState.country,
-    userState.settings?.showLastNBooks,
-  ])
+  })()
 
   const getDefaultPlatformUrl = (platformName: string) => {
     const userPlatform = platforms.find((p) => p.name === platformName)
@@ -1322,60 +1036,21 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }))
 
   const onBooksFound = (newBooks: Book[]) => {
-    console.log("📚 onBooksFound called with", newBooks.length, "books")
-    console.log("📝 Current authors:", authors)
     setBooks((prevBooks) => {
-      // Filter out books with invalid authors (but don't filter by authors list here)
-      // AuthorManager already ensures only matching books are passed
-      // The real filtering by authors list happens in filteredAndLimitedBooks
+      // Simple approach: just add new books, filter out any with missing authors
       const validNewBooks = newBooks.filter(book => {
-        // First, filter out special editions, graded readers, and abridged versions
-        if (isSpecialEdition(book)) {
-          console.log("🚫 Filtered out special edition/graded reader:", book.title)
-          return false
-        }
-        
         const author = getBookAuthor(book)
-        const normalizedAuthor = normalizeAuthorName(author)
-        const isValid = author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
-        if (!isValid) {
-          console.log("🚫 Filtered out book with invalid author:", book.title, "author:", author)
-        } else {
-          // Normalize the book's author to match the authors list format
-          book.author = normalizedAuthor
-          if (book.authors && book.authors.length > 0) {
-            book.authors[0] = normalizedAuthor
-          }
-          console.log("✅ Book author normalized:", book.title, "author:", author, "→", normalizedAuthor)
-        }
-        return isValid
+        return author && author !== "Unknown" && author !== "UNKNOWN AUTHOR" && author.trim() !== ""
       })
       
-      console.log("✅ Valid new books:", validNewBooks.length)
-      validNewBooks.forEach(book => {
-        const bookAuthor = getBookAuthor(book)
-        const normalizedAuthor = normalizeAuthorName(bookAuthor)
-        const authorInList = authors.some(a => normalizeAuthorName(a).toLowerCase() === normalizedAuthor.toLowerCase())
-        console.log(`  📖 "${book.title}" by "${bookAuthor}" (normalized: "${normalizedAuthor}") - in authors list: ${authorInList}`)
-      })
-      
-      // Replace existing books with same ID (to update covers/descriptions) and add new ones
+      // Remove duplicates based on book ID
       const existingIds = new Set(prevBooks.map(book => book.id))
-      const booksToAdd = validNewBooks.filter(book => !existingIds.has(book.id))
-      const booksToReplace = validNewBooks.filter(book => existingIds.has(book.id))
+      const uniqueNewBooks = validNewBooks.filter(book => !existingIds.has(book.id))
       
-      console.log("New books to add:", booksToAdd.length)
-      console.log("Existing books to replace (with updated covers/descriptions):", booksToReplace.length)
-      
-      // Remove old versions of books being replaced, then add new versions
-      const updatedBooks = prevBooks.filter(book => !booksToReplace.find(b => b.id === book.id))
-      
-      const allBooks = [...updatedBooks, ...booksToReplace, ...booksToAdd]
+      const allBooks = [...prevBooks, ...uniqueNewBooks]
       
       // Deduplicate using the improved deduplicateBooks function
       const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
-      
-      console.log("Final book count:", deduplicatedBooks.length)
       
       return deduplicatedBooks
     })
@@ -1428,268 +1103,133 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
   const currentTheme = colorThemes[colorTheme] || colorThemes.orange
 
   return (
-    <div className={`h-screen flex flex-col overflow-hidden ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
-      {/* Header - Same depth as footer, white text */}
-      <header
-        className={`sticky top-0 z-50 text-white shadow-sm ${highContrast ? 'bg-black border-b-4 border-white' : ''}`}
-        style={!highContrast ? { backgroundColor: currentTheme.footerColor } : undefined}
-      >
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
-          {/* Left: App Title */}
-          <div className="flex items-center gap-2">
+    <div className={`min-h-screen ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
+      <header className={`relative shadow-lg overflow-hidden ${
+        highContrast 
+          ? "bg-black text-white border-b-4 border-white" 
+          : `${currentTheme.headerGradient} text-white`
+      }`}>
+        <div className="container mx-auto px-4 py-4">
+          {/* Accessibility Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 md:gap-4">
               <button
                 onClick={() => {
+                  const newState = !isMobileMenuOpen
+                  setIsMobileMenuOpen(newState)
+                  
+                  // Scroll to top when opening mobile menu to ensure it's visible
+                  if (newState) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }
+                }}
+                className={`md:hidden p-2 rounded-lg border-2 transition-colors ${
+                  isMobileMenuOpen 
+                    ? "bg-orange-500 text-white border-orange-600" 
+                    : "bg-white text-black border-black hover:bg-gray-100"
+                }`}
+                aria-label="Toggle menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              {/* Make "My Bookshelf" clickable to reset filters */}
+              <button
+                onClick={() => {
+                  setIsAuthorsOpen(true)
+                  setIsRecommendationsOpen(true)
                   setSearchQuery("")
                   setSelectedAuthors([])
+                  setSelectedLanguages(["en"])
                   setSelectedGenres([])
                   setAdvancedFilters(defaultAdvancedFilters)
                 }}
-                className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
-                data-onboarding="welcome"
+                className="bg-white border-4 border-black rounded-full px-4 md:px-6 py-2 hover:bg-orange-50 transition-colors"
+                title="Click to clear all filters and show all books"
               >
-                MY BOOKCASE
+                <h1 className="text-black font-black text-lg md:text-xl tracking-tight">MY BOOKCASE</h1>
               </button>
             </div>
 
-          {/* Center: Search Bar - More space on mobile */}
-          <div className={`flex-1 ${isMobileLayout ? 'mx-2' : 'max-w-xl md:max-w-2xl mx-2 md:mx-8'}`} data-onboarding="search">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Search books..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-full text-sm md:text-base bg-white text-black placeholder:text-gray-500"
-              />
+            <div className="flex items-center gap-2">
+              <div className="scale-75 md:scale-100 origin-right">
+                <AccountManager user={user} isLoggedIn={isLoggedIn} />
+              </div>
             </div>
           </div>
 
-          {/* Right: Mobile Menu (hamburger) or Desktop Action Buttons */}
-          {isMobileLayout ? (
-            <DropdownMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2 text-white hover:bg-white/20">
-                  <Menu className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Menu</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                
-                {/* Authors - Prominent placement */}
-                <DropdownMenuItem onClick={() => { setShowAuthorsDialog(true); setMobileMenuOpen(false); }} data-onboarding="authors">
-                  <Users className="w-4 h-4 mr-2" />
-                  Authors & Books
-                </DropdownMenuItem>
-                
-                {/* View Options */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      {viewMode === "grid" && <Grid3x3 className="w-4 h-4 mr-2" />}
-                      {viewMode === "list" && <List className="w-4 h-4 mr-2" />}
-                      View
-                      <ChevronDown className="w-4 h-4 ml-auto" />
-                    </DropdownMenuItem>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="left">
-                    <DropdownMenuItem onClick={() => { setViewMode("grid"); setMobileMenuOpen(false); }}>
-                      <Grid3x3 className="w-4 h-4 mr-2" />
-                      Grid View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setViewMode("list"); setMobileMenuOpen(false); }}>
-                      <List className="w-4 h-4 mr-2" />
-                      List View
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                {/* Sort Options */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <ArrowUpDown className="w-4 h-4 mr-2" />
-                      Sort
-                      <ChevronDown className="w-4 h-4 ml-auto" />
-                    </DropdownMenuItem>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="left">
-                    <DropdownMenuItem onClick={() => { setSortBy("newest"); setMobileMenuOpen(false); }}>
-                      Newest First
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy("oldest"); setMobileMenuOpen(false); }}>
-                      Oldest First
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy("title"); setMobileMenuOpen(false); }}>
-                      Title A-Z
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy("author"); setMobileMenuOpen(false); }}>
-                      Author A-Z
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy("pages"); setMobileMenuOpen(false); }}>
-                      Most Pages
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                {/* Advanced Filters - Opens directly */}
-                <DropdownMenuItem onClick={() => { setShowFiltersDialog(true); setMobileMenuOpen(false); }}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Advanced Filters
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
-                
-                {/* Settings Options */}
-                <DropdownMenuItem onClick={() => { setShowSettingsDialog(true); setMobileMenuOpen(false); }}>
-                  <User className="w-4 h-4 mr-2" />
-                  My Preferences
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setShowExportDialog(true); setMobileMenuOpen(false); }}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Data
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
-                
-                {/* Login/Logout */}
-                {isLoggedIn ? (
-                  <form action={signOut}>
-                    <DropdownMenuItem asChild>
-                      <button type="submit" className="w-full flex items-center cursor-pointer">
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Logout
-                      </button>
-                    </DropdownMenuItem>
-                  </form>
-                ) : (
-                  <DropdownMenuItem 
-                    onClick={(e) => { 
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowAuthDialog(true);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Login
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-          <div className="flex items-center gap-0.5 md:gap-2 flex-shrink-0">
-            {/* View Dropdown - Hide on mobile */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white hover:bg-white/20 p-2">
-                  {viewMode === "grid" && <Grid3x3 className="w-4 h-4" />}
-                  {viewMode === "list" && <List className="w-4 h-4" />}
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>View</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setViewMode("grid")}>
-                  <Grid3x3 className="w-4 h-4 mr-2" />
-                  Grid View
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setViewMode("list")}>
-                  <List className="w-4 h-4 mr-2" />
-                  List View
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Sort Dropdown - Hide on mobile */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white hover:bg-white/20 p-2">
-                  <ArrowUpDown className="w-4 h-4" />
-                  <span className="hidden lg:inline">Sort</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Sort By</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSortBy("newest")}>
-                  Newest First
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("oldest")}>
-                  Oldest First
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("title")}>
-                  Title A-Z
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("author")}>
-                  Author A-Z
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("pages")}>
-                  Most Pages
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Authors Button - Opens Authors & Books dialog */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2"
-              onClick={() => setShowAuthorsDialog(true)}
-              data-onboarding="authors"
-            >
-              <Users className="w-4 h-4" />
-              <span className="hidden lg:inline">Authors</span>
-            </Button>
-
-            {/* Filter Button - Opens Advanced Filters directly */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="gap-1 md:gap-2 text-white hover:bg-white/20 p-1.5 md:p-2"
-              onClick={() => setShowFiltersDialog(true)}
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden lg:inline">Filter</span>
-            </Button>
-
-            {/* Account Manager - Always visible on desktop */}
-            <div className="flex-shrink-0">
-              <AccountManager 
-                user={user} 
-                isLoggedIn={isLoggedIn}
-                showAuthDialog={showAuthDialog}
-                onAuthDialogChange={setShowAuthDialog}
-              />
+          {showOnboarding && (
+            <div className="absolute top-full left-4 mt-2 md:hidden z-50">
+              <div className="bg-yellow-400 text-black px-3 py-2 rounded-lg border-2 border-black shadow-lg animate-bounce">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-xs font-bold">Start here! Add your favorite authors</span>
+                </div>
+              </div>
             </div>
-
-          </div>
           )}
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Main Content - Book Grid */}
-        <main className="flex-1 px-4 md:px-6 py-6 overflow-y-auto" style={{ maxHeight: isMobileLayout ? 'calc(100vh - 180px)' : 'calc(100vh - 140px)' }}>
-          {/* Reading Progress */}
-          <div className="mb-4 flex items-center justify-between">
-            <div className="bg-white border-2 border-black rounded-lg px-3 py-1">
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* Mobile: Show main content first, then sidebar */}
+          <main className={`md:col-span-4 space-y-6 ${isMobileMenuOpen ? "order-2" : "order-1 md:order-2"}`}>
+            <div className={`bg-white rounded-lg shadow-lg border-4 border-black p-6 ${isFiltersOpen ? '' : 'pb-0'}`}>
+              <BookFilters
+                authors={authors}
+                recommendedAuthors={recommendedAuthors}
+                selectedAuthors={selectedAuthors}
+                setSelectedAuthors={setSelectedAuthors}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                selectedLanguages={selectedLanguages}
+                setSelectedLanguages={setSelectedLanguages}
+                selectedGenres={selectedGenres}
+                setSelectedGenres={setSelectedGenres}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                userPreferences={userState}
+                advancedFilters={advancedFilters}
+                onFiltersChange={setAdvancedFilters}
+                books={books}
+                isFiltersOpen={isFiltersOpen}
+                setIsFiltersOpen={setIsFiltersOpen}
+                bookRatings={bookRatings}
+                showHeartedBooks={showHeartedBooks}
+                setShowHeartedBooks={setShowHeartedBooks}
+              />
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg border-4 border-black p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-red-600 font-bold text-lg uppercase tracking-wide flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    My Bookshelf
+                  </h2>
+                  <div className="bg-white border-2 border-black rounded-lg px-2 py-0.5">
                     <span className="text-black font-black text-xs">
-                READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
+                      READING PROGRESS {filteredAndLimitedBooks.filter(book => readBooks.has(`${book.title}-${book.author}`)).length} OF {filteredAndLimitedBooks.length}
                     </span>
                   </div>
-            <div className="bg-orange-100 border border-orange-200 rounded-lg px-3 py-1">
+                </div>
+                <div className="bg-orange-100 border border-orange-200 rounded-lg px-2 py-0.5">
                   <span className="text-orange-800 font-medium text-xs">
-                {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
+                    {filteredAndLimitedBooks.length} {filteredAndLimitedBooks.length === 1 ? 'book' : 'books'} shown
                   </span>
                 </div>
               </div>
 
-              <div data-tour="books" data-onboarding="book-actions">
+              <div data-tour="books">
                 <BookGrid
                   books={filteredAndLimitedBooks}
                 sortBy={sortBy}
@@ -1703,11 +1243,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 highContrast={highContrast}
                 recommendedAuthors={recommendedAuthors}
                 memoryAids={userState.memoryAids || []}
-                viewMode={viewMode}
-                onSortChange={setSortBy}
-                emptyStateIconClass={currentTheme.emptyStateIcon}
-                emptyStateTitleClass={currentTheme.emptyStateTitle}
-                emptyStateDescClass={currentTheme.emptyStateDesc}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
@@ -1876,160 +1411,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 }}
                 sharedBooks={new Set()}
                 />
+              </div>
             </div>
           </main>
-        </div>
 
-      {/* Fixed Footer with Icon/Tools */}
-      <footer 
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-lg"
-        style={{ backgroundColor: currentTheme.footerColor }}
-        data-onboarding="footer"
-      >
-        <div className="flex items-center justify-around px-4 py-2 md:px-8 md:py-3 [&_button]:text-white [&_button:hover]:text-white [&_button_svg]:text-white [&_button:hover_svg]:text-white">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "library" ? "bg-white/20" : ""}`}
-            onClick={() => setFooterView(footerView === "library" ? null : "library")}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = footerView === "library" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
-            }}
-          >
-            <BookOpen className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Library</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "favorites" ? "bg-white/20" : ""}`}
-            onClick={() => setFooterView(footerView === "favorites" ? null : "favorites")}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = footerView === "favorites" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
-            }}
-          >
-            <Heart className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Favorites</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "want-to-read" ? "bg-white/20" : ""}`}
-            onClick={() => setFooterView(footerView === "want-to-read" ? null : "want-to-read")}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = footerView === "want-to-read" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
-            }}
-          >
-            <BookmarkPlus className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Want to Read</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={`flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20 ${footerView === "finished" ? "bg-white/20" : ""}`}
-            onClick={() => setFooterView(footerView === "finished" ? null : "finished")}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = footerView === "finished" ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
-            }}
-          >
-            <BookCheck className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Finished</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
-            onClick={() => setShowSettingsDialog(true)}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }}
-          >
-            <Settings className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Settings</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2 hover:bg-white/20"
-            onClick={() => setShowExportDialog(true)}
-            style={{ color: 'white' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'white'
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }}
-          >
-            <FileText className="w-5 h-5 md:w-6 md:h-6" style={{ color: 'white' }} />
-            <span className="text-xs">Export</span>
-          </Button>
-        </div>
-      </footer>
-      
-      {/* Spacer to prevent content from being hidden behind fixed footer */}
-      <div className="h-16 md:h-20"></div>
-
-      {/* Export Dialog */}
-      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Export Data</DialogTitle>
-            <DialogDescription>
-              Export your bookshelf data including books, authors, and reading status.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <DataExport 
-              books={filteredAndLimitedBooks}
-              authors={authors}
-              readBooks={readBooks}
-              wantToReadBooks={wantToReadBooks}
-              dontWantBooks={dontWantBooks}
-              userProfile={userState}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Old sidebar content - now in dialogs */}
-      {false && (
           <aside className={`md:col-span-1 space-y-6 ${isMobileMenuOpen ? "block order-1" : "hidden md:block order-2 md:order-1"}`}>
             <div className="md:hidden flex justify-between items-center mb-4">
               <h2 className="text-white font-bold text-lg">Menu</h2>
@@ -2077,22 +1462,22 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
             {userState.suggestNewAuthors && (
               <div className={`bg-white rounded-lg shadow-lg border-4 border-black ${isRecommendationsOpen ? 'p-2 md:p-4' : 'p-2 md:p-4 pb-0'}`}>
-              <button
-                data-tour="recommendations"
-                onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
+                <button
+                  data-tour="recommendations"
+                  onClick={() => setIsRecommendationsOpen(!isRecommendationsOpen)}
                   className={`w-full flex items-center text-red-600 font-bold text-[10px] md:text-sm uppercase tracking-wide hover:bg-orange-50 p-2 md:p-4 -m-2 md:-m-4 rounded transition-colors ${isRecommendationsOpen ? 'mb-3' : 'mb-0'}`}
                 >
                   <Users className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 mr-1 md:mr-2" />
-                  <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">AUTHORS</span>
+                  <span className="flex-1 text-left min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">RECOMMENDATIONS</span>
                   {isRecommendationsOpen ? <ChevronUp className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0 ml-1 md:ml-2" />}
-              </button>
+                </button>
 
-              {isRecommendationsOpen && (
-                <Card className="bg-white border-orange-200">
-                  <CardContent className="p-4">
-                    <APIErrorBoundary>
-                      <ComponentErrorBoundary componentName="Book Recommendations">
-                        <BookRecommendations
+                {isRecommendationsOpen && (
+                  <Card className="bg-white border-orange-200">
+                    <CardContent className="p-4">
+                      <APIErrorBoundary>
+                        <ComponentErrorBoundary componentName="Book Recommendations">
+                          <BookRecommendations
                       authors={authors.map(name => ({ id: name, name }))}
                   books={books}
                   readBooks={readBooks}
@@ -2100,103 +1485,58 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   bookRatings={bookRatings}
                   user={userState}
                   onBookClick={async (book) => {
-                    console.log("onBookClick called with book:", book)
                     // Add the single book and include the author with just this one book
                     const bookAuthor = book.author || book.authors?.[0]
-                    console.log("Extracted bookAuthor:", bookAuthor)
-                    
-                    if (!bookAuthor || bookAuthor === "Unknown Author") {
-                      console.error("No valid author found for book:", book.title)
-                      // Still try to add the book even without author
-                      onBooksFound([book])
-                      return
-                    }
-                    
-                    const normalizedAuthor = normalizeAuthorName(bookAuthor)
-                    console.log("Normalized author:", normalizedAuthor)
-                    
-                    const authorExists = authors.some(author => 
-                      author.toLowerCase() === normalizedAuthor.toLowerCase()
-                    )
-                    console.log("Author exists:", authorExists, "Current authors:", authors)
-                    
-                    // Ensure the book's author field matches the normalized author name
-                    // This is critical for the filtering logic to work
-                    const bookWithNormalizedAuthor = {
-                      ...book,
-                      author: normalizedAuthor,
-                      authors: book.authors ? [normalizedAuthor, ...book.authors.filter(a => a !== bookAuthor && a !== "Unknown Author")] : [normalizedAuthor]
-                    }
-                    
-                    if (!authorExists) {
-                      const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
-                        const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
-                        return getLastName(a).localeCompare(getLastName(b))
-                      })
+                    if (bookAuthor) {
+                      const normalizedAuthor = normalizeAuthorName(bookAuthor)
+                      const authorExists = authors.some(author => 
+                        author.toLowerCase() === normalizedAuthor.toLowerCase()
+                      )
                       
-                      console.log("Adding new author:", normalizedAuthor, "Updated authors list:", updatedAuthors)
-                      
-                      // Save to localStorage FIRST before updating state
-                      if (currentUser) {
-                        localStorage.setItem(`authors_${currentUser}`, JSON.stringify(updatedAuthors))
-                      }
-                      
-                      // Update authors state
-                      setAuthors(updatedAuthors)
-                      
-                      // Mark as recommended origin
-                      setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
-                      
-                      // Save to database and track analytics
-                      if (currentUser) {
-                        saveUserAuthors(currentUser, updatedAuthors).catch(error => 
-                          console.error("Error saving authors to database:", error)
-                        )
+                      if (!authorExists) {
+                        const updatedAuthors = [...authors, normalizedAuthor].sort((a, b) => {
+                          const getLastName = (name: string) => name.trim().split(" ").pop()?.toLowerCase() || ""
+                          return getLastName(a).localeCompare(getLastName(b))
+                        })
                         
-                        trackEvent(currentUser, {
-                          event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-                          event_data: {
-                            author_name: normalizedAuthor,
-                            total_authors: updatedAuthors.length,
-                            source: "recommendation_book_click",
-                            timestamp: new Date().toISOString(),
-                          },
-                        }).catch(error => 
-                          console.error("Error tracking author addition:", error)
-                        )
-                      }
-                      
-                      // Add the book - use a longer delay to ensure author state is fully updated
-                      // The filtering logic checks if author is in authors list, so we need to wait
-                      setTimeout(() => {
-                        console.log("Adding book with normalized author:", bookWithNormalizedAuthor)
-                        console.log("Current authors at time of adding book:", updatedAuthors)
-                        onBooksFound([bookWithNormalizedAuthor])
+                        setAuthors(updatedAuthors)
                         
-                        setTimeout(() => {
-                          const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
-                          if (bookElement) {
-                            bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                          }
-                        }, 200)
-                      }, 300) // Longer delay to ensure state propagation
-                    } else {
-                      // Author already exists, just add the book
-                      console.log("Author already exists, adding book:", bookWithNormalizedAuthor)
-                      onBooksFound([bookWithNormalizedAuthor])
-                      
-                      setTimeout(() => {
-                        const bookElement = document.querySelector(`[data-book-id="${bookWithNormalizedAuthor.id}"]`)
-                        if (bookElement) {
-                          bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                        // Mark as recommended origin
+                        setRecommendedAuthors((prev) => new Set([...Array.from(prev), normalizedAuthor]))
+                        
+                        // Save to database and track analytics
+                        if (currentUser) {
+                          saveUserAuthors(currentUser, updatedAuthors).catch(error => 
+                            console.error("Error saving authors to database:", error)
+                          )
+                          
+                          trackEvent(currentUser, {
+                            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+                            event_data: {
+                              author_name: normalizedAuthor,
+                              total_authors: updatedAuthors.length,
+                              source: "recommendation_book_click",
+                              timestamp: new Date().toISOString(),
+                            },
+                          }).catch(error => 
+                            console.error("Error tracking author addition:", error)
+                          )
                         }
-                      }, 100)
+                      }
                     }
+                    
+                    // Add just the single book
+                    onBooksFound([book])
+
+                    setTimeout(() => {
+                      const bookElement = document.querySelector(`[data-book-id="${book.id}"]`)
+                      if (bookElement) {
+                        bookElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                      }
+                    }, 100)
                   }}
                   onAuthorClick={async (authorName) => {
-                    // Note: This is kept for modal compatibility but not used in the new single-book recommendation system
-                    // Users add individual books, not entire authors
-                    // However, if user explicitly clicks "Add Author" in modal, we'll still support it
+                    // Add the author to the authors list if not already present
                     const normalizedAuthor = normalizeAuthorName(authorName)
                     const authorExists = authors.some(author => 
                       author.toLowerCase() === normalizedAuthor.toLowerCase()
@@ -2208,7 +1548,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         return getLastName(a).localeCompare(getLastName(b))
                       })
                       
-                      // Always add the author first, even if API fails
                       setAuthors(updatedAuthors)
                       
                       // Mark as recommended origin
@@ -2233,30 +1572,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         )
                       }
                       
-                      // Fetch all books by this author (with retry logic)
+                      // Fetch all books by this author
                       try {
                         const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
                         const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
                         if (authorBooks && authorBooks.length > 0) {
                           // Add all books by this author
-                          onBooksFound(authorBooks)
-                        } else {
-                          // API returned no books (might be rate limited or author has no books)
-                          console.warn(`No books found for ${normalizedAuthor} - API may be rate limited or author has no books`)
-                          // Author is still added, user can manually add books later
-                        }
-                      } catch (error) {
-                        console.error("Error fetching author books:", error)
-                        // Author is still added even if API fails
-                        // User can manually add books or try again later
-                      }
-                    } else {
-                      // Author already exists, try to fetch their books anyway
-                      try {
-                        const { fetchAuthorBooksWithCache } = await import("@/lib/apiCache")
-                        const authorBooks = await fetchAuthorBooksWithCache(normalizedAuthor)
-                        if (authorBooks && authorBooks.length > 0) {
-                          // Add any new books by this author
                           onBooksFound(authorBooks)
                         }
                       } catch (error) {
@@ -2265,12 +1586,12 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     }
                   }}
                 />
-                      </ComponentErrorBoundary>
-                    </APIErrorBoundary>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                        </ComponentErrorBoundary>
+                      </APIErrorBoundary>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
 
 
@@ -2286,7 +1607,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </button>
 
               {isPreferencesOpen && (
-                  <div className="space-y-3">
+                <div className="space-y-3">
                   {/* Account Information - Collapsible */}
                   <div className="space-y-2">
                     <button
@@ -2353,7 +1674,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                           placeholder="e.g., United States"
                         />
-                    </div>
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
                         <input
@@ -2409,7 +1730,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </button>
                     {isReadingPrefsOpen && (
                       <div className="space-y-3 pl-2">
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
                     <div className="space-y-1">
                       {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
@@ -2441,7 +1762,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
                     <div className="space-y-1">
                       {[
@@ -2463,7 +1784,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
                     <div className="space-y-1">
                       {[
@@ -2501,7 +1822,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
                     <div className="space-y-1">
                       <label className="flex items-center text-xs">
@@ -2521,7 +1842,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
                     <div className="space-y-1">
                       {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
@@ -2552,41 +1873,41 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         ),
                       )}
                     </div>
-                  </div>
+                        </div>
 
                         {/* Limit Books per Author */}
-                  <div className="space-y-3">
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      {([3,5,10] as const).map((n) => (
-                        <label key={n} className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="showLastNBooks"
-                            checked={userState.settings?.showLastNBooks === n}
-                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
-                          />
-                          Last {n}
-                        </label>
-                      ))}
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="showLastNBooks"
-                          checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
-                          onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
-                        />
-                        All
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            {([3,5,10] as const).map((n) => (
+                              <label key={n} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="showLastNBooks"
+                                  checked={userState.settings?.showLastNBooks === n}
+                                  onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
+                                />
+                                Last {n}
+                              </label>
+                            ))}
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="showLastNBooks"
+                                checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
+                                onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
+                              />
+                              All
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Reading Platforms - Collapsible */}
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                     <button
                       onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
                       className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
@@ -2610,15 +1931,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             return (
                               <div key={option.name} className="space-y-1">
                                 <label className="flex items-center text-xs">
-                          <input
-                            type="checkbox"
+                                  <input
+                                    type="checkbox"
                                     checked={isEnabled}
-                            onChange={(e) => {
+                                    onChange={(e) => {
                                       if (e.target.checked) {
                                         // Add or enable platform
                                         const existing = platforms.find((p) => p.name === option.name && p.category === category)
                                         if (existing) {
-                              setPlatforms((prev) =>
+                                          setPlatforms((prev) =>
                                             prev.map((p) =>
                                               p.name === option.name && p.category === category
                                                 ? { ...p, enabled: true }
@@ -2638,40 +1959,40 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                                         }
                                       } else {
                                         // Disable platform
-                              setPlatforms((prev) =>
+                                        setPlatforms((prev) =>
                                           prev.map((p) =>
                                             p.name === option.name && p.category === category
                                               ? { ...p, enabled: false }
                                               : p
-                              )
+                                          )
                                         )
                                       }
-                            }}
-                            className="mr-2"
-                          />
+                                    }}
+                                    className="mr-2"
+                                  />
                                   {option.name}
-                        </label>
+                                </label>
                                 {isEnabled && (
-                        <input
-                          type="url"
+                                  <input
+                                    type="url"
                                     value={url}
-                          onChange={(e) => {
-                            setPlatforms((prev) =>
+                                    onChange={(e) => {
+                                      setPlatforms((prev) =>
                                         prev.map((p) =>
                                           p.name === option.name && p.category === category
                                             ? { ...p, url: e.target.value }
                                             : p
                                         )
-                            )
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                      )
+                                    }}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                                     placeholder={option.placeholder || option.defaultUrl}
-                        />
+                                  />
                                 )}
-                      </div>
+                              </div>
                             )
                           })}
-                      </div>
+                        </div>
                       </div>
                     ))}
                     
@@ -2762,9 +2083,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </div>
                     <p className="text-xs text-gray-500">
                       Increases contrast for better visibility
-                        </p>
+                    </p>
+                        </div>
                       </div>
-                    </div>
                     )}
                   </div>
 
@@ -2779,23 +2100,23 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     </button>
                     {isDataSupportOpen && (
                       <div className="space-y-3 pl-2">
-                  {/* Data Export Section */}
-                  <div className="space-y-3">
+                        {/* Data Export Section */}
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
-                    <div className="p-3 bg-orange-50 rounded border border-orange-200">
-                      <DataExport 
+                          <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                            <DataExport 
                               books={filteredAndLimitedBooks}
-                        authors={authors}
-                        readBooks={readBooks}
-                        wantToReadBooks={wantToReadBooks}
-                        dontWantBooks={dontWantBooks}
-                        userProfile={userState}
-              />
-                    </div>
-            </div>
+                              authors={authors}
+                              readBooks={readBooks}
+                              wantToReadBooks={wantToReadBooks}
+                              dontWantBooks={dontWantBooks}
+                              userProfile={userState}
+                            />
+                          </div>
+                        </div>
 
-                  {/* Help & Support Section */}
-                  <div className="space-y-3">
+                        {/* Help & Support Section */}
+                        <div className="space-y-3">
                           <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
                     <div className="p-3 bg-blue-50 rounded border border-blue-200">
                       <button
@@ -2808,14 +2129,14 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       <p className="text-xs text-blue-600 mt-2 text-center">
                         Take a guided tour to learn how to use all features
                       </p>
-                  </div>
+                        </div>
                         </div>
                       </div>
                     )}
-                </div>
+                  </div>
                 </div>
               )}
-              </div>
+            </div>
 
             {/* Recently Viewed Section for Memory Support */}
             {recentlyViewed.length > 0 && (
@@ -2865,575 +2186,25 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
               </div>
             )}
           </aside>
-        )}
-
-      {/* Dialogs for Settings, Authors, Filters */}
-      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>My Preferences</DialogTitle>
-            <DialogDescription>
-              Customize your reading preferences, display settings, and manage your account.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <div className="space-y-6">
-              {/* Account Information - Collapsible */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsAccountInfoOpen(!isAccountInfoOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <span>Account Information</span>
-                  {isAccountInfoOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {isAccountInfoOpen && (
-                  <div className="space-y-2 pl-2">
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
-                        <input
-                          type="text"
-                          value={userState.name}
-                          required
-                          onChange={(e) => {
-                            const capitalizedValue = e.target.value
-                              .split(" ")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                              .join(" ")
-                            setUserState((prev) => ({ ...prev, name: capitalizedValue }))
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
         </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
-                        <input
-                          type="email"
-                          value={userState.email}
-                          required
-                          onChange={(e) => setUserState((prev) => ({ ...prev, email: e.target.value }))}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                        <input
-                          type="tel"
-                          value={userState.phone}
-                          onChange={(e) => setUserState((prev) => ({ ...prev, phone: e.target.value }))}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">City and State</label>
-                        <input
-                          type="text"
-                          value={userState.cityState || ""}
-                          onChange={(e) => setUserState((prev) => ({ ...prev, cityState: e.target.value }))}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="e.g., New York, NY"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Country</label>
-                        <input
-                          type="text"
-                          value={userState.country || ""}
-                          onChange={(e) => setUserState((prev) => ({ ...prev, country: e.target.value }))}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          placeholder="e.g., United States"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
-                        <input
-                          type="date"
-                          value={userState.dateOfBirth || ""}
-                          onChange={(e) => setUserState((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Memory Aid Preferences</label>
-                        <div className="space-y-1 mt-1">
-                          <label className="flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={userState.diagnosedWithMemoryIssues || false}
-                              onChange={(e) => setUserState((prev) => ({ ...prev, diagnosedWithMemoryIssues: e.target.checked }))}
-                              className="mr-2"
-                            />
-                            Have you been diagnosed with memory issues?
-                          </label>
-                          <label className="flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={(userState.memoryAids || []).includes("Show book covers")}
-                              onChange={(e) => {
-                                const currentAids = userState.memoryAids || []
-                                if (e.target.checked) {
-                                  setUserState((prev) => ({ ...prev, memoryAids: [...currentAids, "Show book covers"] }))
-                                } else {
-                                  setUserState((prev) => ({ ...prev, memoryAids: currentAids.filter((a) => a !== "Show book covers") }))
-                                }
-                              }}
-                              className="mr-2"
-                            />
-                            Show book covers
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
       </div>
 
-              {/* Reading Preferences - Collapsible */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsReadingPrefsOpen(!isReadingPrefsOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <span>Reading Preferences</span>
-                  {isReadingPrefsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {isReadingPrefsOpen && (
-                  <div className="space-y-3 pl-2">
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Languages</h4>
-                      <div className="space-y-1">
-                        {["English", "Spanish", "French", "German", "Italian", "Portuguese"].map((lang, index) => {
-                          const langCode = ["en", "es", "fr", "de", "it", "pt"][index]
-                          return (
-                            <label key={langCode} className="flex items-center text-xs">
-                              <input
-                                type="checkbox"
-                                checked={userState.preferredLanguages.includes(langCode)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setUserState((prev) => ({
-                                      ...prev,
-                                      preferredLanguages: [...prev.preferredLanguages, langCode],
-                                    }))
-                                  } else {
-                                    setUserState((prev) => ({
-                                      ...prev,
-                                      preferredLanguages: prev.preferredLanguages.filter((l) => l !== langCode),
-                                    }))
-                                  }
-                                }}
-                                className="mr-2"
-                              />
-                              {lang}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Reading Age Range</h4>
-                      <div className="space-y-1">
-                        {[
-                          { label: "0-12", value: "Children (0-12)" },
-                          { label: "13-17", value: "Young Adult (13-17)" },
-                          { label: "18+", value: "Adult (18+)" },
-                        ].map(({ label, value }) => (
-                          <label key={value} className="flex items-center text-xs">
-                            <input
-                              type="radio"
-                              name="ageRange"
-                              checked={userState.ageRange === value}
-                              onChange={() => setUserState((prev) => ({ ...prev, ageRange: value }))}
-                              className="mr-2"
-                            />
-                            {label}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Genres</h4>
-                      <div className="space-y-1">
-                        {[
-                          "Fiction",
-                          "Mystery",
-                          "Romance",
-                          "Science Fiction",
-                          "Fantasy",
-                          "Thriller",
-                          "Historical Fiction",
-                          "Memoir/Biography",
-                        ].map((genre) => (
-                          <label key={genre} className="flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={userState.preferredGenres.includes(genre)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setUserState((prev) => ({
-                                    ...prev,
-                                    preferredGenres: [...prev.preferredGenres, genre],
-                                  }))
-                                } else {
-                                  setUserState((prev) => ({
-                                    ...prev,
-                                    preferredGenres: prev.preferredGenres.filter((g) => g !== genre),
-                                  }))
-                                }
-                              }}
-                              className="mr-2"
-                            />
-                            {genre}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Recommendations</h4>
-                      <div className="space-y-1">
-                        <label className="flex items-center text-xs">
-                          <input
-                            type="checkbox"
-                            checked={userState.suggestNewAuthors || false}
-                            onChange={(e) => setUserState((prev) => ({ ...prev, suggestNewAuthors: e.target.checked }))}
-                            className="mr-2"
-                          />
-                          Suggest new authors
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Publication Type</h4>
-                      <div className="space-y-1">
-                        {["Novels", "Short Stories", "Poetry", "Non-Fiction", "Biography/Memoir", "Essays"].map(
-                          (type) => (
-                            <label key={type} className="flex items-center text-xs">
-                              <input
-                                type="checkbox"
-                                checked={userState.publicationTypePreferences.includes(type)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setUserState((prev) => ({
-                                      ...prev,
-                                      publicationTypePreferences: [...prev.publicationTypePreferences, type],
-                                    }))
-                                  } else {
-                                    setUserState((prev) => ({
-                                      ...prev,
-                                      publicationTypePreferences: prev.publicationTypePreferences.filter(
-                                        (t) => t !== type,
-                                      ),
-                                    }))
-                                  }
-                                }}
-                                className="mr-2"
-                              />
-                              {type}
-                            </label>
-                          ),
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Limit Books per Author */}
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Limit Books per Author</h4>
-                      <div className="flex flex-wrap gap-3 text-xs">
-                        {([3,5,10] as const).map((n) => (
-                          <label key={n} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="showLastNBooks"
-                              checked={userState.settings?.showLastNBooks === n}
-                              onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: n } }))}
-                            />
-                            Last {n}
-                          </label>
-                        ))}
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="showLastNBooks"
-                            checked={userState.settings?.showLastNBooks === "all" || userState.settings?.showLastNBooks === undefined}
-                            onChange={() => setUserState((prev) => ({ ...prev, settings: { ...prev.settings, showLastNBooks: "all" } }))}
-                          />
-                          All
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-600">Show only the most recent publications per author to reduce overwhelm.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Reading Platforms - Collapsible */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsReadingPlatformsOpen(!isReadingPlatformsOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <span>Reading Platforms</span>
-                  {isReadingPlatformsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {isReadingPlatformsOpen && (
-                  <div className="space-y-4 pl-2">
-                    {Object.entries(platformCategories).map(([category, categoryPlatforms]) => (
-                      <div key={category} className="space-y-2">
-                        <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">{category}</h4>
-                        {categoryPlatforms.map((platform) => {
-                          const platformKey = `${category}_${platform.name}`
-                          const isEnabled = platforms.some(p => p.name === platform.name && p.category === category)
-                          const platformData = platforms.find(p => p.name === platform.name && p.category === category)
-                          
-                          return (
-                            <div key={platformKey} className="space-y-2 pl-2">
-                              <label className="flex items-center text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={isEnabled}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      const newPlatform: Platform = {
-                                        name: platform.name,
-                                        url: platform.defaultUrl || "",
-                                        enabled: true,
-                                        category: category as "Print" | "Audio" | "Ebook" | "Library",
-                                      }
-                                      setPlatforms((prev) => [...prev, newPlatform])
-                                    } else {
-                                      setPlatforms((prev) => prev.filter(p => !(p.name === platform.name && p.category === category)))
-                                    }
-                                  }}
-                                  className="mr-2"
-                                />
-                                {platform.name}
-                              </label>
-                              {isEnabled && (
-                                <input
-                                  type="text"
-                                  value={platformData?.url || platform.defaultUrl || ""}
-                                  onChange={(e) => {
-                                    setPlatforms((prev) => prev.map(p => 
-                                      p.name === platform.name && p.category === category
-                                        ? { ...p, url: e.target.value }
-                                        : p
-                                    ))
-                                  }}
-                                  placeholder={platform.placeholder || `Enter URL for ${platform.name}`}
-                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                />
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Display & Settings - Collapsible */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsDisplaySettingsOpen(!isDisplaySettingsOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <span>Display & Settings</span>
-                  {isDisplaySettingsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {isDisplaySettingsOpen && (
-                  <div className="space-y-3 pl-2">
-                    {/* Color Theme Selection */}
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Color Theme</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        {Object.entries(colorThemes).map(([key, theme]) => {
-                          const isSelected = colorTheme === key
-                          const borderClass = isSelected ? (
-                            key === 'orange' ? 'border-orange-600 bg-orange-50' :
-                            key === 'blue' ? 'border-blue-600 bg-blue-50' :
-                            key === 'green' ? 'border-green-600 bg-green-50' :
-                            key === 'purple' ? 'border-purple-600 bg-purple-50' :
-                            key === 'teal' ? 'border-teal-600 bg-teal-50' :
-                            'border-gray-600 bg-gray-50'
-                          ) : 'border-gray-200 bg-white hover:border-gray-300'
-                          
-                          const textClass = isSelected ? (
-                            key === 'orange' ? 'text-orange-700' :
-                            key === 'blue' ? 'text-blue-700' :
-                            key === 'green' ? 'text-green-700' :
-                            key === 'purple' ? 'text-purple-700' :
-                            key === 'teal' ? 'text-teal-700' :
-                            'text-gray-700'
-                          ) : 'text-gray-700'
-                          
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => setColorTheme(key)}
-                              className={`p-3 rounded-lg border-2 transition-all text-left ${borderClass}`}
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${
-                                  key === 'orange' ? 'from-orange-400 to-orange-600' :
-                                  key === 'blue' ? 'from-blue-400 to-blue-600' :
-                                  key === 'green' ? 'from-green-800 to-green-950' :
-                                  key === 'purple' ? 'from-purple-400 to-purple-600' :
-                                  key === 'teal' ? 'from-teal-400 to-teal-600' :
-                                  'from-gray-300 to-gray-500'
-                                }`} />
-                                <span className={`text-xs font-semibold ${textClass}`}>
-                                  {theme.name}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500">{theme.description}</p>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* High Contrast Toggle */}
-                    <div className="flex items-center justify-between space-x-2">
-                      <Label htmlFor="high-contrast" className="text-sm text-orange-700 cursor-pointer">
-                        High Contrast Mode
-                      </Label>
-                      <Switch
-                        id="high-contrast"
-                        checked={highContrast}
-                        onCheckedChange={setHighContrast}
-                        className="data-[state=checked]:bg-orange-500"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Increases contrast for better visibility
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Data & Support - Collapsible */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsDataSupportOpen(!isDataSupportOpen)}
-                  className="w-full flex items-center justify-between text-red-600 font-bold text-sm uppercase tracking-wide hover:bg-orange-50 p-2 -m-2 rounded transition-colors"
-                >
-                  <span>Data & Support</span>
-                  {isDataSupportOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {isDataSupportOpen && (
-                  <div className="space-y-3 pl-2">
-                    {/* Data Export Section */}
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Data Export</h4>
-                      <div className="p-3 bg-orange-50 rounded border border-orange-200">
-                        <DataExport 
-                          books={filteredAndLimitedBooks}
-                          authors={authors}
-                          readBooks={readBooks}
-                          wantToReadBooks={wantToReadBooks}
-                          dontWantBooks={dontWantBooks}
-                          userProfile={userState}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Help & Support Section */}
-                    <div className="space-y-3">
-                      <h4 className="text-red-600 font-bold text-xs uppercase tracking-wide">Help & Support</h4>
-                      <div className="p-3 bg-blue-50 rounded border border-blue-200 space-y-2">
-                        <button
-                          onClick={() => {
-                            // Reset onboarding tour completion status
-                            if (currentUser) {
-                              localStorage.removeItem(`bookshelf_onboarding_seen_${currentUser}`)
-                            }
-                            setIsOnboardingTourActive(true)
-                            setShowSettingsDialog(false)
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors font-medium"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                          Start Onboarding Tour
-                        </button>
-                        <p className="text-xs text-blue-600 mt-2 text-center">
-                          Take a guided tour to learn how to use all features
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showAuthorsDialog} onOpenChange={setShowAuthorsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[51]">
-          <DialogHeader>
-            <DialogTitle>Authors & Books</DialogTitle>
-            <DialogDescription>
-              Add authors to your bookshelf. We'll automatically find all their books for you.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <AuthorManager
-              authors={authors}
-              setAuthors={setAuthors}
-              userId={currentUser || "guest"}
-              onBooksFound={onBooksFound}
-              onAuthorsChange={(newAuthors) => {
-                setAuthors(newAuthors)
-                if (currentUser) {
-                  localStorage.setItem(`authors_${currentUser}`, JSON.stringify(newAuthors))
-                }
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showFiltersDialog} onOpenChange={setShowFiltersDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Filters</DialogTitle>
-            <DialogDescription>
-              Filter your books by author, genre, date, and reading status.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <AdvancedFilters
-              filters={advancedFilters}
-              onFiltersChange={setAdvancedFilters}
-              books={books}
-              authors={authors.map(name => ({ id: name, name }))}
-              showHeartedBooks={showHeartedBooks}
-              setShowHeartedBooks={setShowHeartedBooks}
-              selectedAuthors={selectedAuthors}
-              setSelectedAuthors={setSelectedAuthors}
-              recommendedAuthors={recommendedAuthors}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Account Manager for Mobile - dialog only; trigger is in hamburger menu */}
-      {isMobileLayout && (
-        <div className="hidden">
-          <AccountManager 
-            user={user} 
-            isLoggedIn={isLoggedIn}
-            showAuthDialog={showAuthDialog}
-            onAuthDialogChange={setShowAuthDialog}
-          />
+      <footer 
+        className="text-white py-4 mt-12"
+        style={{ backgroundColor: currentTheme.footerColor }}
+      >
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-xs opacity-80 mb-1">
+            This site was designed by Susanna Kemp as a personal project. It is intended to reduce overwhelm and online
+            clutter and is for individual use. It may not be copied without permission.
+          </p>
+          <p className="text-xs opacity-70 mb-2">Design inspired Penguin Books and art by James McQueen.</p>
+          <p className="text-xs opacity-60">
+            Data is private to your account only. It is stored locally on your device and for now will be erased if you
+            clear your cache.
+          </p>
         </div>
-      )}
+      </footer>
 
       {/* Contextual Tooltip Tour */}
       <TooltipManager
@@ -3446,8 +2217,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
           }
         }}
       />
-
-
     </div>
   )
 }
