@@ -36,6 +36,9 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         const author = doc.author_name?.[0] || doc.author_name || "Unknown Author"
         const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
         
+        // Get work key first (needed for fetching full description and covers)
+        const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
+        
         // Get cover from OpenLibrary (try multiple sources)
         let thumbnail = ""
         if (doc.cover_i) {
@@ -52,9 +55,6 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
           // Try work key-based cover as last resort
           thumbnail = `https://covers.openlibrary.org/b/olid/${workKey}-L.jpg`
         }
-        
-        // Get work key first (needed for fetching full description and covers)
-        const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
         
         // Get description from first_sentence if available (we'll fetch full description later if needed)
         let description = ""
