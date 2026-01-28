@@ -392,7 +392,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     readingMethod: ["Print Books", "E-books", "Audiobooks"],
     ageRange: "",
     suggestNewAuthors: false,
-    showRecommendButton: false,
     dateOfBirth: "",
     preferredReadingTime: "",
     readingGoal: 0,
@@ -533,7 +532,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
             readingMethod: userPrefs.readingMethod || ["Print Books", "E-books", "Audiobooks"],
             publicationTypePreferences: userPrefs.publicationTypePreferences || [],
             suggestNewAuthors: userPrefs.suggestNewAuthors || false,
-            showRecommendButton: userPrefs.showRecommendButton || false,
             dateOfBirth: userPrefs.dateOfBirth || "",
             preferredReadingTime: userPrefs.preferredReadingTime || "",
             readingGoal: userPrefs.readingGoal || 0,
@@ -1680,8 +1678,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 memoryAids={userState.memoryAids || []}
                 viewMode={viewMode}
                 onSortChange={setSortBy}
-                showRecommendButton={userState.showRecommendButton || false}
-                onRecommendClick={(book) => window.open(`https://books.google.com/books?id=${book.id}`, "_blank")}
                 emptyStateIconClass={currentTheme.emptyStateIcon}
                 emptyStateTitleClass={currentTheme.emptyStateTitle}
                 emptyStateDescClass={currentTheme.emptyStateDesc}
@@ -2495,20 +2491,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                         />
                         Suggest new authors
                       </label>
-                      <label className="flex items-center text-xs">
-                        <input
-                          type="checkbox"
-                          checked={userState.showRecommendButton || false}
-                          onChange={(e) => {
-                            setUserState((prev) => ({
-                              ...prev,
-                              showRecommendButton: e.target.checked,
-                            }))
-                          }}
-                          className="mr-2"
-                        />
-                        Show Recommend button on books — opens Google Books for similar titles
-                      </label>
                     </div>
                   </div>
 
@@ -3094,15 +3076,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                             className="mr-2"
                           />
                           Suggest new authors
-                        </label>
-                        <label className="flex items-center text-xs">
-                          <input
-                            type="checkbox"
-                            checked={userState.showRecommendButton || false}
-                            onChange={(e) => setUserState((prev) => ({ ...prev, showRecommendButton: e.target.checked }))}
-                            className="mr-2"
-                          />
-                          Show Recommend button on books — opens Google Books for similar titles
                         </label>
                       </div>
                     </div>
