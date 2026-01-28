@@ -97,6 +97,10 @@ class APICache {
     this.cache.clear()
   }
 
+  delete(key: string): void {
+    this.cache.delete(key)
+  }
+
   // Clear cache for a specific author
   clearAuthor(authorName: string): void {
     const key = getAuthorBooksCacheKey(authorName)
