@@ -522,6 +522,123 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       const response = await fetch(apiUrl)
       console.log("📡 Response status:", response.status)
       
+      // Check if Google Books is rate-limited
+      if (response.status === 429) {
+        console.warn(`⚠️ Google Books API rate-limited (429). Falling back to OpenLibrary...`)
+        
+        // Try OpenLibrary search as fallback
+        const { fetchAuthorBooksFromOpenLibrary } = await import("@/lib/openLibraryFallback")
+        const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
+        
+        // OpenLibrary search by title
+        const openLibraryUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&language=eng&limit=20`
+        console.log(`🌐 OpenLibrary fallback URL: ${openLibraryUrl}`)
+        
+        try {
+          const olResponse = await fetch(openLibraryUrl)
+          if (olResponse.ok) {
+            const olData = await olResponse.json()
+            if (olData.docs && olData.docs.length > 0) {
+              // Convert OpenLibrary format to our Book format
+              const olBooks = olData.docs.map((doc: any) => {
+                const title = doc.title || "Unknown Title"
+                const author = doc.author_name?.[0] || "Unknown Author"
+                const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
+                const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
+                
+                let thumbnail = ""
+                if (doc.cover_i) {
+                  thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
+                } else if (isbn) {
+                  thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn.replace(/-/g, "")}-L.jpg`
+                }
+                
+                let description = ""
+                if (doc.first_sentence) {
+                  if (Array.isArray(doc.first_sentence)) {
+                    description = doc.first_sentence.join(" ")
+                  } else if (typeof doc.first_sentence === "string") {
+                    description = doc.first_sentence
+                  }
+                }
+                
+                let publishedDate = "Unknown Date"
+                if (doc.first_publish_year) {
+                  publishedDate = `${doc.first_publish_year}-01-01`
+                }
+                
+                const id = workKey ? `OL-${workKey}` : `OL-${title.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+                
+                const book: any = {
+                  id,
+                  title,
+                  author,
+                  authors: doc.author_name || [author],
+                  publishedDate,
+                  description,
+                  thumbnail,
+                  isbn,
+                  pageCount: doc.number_of_pages_median || 0,
+                  categories: doc.subject || [],
+                  language: doc.language?.[0] || "en",
+                  publisher: doc.publisher?.[0] || "",
+                }
+                
+                if (workKey) {
+                  book.olWorkKey = workKey
+                  if (description.length > 0 && description.length < 200) {
+                    book.needsFullDescription = true
+                  }
+                }
+                
+                return book
+              })
+              
+              // Filter and enhance
+              const filteredBooks = olBooks.filter((book: Book) => {
+                if (book.language && book.language !== "en" && book.language !== "eng") return false
+                const title = (book.title || "").toLowerCase()
+                const unwantedKeywords = ["free preview", "sample", "promotional", "marketing"]
+                if (unwantedKeywords.some(keyword => title.includes(keyword))) return false
+                return true
+              })
+              
+              // Enhance books that need descriptions/covers
+              const booksToEnhance = filteredBooks.filter((book: any) => 
+                (!book.description || book.description.trim().length === 0) || 
+                (!book.thumbnail || book.thumbnail.trim().length === 0) ||
+                book.needsFullDescription
+              )
+              
+              if (booksToEnhance.length > 0) {
+                const { enhanceBooksData } = await import("@/lib/bookDataMiddleware")
+                const enhancedBooks = await enhanceBooksData(booksToEnhance, 200)
+                const enhancedMap = new Map(enhancedBooks.map((b: Book) => [b.id, b]))
+                const finalBooks = filteredBooks.map((book: Book) => enhancedMap.get(book.id) || book)
+                setFoundBooks(finalBooks)
+                setIsSearching(false)
+                return
+              } else {
+                setFoundBooks(filteredBooks)
+                setIsSearching(false)
+                return
+              }
+            }
+          }
+        } catch (olError) {
+          console.error("OpenLibrary fallback also failed:", olError)
+        }
+        
+        // If OpenLibrary also fails, show error
+        toast({
+          title: "Search failed",
+          description: "Google Books is rate-limited and OpenLibrary search failed. Please try again in a few moments.",
+          variant: "destructive",
+        })
+        setIsSearching(false)
+        return
+      }
+      
       if (!response.ok) {
         throw new Error(`Google Books API returned ${response.status}`)
       }
@@ -616,14 +733,25 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         // Don't auto-add books to bookshelf - just show as suggestions
         // Don't clear search title - let user see what they searched for
       } else {
-        console.log("❌ No results from Open Library search")
+        console.log("❌ No results from Google Books search")
         setFoundBooks([])
       }
     } catch (error) {
       console.error("Error searching books:", error)
+      let errorMessage = "Could not search for books. Please try again."
+      
+      if (error instanceof Error) {
+        console.error("Error details:", error.message, error.stack)
+        if (error.message.includes("429")) {
+          errorMessage = "Google Books is temporarily rate-limited. The search will automatically try OpenLibrary as a fallback."
+        } else {
+          errorMessage = `Search failed: ${error.message}`
+        }
+      }
+      
       toast({
         title: "Search failed",
-        description: "Could not search for books. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
