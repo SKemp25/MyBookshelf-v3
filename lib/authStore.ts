@@ -43,11 +43,9 @@ export function getCurrentUserEmail(): string | null {
 
 export function setCurrentUserEmail(email: string) {
   if (!isBrowser()) return
-  // Ensure email is lowercase for consistency
   const normalizedEmail = email.toLowerCase().trim()
   localStorage.setItem(CURRENT_USER_KEY, normalizedEmail)
   localStorage.setItem(IS_LOGGED_IN_KEY, "true")
-  console.log("Current user set to:", normalizedEmail)
 }
 
 export function clearCurrentUser() {
@@ -65,25 +63,17 @@ export function registerUser(fullName: string, email: string, password: string) 
   }
 
   const now = new Date().toISOString()
-  // Store password as-is (don't trim on storage, but trim on comparison)
   users[key] = {
     email: email.trim(),
     fullName: fullName.trim(),
-    password: password, // Store as-is to preserve user's exact input
+    password: password,
     createdAt: now,
     lastLoginAt: now,
     loginCount: 1,
   }
 
   writeUsers(users)
-  setCurrentUserEmail(key) // Use normalized key
-
-  // Verify the user was saved
-  const verifyUsers = readUsers()
-  console.log("User registered:", { email: key, fullName })
-  console.log("All users after registration:", Object.keys(verifyUsers))
-  console.log("Total users:", Object.keys(verifyUsers).length)
-  
+  setCurrentUserEmail(key)
   return { success: true }
 }
 
@@ -96,46 +86,20 @@ export function authenticateUser(email: string, password: string) {
   const key = email.toLowerCase().trim()
   const user = users[key]
 
-  const allUserKeys = Object.keys(users)
-  console.log("Authenticating user:", { 
-    key, 
-    userExists: !!user, 
-    storedPasswordLength: user?.password?.length, 
-    providedPasswordLength: password?.length,
-    allUserKeys,
-    totalUsers: allUserKeys.length
-  })
-  
-  // Log all user emails for debugging
-  if (allUserKeys.length > 0) {
-    console.log("Available user emails:", allUserKeys)
-  }
-
   if (!user) {
-    console.log("User not found. Available users:", Object.keys(users))
     return { error: "User not found. Please sign up first." }
   }
 
-  // Compare passwords - trim both to handle whitespace issues
   const storedPassword = (user.password || "").trim()
   const providedPassword = (password || "").trim()
-  
   if (storedPassword !== providedPassword) {
-    console.log("Password mismatch:", { 
-      storedLength: storedPassword.length, 
-      providedLength: providedPassword.length,
-      storedFirstChar: storedPassword[0],
-      providedFirstChar: providedPassword[0]
-    })
     return { error: "Invalid password" }
   }
 
   user.loginCount = (user.loginCount || 0) + 1
   user.lastLoginAt = new Date().toISOString()
   writeUsers(users)
-  setCurrentUserEmail(key) // Use lowercase key for consistency
-
-  console.log("Authentication successful for:", key)
+  setCurrentUserEmail(key)
   return { success: true }
 }
 

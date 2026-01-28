@@ -34,6 +34,8 @@ interface AccountManagerProps {
   isLoggedIn: boolean
   showAuthDialog?: boolean // Allow parent to control dialog state
   onAuthDialogChange?: (open: boolean) => void // Callback when dialog state changes
+  headerTextClass?: string // Theme-aware text class when in header (e.g. text-white or text-gray-900)
+  headerHoverClass?: string // Theme-aware hover class when in header
 }
 
 function SubmitButton({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) {
@@ -84,7 +86,9 @@ const AppleIcon = () => (
   </svg>
 )
 
-export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAuthDialogChange }: AccountManagerProps) {
+export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAuthDialogChange, headerTextClass, headerHoverClass }: AccountManagerProps) {
+  const headerText = headerTextClass ?? 'text-white'
+  const headerHover = headerHoverClass ?? 'hover:bg-white/20'
   const router = useRouter()
   const [showAuth, setShowAuth] = useState(false)
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "reset">("signin")
@@ -95,15 +99,9 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   // Sync with parent-controlled dialog state
   useEffect(() => {
     if (showAuthDialog !== undefined) {
-      console.log('AccountManager: Syncing showAuthDialog prop:', showAuthDialog)
       setShowAuth(showAuthDialog)
     }
   }, [showAuthDialog])
-  
-  // Debug: Log when showAuth changes
-  useEffect(() => {
-    console.log('AccountManager: showAuth state changed to:', showAuth)
-  }, [showAuth])
 
   // Notify parent when dialog state changes
   const handleShowAuthChange = (open: boolean) => {
@@ -116,16 +114,11 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
     const handleOpenAuth = (e: Event) => {
       e.preventDefault()
       e.stopPropagation()
-      console.log('AccountManager: Received openAuthDialog event')
       handleShowAuthChange(true)
     }
-    
-    // Use capture phase to ensure we catch it early
     window.addEventListener('openAuthDialog', handleOpenAuth, true)
-    return () => {
-      window.removeEventListener('openAuthDialog', handleOpenAuth, true)
-    }
-  }, [onAuthDialogChange])
+    return () => window.removeEventListener('openAuthDialog', handleOpenAuth, true)
+  }, [])
 
   const [signInState, signInAction] = useActionState(signIn, null)
   const [signUpState, signUpAction] = useActionState(signUp, null)
@@ -134,10 +127,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   // Handle successful signup redirect
   useEffect(() => {
     if (signUpState?.success) {
-      console.log("AccountManager: Signup successful, redirecting...")
-      setTimeout(() => {
-        window.location.href = "/"
-      }, 1500)
+      setTimeout(() => { window.location.href = "/" }, 1500)
     }
   }, [signUpState?.success])
 
@@ -162,10 +152,10 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
   useEffect(() => {
     if (signInState?.success) {
       handleShowAuthChange(false)
-      // Close modal immediately and prevent it from reopening
-      // The redirect will handle the page refresh
+      // Redirect so BookshelfClient picks up login state from localStorage (storage events don't fire in same tab)
+      window.location.href = "/"
     }
-  }, [signInState, onAuthDialogChange])
+  }, [signInState?.success])
 
   // Prevent modal from showing if user is logged in
   useEffect(() => {
@@ -199,7 +189,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
               type="submit"
               variant="ghost"
               size="sm"
-              className="text-white hover:bg-white/10 rounded-md px-2 py-1 h-auto"
+              className={`${headerText} ${headerHover} rounded-md px-2 py-1 h-auto`}
             >
               <LogOut className="w-4 h-4 mr-1" />
               <span className="text-xs font-bold">Logout</span>
@@ -211,7 +201,7 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
           onClick={() => handleShowAuthChange(true)}
           variant="ghost"
           size="sm"
-          className="text-white hover:bg-white/20 p-1.5 md:p-2"
+          className={`${headerText} ${headerHover} p-1.5 md:p-2`}
           data-account-manager
         >
           <LogIn className="w-4 h-4" />
@@ -243,19 +233,35 @@ export default function AccountManager({ user, isLoggedIn, showAuthDialog, onAut
 
           <div className="space-y-4 sm:space-y-6 py-2">
 
-            {(signInState?.error || signUpState?.error || resetState?.error) && (
+            {authMode === "signin" && signInState?.error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-red-500" />
-                <span className="text-sm text-red-700">
-                  {signInState?.error || signUpState?.error || resetState?.error}
-                </span>
+                <span className="text-sm text-red-700">{signInState.error}</span>
+              </div>
+            )}
+            {authMode === "signup" && signUpState?.error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <span className="text-sm text-red-700">{signUpState.error}</span>
+              </div>
+            )}
+            {authMode === "reset" && resetState?.error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <span className="text-sm text-red-700">{resetState.error}</span>
               </div>
             )}
 
-            {(signUpState?.success || resetState?.success) && (
+            {(authMode === "signup" && signUpState?.success) && (
               <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-green-700">{signUpState?.success || resetState?.success}</span>
+                <span className="text-sm text-green-700">{signUpState.success}</span>
+              </div>
+            )}
+            {(authMode === "reset" && resetState?.success) && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-sm text-green-700">{resetState.success}</span>
               </div>
             )}
 

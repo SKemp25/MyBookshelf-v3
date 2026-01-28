@@ -54,6 +54,9 @@ interface BookGridProps {
   memoryAids?: string[] // Memory aid preferences
   viewMode?: "grid" | "list" // View mode for displaying books
   onSortChange?: (sortBy: string) => void // Callback to change sorting
+  emptyStateIconClass?: string // Theme-aware icon class for empty state
+  emptyStateTitleClass?: string // Theme-aware title class for empty state
+  emptyStateDescClass?: string // Theme-aware description class for empty state
 }
 
 export default function BookGrid({
@@ -79,6 +82,9 @@ export default function BookGrid({
   memoryAids = [],
   viewMode = "grid",
   onSortChange,
+  emptyStateIconClass = "text-orange-400",
+  emptyStateTitleClass = "text-orange-800",
+  emptyStateDescClass = "text-orange-600",
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
@@ -511,11 +517,11 @@ export default function BookGrid({
   if (books.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-24 h-24 mx-auto mb-4 opacity-20">
-          <BookOpen className="w-full h-full text-orange-400" />
+        <div className="w-28 h-28 mx-auto mb-6 opacity-30">
+          <BookOpen className={`w-full h-full ${emptyStateIconClass}`} />
         </div>
-        <h3 className="text-xl font-semibold text-orange-800 mb-2">Start Your Personal Library</h3>
-        <p className="text-orange-600">Add your favorite authors to discover and organize your books.</p>
+        <h3 className={`text-2xl md:text-3xl font-semibold mb-3 ${emptyStateTitleClass}`}>Start Your Personal Library</h3>
+        <p className={`text-lg md:text-xl max-w-md mx-auto ${emptyStateDescClass}`}>Add your favorite authors to discover and organize your books.</p>
       </div>
     )
   }

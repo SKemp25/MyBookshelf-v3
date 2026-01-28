@@ -9,7 +9,7 @@ import AdvancedFilters from "./AdvancedFilters"
 import { defaultAdvancedFilters } from "@/lib/types"
 import BookRecommendations from "./BookRecommendations"
 import TooltipManager from "./TooltipManager"
-import ErrorLogger, { logError } from "./ErrorLogger"
+import { logError } from "./ErrorLogger"
 import { ChevronDown, ChevronUp, Users, BookOpen, Settings, HelpCircle, Search, Grid3x3, List, ArrowUpDown, Filter, User, Download, LogOut, LogIn, X, Menu, Heart, BookmarkPlus, BookCheck, BookX, FileText } from "lucide-react"
 import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/lib/types"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
@@ -61,6 +61,9 @@ export const colorThemes = {
     textAccent: 'text-orange-700',
     borderAccent: 'border-orange-200',
     footerColor: '#fb923c',
+    emptyStateIcon: 'text-orange-500',
+    emptyStateTitle: 'text-orange-900',
+    emptyStateDesc: 'text-orange-700',
   },
   blue: {
     name: 'Literary Blue',
@@ -74,6 +77,9 @@ export const colorThemes = {
     textAccent: 'text-blue-700',
     borderAccent: 'border-blue-200',
     footerColor: '#2563eb',
+    emptyStateIcon: 'text-blue-200',
+    emptyStateTitle: 'text-white',
+    emptyStateDesc: 'text-blue-100',
   },
   green: {
     name: 'British Racing Green',
@@ -87,6 +93,9 @@ export const colorThemes = {
     textAccent: 'text-green-900',
     borderAccent: 'border-green-200',
     footerColor: '#14532d',
+    emptyStateIcon: 'text-green-300',
+    emptyStateTitle: 'text-white',
+    emptyStateDesc: 'text-green-100',
   },
   purple: {
     name: 'Creative Purple',
@@ -100,6 +109,9 @@ export const colorThemes = {
     textAccent: 'text-purple-700',
     borderAccent: 'border-purple-200',
     footerColor: '#9333ea',
+    emptyStateIcon: 'text-purple-200',
+    emptyStateTitle: 'text-white',
+    emptyStateDesc: 'text-purple-100',
   },
   teal: {
     name: 'Modern Teal',
@@ -113,6 +125,9 @@ export const colorThemes = {
     textAccent: 'text-teal-700',
     borderAccent: 'border-teal-200',
     footerColor: '#0d9488',
+    emptyStateIcon: 'text-teal-200',
+    emptyStateTitle: 'text-white',
+    emptyStateDesc: 'text-teal-100',
   },
   neutral: {
     name: 'Neutral',
@@ -126,6 +141,9 @@ export const colorThemes = {
     textAccent: 'text-gray-700',
     borderAccent: 'border-gray-200',
     footerColor: '#4b5563',
+    emptyStateIcon: 'text-gray-400',
+    emptyStateTitle: 'text-gray-900',
+    emptyStateDesc: 'text-gray-700',
   },
 }
 
@@ -215,7 +233,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         
         // Only update state if values actually changed to prevent unnecessary re-renders
         if (loggedIn !== lastLoggedIn || user !== lastUser) {
-          console.log("Login state changed:", { loggedIn, user, wasLoggedIn: lastLoggedIn, wasUser: lastUser })
     setIsLoggedIn(loggedIn)
     setCurrentUser(user)
           lastLoggedIn = loggedIn
@@ -1385,8 +1402,11 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden ${highContrast ? 'bg-black' : currentTheme.bgGradient}`}>
-      {/* Header - Sticky Top */}
-      <header className={`sticky top-0 z-50 ${highContrast ? 'bg-black text-white border-b-4 border-white' : `${currentTheme.headerGradient} text-white`} shadow-sm`}>
+      {/* Header - Same depth as footer, white text */}
+      <header
+        className={`sticky top-0 z-50 text-white shadow-sm ${highContrast ? 'bg-black border-b-4 border-white' : ''}`}
+        style={!highContrast ? { backgroundColor: currentTheme.footerColor } : undefined}
+      >
         <div className="flex items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-4">
           {/* Left: App Title */}
           <div className="flex items-center gap-2">
@@ -1397,10 +1417,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   setSelectedGenres([])
                   setAdvancedFilters(defaultAdvancedFilters)
                 }}
-              className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
-              data-onboarding="welcome"
+                className="text-lg md:text-xl font-bold text-white hover:opacity-80 transition-opacity"
+                data-onboarding="welcome"
               >
-              MY BOOKCASE
+                MY BOOKCASE
               </button>
             </div>
 
@@ -1521,7 +1541,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                     onClick={(e) => { 
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('Mobile menu: Setting showAuthDialog to true');
                       setShowAuthDialog(true);
                       setMobileMenuOpen(false);
                     }}
@@ -1659,6 +1678,9 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                 memoryAids={userState.memoryAids || []}
                 viewMode={viewMode}
                 onSortChange={setSortBy}
+                emptyStateIconClass={currentTheme.emptyStateIcon}
+                emptyStateTitleClass={currentTheme.emptyStateTitle}
+                emptyStateDescClass={currentTheme.emptyStateDesc}
                 onAddAuthor={async (authorName) => {
                   // Add the author to the authors list if not already present
                   const normalizedAuthor = normalizeAuthorName(authorName)
@@ -3372,15 +3394,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         </DialogContent>
       </Dialog>
 
-      {/* Account Manager for Mobile - Always rendered but hidden, needed for dialog */}
-      <div className="hidden">
-        <AccountManager 
-          user={user} 
-          isLoggedIn={isLoggedIn}
-          showAuthDialog={showAuthDialog}
-          onAuthDialogChange={setShowAuthDialog}
-        />
-      </div>
+      {/* Account Manager for Mobile - dialog only; trigger is in hamburger menu */}
+      {isMobileLayout && (
+        <div className="hidden">
+          <AccountManager 
+            user={user} 
+            isLoggedIn={isLoggedIn}
+            showAuthDialog={showAuthDialog}
+            onAuthDialogChange={setShowAuthDialog}
+          />
+        </div>
+      )}
 
       {/* Contextual Tooltip Tour */}
       <TooltipManager
@@ -3395,9 +3419,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       />
 
 
-      {/* Error Logger - Shows errors on screen for mobile debugging */}
-      {/* TODO: Remove ErrorLogger before production release - it's currently visible on all devices for debugging */}
-      <ErrorLogger />
     </div>
   )
 }
