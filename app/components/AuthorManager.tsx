@@ -527,10 +527,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         throw new Error(`Google Books API returned ${response.status}`)
       }
       
-      if (!response.ok) {
-        throw new Error(`Google Books API returned ${response.status}`)
-      }
-      
       const data = await response.json()
       console.log("📚 API Response:", data)
 
