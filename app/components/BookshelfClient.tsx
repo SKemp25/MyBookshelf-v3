@@ -3375,7 +3375,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       </Dialog>
 
       <Dialog open={showAuthorsDialog} onOpenChange={setShowAuthorsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[51]">
           <DialogHeader>
             <DialogTitle>Authors & Books</DialogTitle>
             <DialogDescription>

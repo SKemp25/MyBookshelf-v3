@@ -514,20 +514,22 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
   const searchBooks = async () => {
     if (!searchTitle.trim()) return
 
-    console.log("🔍 Starting search for:", searchTitle.trim())
     setIsSearching(true)
-
-    if (userId) {
-      await trackEvent(userId, {
-        event_type: ANALYTICS_EVENTS.BOOK_SEARCH,
-        event_data: {
-          search_query: searchTitle.trim(),
-          timestamp: new Date().toISOString(),
-        },
-      })
-    }
-
     try {
+      if (userId) {
+        try {
+          await trackEvent(userId, {
+            event_type: ANALYTICS_EVENTS.BOOK_SEARCH,
+            event_data: {
+              search_query: searchTitle.trim(),
+              timestamp: new Date().toISOString(),
+            },
+          })
+        } catch {
+          /* analytics only; don't block search */
+        }
+      }
+
       // Try title search (more flexible than exact quotes)
       const searchQuery = `intitle:${searchTitle.trim()}`
       const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=10`
@@ -688,6 +690,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       }
     } catch (error) {
       console.error("Error searching books:", error)
+      toast({
+        title: "Search failed",
+        description: "Could not search for books. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsSearching(false)
     }
@@ -702,12 +709,13 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             value={newAuthor}
             onChange={(e) => setNewAuthor(e.target.value)}
             placeholder="Enter author name..."
-            onKeyPress={(e) => e.key === "Enter" && addAuthor()}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAuthor(); } }}
             onFocus={scrollInputIntoView}
             className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
             disabled={isAddingAuthor}
           />
           <Button
+            type="button"
             onClick={addAuthor}
             disabled={!newAuthor.trim() || isAddingAuthor}
             className="bg-orange-500 hover:bg-orange-600"
@@ -718,6 +726,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         </div>
 
         <Button
+          type="button"
           onClick={() => setShowImport(true)}
           variant="outline"
           className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
@@ -740,11 +749,12 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             value={searchTitle}
             onChange={(e) => setSearchTitle(e.target.value)}
             placeholder="Type a book title here (e.g., 'The Great Gatsby')"
-            onKeyPress={(e) => e.key === "Enter" && searchBooks()}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchBooks(); } }}
             onFocus={scrollInputIntoView}
             className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
           />
           <Button
+            type="button"
             onClick={searchBooks}
             disabled={!searchTitle.trim() || isSearching}
             className="bg-orange-500 hover:bg-orange-600"
@@ -761,6 +771,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold text-orange-800">Found Books ({foundBooks.length})</h4>
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={() => setFoundBooks([])}
@@ -787,6 +798,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                 <div className="flex gap-2">
                   {!authors.some((author) => author.toLowerCase() === book.author.toLowerCase()) ? (
                     <Button
+                      type="button"
                       size="sm"
                       onClick={() => addAuthorFromBook(book)}
                       disabled={isAddingAuthor}
@@ -824,6 +836,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                 >
                   <span className="font-medium text-orange-900">{author}</span>
                   <Button
+                    type="button"
                     size="sm"
                     variant="ghost"
                     onClick={() => removeAuthor(author)}
