@@ -11,7 +11,7 @@ import { saveUserAuthors } from "@/lib/database"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { fetchAuthorBooksWithCache, fetchWorkDescription } from "@/lib/apiCache"
+import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 
 // Helper function to convert HTTP URLs to HTTPS
 function ensureHttps(url: string): string {
@@ -515,98 +515,73 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         }
       }
 
-      // Search Open Library by title, filter to English only
-      const apiUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&language=eng&limit=20&sort=new`
-      console.log("🌐 Open Library API URL:", apiUrl)
+      // Search Google Books by title
+      const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=intitle:"${encodeURIComponent(searchTitle.trim())}"&maxResults=20&langRestrict=en&printType=books`
+      console.log("🌐 Google Books API URL:", apiUrl)
       
       const response = await fetch(apiUrl)
       console.log("📡 Response status:", response.status)
       
       if (!response.ok) {
-        throw new Error(`Open Library API returned ${response.status}`)
+        throw new Error(`Google Books API returned ${response.status}`)
       }
       
       const data = await response.json()
       console.log("📚 API Response:", data)
 
-      if (data.docs && data.docs.length > 0) {
-        // Map common language codes to our format
-        const languageMap: { [key: string]: string } = {
-          'eng': 'en',
-          'spa': 'es',
-          'fre': 'fr',
-          'ger': 'de',
-          'ita': 'it',
-          'por': 'pt',
-          'rus': 'ru',
-          'chi': 'zh',
-          'jpn': 'ja',
-          'kor': 'ko',
-        }
-        
-        const books: Book[] = data.docs
-          .map((doc: any) => {
+      if (data.items && data.items.length > 0) {
+        const books: Book[] = data.items
+          .map((item: any) => {
+            const volumeInfo = item.volumeInfo || {}
+            
             // Format publish date
             let publishedDate: string | null = null
-            if (doc.first_publish_year) {
-              publishedDate = `${doc.first_publish_year}-01-01`
+            if (volumeInfo.publishedDate) {
+              if (volumeInfo.publishedDate.length === 4) {
+                publishedDate = `${volumeInfo.publishedDate}-01-01`
+              } else {
+                publishedDate = volumeInfo.publishedDate
+              }
             }
 
             // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
-            const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
+            const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                        volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
+                        ""
 
-            // Use Open Library work key as ID
-            const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${doc.author_name?.[0]?.replace(/\s+/g, '') || ''}`
+            // Use Google Books volume ID
+            const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${volumeInfo.authors?.[0]?.replace(/\s+/g, '') || ''}`
 
-            // Get cover image - try multiple methods
-            let thumbnail = ""
-            if (doc.cover_i) {
-              // Primary: use cover_i if available
-              thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
-            } else if (isbn) {
-              // Fallback 1: try ISBN
-              thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
-            } else if (doc.key) {
-              // Fallback 2: try work key (OLID)
-              const olid = doc.key.replace('/works/', '')
-              thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
-            }
-
-            // Get language
-            const langCode = doc.language?.[0] || "eng"
-            const language = languageMap[langCode] || langCode.substring(0, 2) || "en"
+            // Get cover image from Google Books
+            const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
+                             volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
 
             return {
               id,
-              title: doc.title || "Unknown Title",
-              author: doc.author_name?.[0] || "Unknown Author",
+              title: volumeInfo.title || "Unknown Title",
+              author: volumeInfo.authors?.[0] || "Unknown Author",
+              authors: volumeInfo.authors || [],
               publishedDate: publishedDate,
-              description: doc.first_sentence?.[0] || "",
-              pageCount: doc.number_of_pages_median || doc.number_of_pages?.[0] || 0,
-              categories: doc.subject?.slice(0, 5) || [],
+              description: volumeInfo.description || "",
+              pageCount: volumeInfo.pageCount || 0,
+              categories: volumeInfo.categories || [],
               thumbnail,
-              language,
+              language: volumeInfo.language || "en",
               isbn,
-              previewLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
-              infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
-              canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
-              // Store fallback cover URLs for error handling
-              coverFallbacks: {
-                isbn: isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` : null,
-                olid: doc.key ? `https://covers.openlibrary.org/b/olid/${doc.key.replace('/works/', '')}-M.jpg` : null,
-              },
+              previewLink: volumeInfo.previewLink || "",
+              infoLink: volumeInfo.infoLink || "",
+              canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
+              publisher: volumeInfo.publisher || "",
             }
           })
           .filter((book: Book) => {
-            // Filter out non-English books (API should filter, but double-check client-side)
+            // Filter out non-English books
             if (book.language && book.language !== "en") {
               if (process.env.NODE_ENV === 'development') {
                 console.log(`🚫 Filtering out non-English book from search: ${book.title} (language: ${book.language})`)
               }
               return false
             }
-            
-            // Language filtering is also done in BookshelfClient based on user preferences
             
             // Filter out unwanted keywords in title
             const title = (book.title || "").toLowerCase()
@@ -674,39 +649,9 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         // Limit to top 5 most relevant results
         const topBooks = sortedBooks.slice(0, 5)
         
-        // Fetch descriptions for books that don't have them
-        const booksWithoutDescriptions = topBooks.filter(book => !book.description || book.description.length === 0)
-        if (booksWithoutDescriptions.length > 0) {
-          const descriptionPromises = booksWithoutDescriptions.map(async (book, index) => {
-            // Small delay to avoid rate limiting
-            if (index > 0) {
-              await new Promise(resolve => setTimeout(resolve, 100 * index))
-            }
-            
-            // Get work key from previewLink or infoLink
-            const workKey = book.previewLink?.replace('https://openlibrary.org', '') || 
-                           book.infoLink?.replace('https://openlibrary.org', '') ||
-                           book.canonicalVolumeLink?.replace('https://openlibrary.org', '') ||
-                           ''
-            
-            if (workKey) {
-              try {
-                const description = await fetchWorkDescription(workKey)
-                if (description) {
-                  book.description = description
-                }
-              } catch (error) {
-                // Silently fail - description is optional
-                console.log("Failed to fetch description for", book.title)
-              }
-            }
-          })
-          
-          // Wait for descriptions to be fetched, then update state
-          await Promise.allSettled(descriptionPromises)
-        }
-        
-        console.log("📖 Found books:", topBooks.length, topBooks)
+        // Google Books already provides descriptions, no need to fetch separately
+        const booksWithDescriptions = topBooks.filter(book => book.description && book.description.length > 0).length
+        console.log(`📖 Found ${topBooks.length} books (${booksWithDescriptions} with descriptions)`)
 
         setFoundBooks(topBooks)
         // Don't auto-add books to bookshelf - just show as suggestions

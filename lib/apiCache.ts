@@ -238,113 +238,106 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     apiCache.delete(cacheKey)
   }
 
-  console.log(`Cache miss for author: ${authorName}, fetching from Open Library API`)
+  console.log(`Cache miss for author: ${authorName}, fetching from Google Books API`)
   
   try {
-    // Filter to English only at the API level
-    const response = await fetchWithRetry(
-      `https://openlibrary.org/search.json?author=${encodeURIComponent(authorName)}&language=eng&limit=100&sort=new`,
+    // Use Google Books API with inauthor query for better results
+    // Try primary query first (inauthor for exact match)
+    let response = await fetchWithRetry(
+      `https://www.googleapis.com/books/v1/volumes?q=inauthor:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
       3,
       700
     )
     
-    if (!response.ok) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn(`Open Library API returned ${response.status} for author: ${authorName}`)
+    let allBooks: any[] = []
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.items && data.items.length > 0) {
+        allBooks = data.items
+        console.log(`📚 Found ${allBooks.length} books from primary query for ${authorName}`)
       }
-      return []
     }
     
-    const data = await response.json()
-    if (data.docs && data.docs.length > 0) {
-      const processedBooks = data.docs
-        .map((doc: any) => {
+    // If we got fewer than 5 books, try a fallback query with just author name (less strict)
+    if (allBooks.length < 5) {
+      console.log(`📚 Only ${allBooks.length} books found, trying fallback query...`)
+      const fallbackResponse = await fetchWithRetry(
+        `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
+        3,
+        700
+      )
+      
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json()
+        if (fallbackData.items && fallbackData.items.length > 0) {
+          // Merge results, avoiding duplicates by ID
+          const existingIds = new Set(allBooks.map((item: any) => item.id))
+          const newItems = fallbackData.items.filter((item: any) => !existingIds.has(item.id))
+          allBooks = [...allBooks, ...newItems]
+          console.log(`📚 Added ${newItems.length} more books from fallback query (total: ${allBooks.length})`)
+        }
+      }
+    }
+    
+    if (allBooks.length > 0) {
+      const processedBooks = allBooks
+        .map((item: any) => {
+          const volumeInfo = item.volumeInfo || {}
+          
           // Extract author name (first author from array)
-          const author = doc.author_name?.[0] || "Unknown Author"
+          const author = volumeInfo.authors?.[0] || "Unknown Author"
           
           // Format publish date
-          let publishedDate = doc.first_publish_year ? `${doc.first_publish_year}-01-01` : "Unknown Date"
+          let publishedDate = volumeInfo.publishedDate || "Unknown Date"
+          if (publishedDate && publishedDate.length === 4) {
+            publishedDate = `${publishedDate}-01-01`
+          }
           
           // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
-          const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
+          const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                      volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
+                      ""
           
-          // Use Open Library work key as ID
-          const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+          // Use Google Books volume ID
+          const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
           
-          // Get cover image - try multiple methods
-          let thumbnail = ""
-          if (doc.cover_i) {
-            // Primary: use cover_i if available
-            thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
-            console.log(`📷 Using cover_i for ${doc.title}: ${thumbnail}`)
-          } else if (isbn) {
-            // Fallback 1: try ISBN
-            thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
-            console.log(`📷 Using ISBN fallback for ${doc.title}: ${thumbnail}`)
-          } else if (doc.key) {
-            // Fallback 2: try work key (OLID)
-            const olid = doc.key.replace('/works/', '')
-            thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
-            console.log(`📷 Using OLID fallback for ${doc.title}: ${thumbnail}`)
+          // Get cover image from Google Books
+          const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
+                           volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
+          
+          if (thumbnail) {
+            console.log(`📷 Using Google Books cover for ${volumeInfo.title}: ${thumbnail}`)
           } else {
-            console.log(`⚠️ No cover available for ${doc.title} (no cover_i: ${doc.cover_i}, ISBN: ${isbn}, work key: ${doc.key})`)
+            console.log(`⚠️ No cover available for ${volumeInfo.title}`)
           }
           
-          // Get description from first sentence if available
-          // Use empty string initially - will be fetched from work details if missing
-          const description = doc.first_sentence?.[0] || ""
+          // Get description from Google Books
+          const description = volumeInfo.description || ""
           
-          // Log if description is missing (for debugging)
-          if (!description && process.env.NODE_ENV === 'development') {
-            console.log(`📝 No first_sentence for ${doc.title}, will try to fetch from work details`)
-          }
+          // Get categories
+          const categories = volumeInfo.categories || []
           
-          // Get categories from subjects
-          const categories = doc.subject?.slice(0, 5) || []
-          
-          // Get language (Open Library uses language codes like 'eng', 'spa', etc.)
-          const langCode = doc.language?.[0] || "eng"
-          // Map common language codes to our format
-          const languageMap: { [key: string]: string } = {
-            'eng': 'en',
-            'spa': 'es',
-            'fre': 'fr',
-            'ger': 'de',
-            'ita': 'it',
-            'por': 'pt',
-            'rus': 'ru',
-            'chi': 'zh',
-            'jpn': 'ja',
-            'kor': 'ko',
-          }
-          let language = languageMap[langCode] || langCode.substring(0, 2) || "en"
-          
-          // Log language detection for debugging
-          if (process.env.NODE_ENV === 'development' && langCode !== 'eng') {
-            console.log(`🌍 Language detected: ${langCode} -> ${language} for book: ${doc.title}`)
-          }
+          // Get language
+          const language = volumeInfo.language || "en"
           
           return {
             id,
-            title: doc.title || "Unknown Title",
+            title: volumeInfo.title || "Unknown Title",
             author,
-            authors: doc.author_name || [author],
+            authors: volumeInfo.authors || [author],
             publishedDate,
             description,
             categories,
             language,
-            pageCount: doc.number_of_pages_median || doc.number_of_pages?.[0] || 0,
+            pageCount: volumeInfo.pageCount || 0,
             imageUrl: thumbnail,
             thumbnail,
-            previewLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
-            infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
-            canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+            previewLink: volumeInfo.previewLink || "",
+            infoLink: volumeInfo.infoLink || "",
+            canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
             isbn,
-            // Store fallback cover URLs for error handling
-            coverFallbacks: {
-              isbn: isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` : null,
-              olid: doc.key ? `https://covers.openlibrary.org/b/olid/${doc.key.replace('/works/', '')}-M.jpg` : null,
-            },
+            publisher: volumeInfo.publisher || "",
           }
         })
         .filter((book: any) => {
@@ -411,51 +404,9 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
         }
       }
       
-      // Fetch descriptions for books that don't have them (limit to first 10 to avoid too many API calls)
-      const booksWithoutDescriptions = uniqueBooks
-        .filter(book => !book.description || book.description.length === 0)
-        .slice(0, 10)
-      
-      console.log(`📚 Found ${booksWithoutDescriptions.length} books without descriptions out of ${uniqueBooks.length} total`)
-      
-      if (booksWithoutDescriptions.length > 0) {
-        // Fetch descriptions in parallel (with a small delay between batches to be respectful)
-        const descriptionPromises = booksWithoutDescriptions.map(async (book, index) => {
-          // Small delay to avoid rate limiting
-          if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 100 * index))
-          }
-          
-          // Get work key from previewLink or infoLink
-          const workKey = book.previewLink?.replace('https://openlibrary.org', '') || 
-                         book.infoLink?.replace('https://openlibrary.org', '') ||
-                         book.canonicalVolumeLink?.replace('https://openlibrary.org', '') ||
-                         ''
-          
-          if (workKey) {
-            console.log(`📝 Fetching description for ${book.title} using work key: ${workKey}`)
-            try {
-              const description = await fetchWorkDescription(workKey)
-              if (description && description.length > 0) {
-                console.log(`✅ Got description for ${book.title} (${description.length} chars)`)
-                book.description = description
-              } else {
-                console.log(`❌ No description found for ${book.title} (work returned empty)`)
-              }
-            } catch (error) {
-              console.error(`❌ Error fetching description for ${book.title}:`, error)
-            }
-          } else {
-            console.log(`⚠️ No work key available for ${book.title} (previewLink: ${book.previewLink}, infoLink: ${book.infoLink}, canonicalVolumeLink: ${book.canonicalVolumeLink})`)
-          }
-        })
-        
-        // Wait for all description fetches to complete (but don't block if they fail)
-        const results = await Promise.allSettled(descriptionPromises)
-        const successful = results.filter(r => r.status === 'fulfilled').length
-        const failed = results.filter(r => r.status === 'rejected').length
-        console.log(`📝 Description fetching complete: ${successful} succeeded, ${failed} failed`)
-      }
+      // Google Books already provides descriptions, no need to fetch separately
+      const booksWithDescriptions = uniqueBooks.filter(book => book.description && book.description.length > 0).length
+      console.log(`📚 ${booksWithDescriptions} out of ${uniqueBooks.length} books have descriptions from Google Books`)
       
       // Sort: books with descriptions first, then by publication date (newest first)
       uniqueBooks.sort((a, b) => {
@@ -476,10 +427,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     }
     
     // No results
+    console.log(`❌ No books found for ${authorName} from Google Books API`)
     apiCache.set(cacheKey, [], 10 * 60 * 1000)
     return []
   } catch (error) {
-    console.error('Error fetching author books from Open Library:', error)
+    console.error('Error fetching author books from Google Books:', error)
     // Log more details about the error
     if (error instanceof Error) {
       console.error('Error details:', error.message, error.stack)
