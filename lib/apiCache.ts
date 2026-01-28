@@ -63,6 +63,113 @@ function isSpecialEdition(book: any): boolean {
   return false
 }
 
+// Check if a book is a re-release / reissue / media tie-in / non-original edition
+function isRerelease(book: any): boolean {
+  const title = (book.title || "").toLowerCase()
+  const description = (book.description || "").toLowerCase()
+
+  // If the book is published in the future, it's likely a legitimate new book, not a rerelease.
+  if (book.publishedDate) {
+    const year = new Date(book.publishedDate).getFullYear()
+    const nextYear = new Date().getFullYear() + 1
+    if (!Number.isNaN(year) && year >= nextYear) {
+      return false
+    }
+  }
+
+  const rereleaseKeywords = [
+    "tie-in",
+    "movie tie-in",
+    "tv tie-in",
+    "netflix tie-in",
+    "film tie-in",
+    "television tie-in",
+    "streaming tie-in",
+    "media tie-in",
+
+    "movie edition",
+    "tv edition",
+    "television edition",
+    "film edition",
+    "netflix edition",
+    "streaming edition",
+    "anniversary edition",
+    "special edition",
+    "collector's edition",
+    "deluxe edition",
+    "premium edition",
+    "limited edition",
+    "exclusive edition",
+    "gift edition",
+    "holiday edition",
+    "christmas edition",
+    "boxed set",
+    "box set",
+
+    "reissue",
+    "reprint",
+    "new edition",
+    "revised edition",
+    "updated edition",
+    "expanded edition",
+    "enhanced edition",
+    "second edition",
+    "third edition",
+    "fourth edition",
+    "fifth edition",
+
+    "movie cover",
+    "tv cover",
+    "film cover",
+    "netflix cover",
+    "streaming cover",
+
+    "now a major motion picture",
+    "now a netflix series",
+    "now a tv series",
+    "now streaming",
+    "coming soon to",
+    "now on netflix",
+    "now on tv",
+    "now in theaters",
+    "now a movie",
+    "now a film",
+    "now a series",
+
+    "adaptation",
+    "based on the",
+    "film adaptation",
+    "tv adaptation",
+    "movie adaptation",
+    "netflix adaptation",
+    "streaming adaptation",
+    "cinematic edition",
+    "theatrical edition",
+    "director's cut",
+    "extended edition",
+    "uncut edition",
+    "complete edition",
+    "definitive edition",
+    "author's preferred edition",
+    "restored edition",
+    "remastered edition",
+    "digital edition",
+    "ebook edition",
+    "kindle edition",
+    "audiobook edition",
+    "audio edition",
+    "large print edition",
+    "large print",
+    "dyslexia friendly",
+    "dyslexia-friendly",
+    "accessible edition",
+    "braille edition",
+    "sign language edition",
+  ]
+
+  return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
+}
+
 // Simple in-memory cache for API responses
 class APICache {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
@@ -371,6 +478,9 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
 
           // Filter out special editions using title only
           if (isSpecialEdition(book)) return false
+
+          // Filter out re-releases / reissues / media tie-ins
+          if (isRerelease(book)) return false
           
           // Filter out non-English books (API should filter, but double-check client-side)
           // Default to English if language is missing or unknown

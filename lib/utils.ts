@@ -58,6 +58,104 @@ export function isSpecialEdition(book: any): boolean {
   return false
 }
 
+// Check if a book is a re-release / reissue / media tie-in / non-original edition
+export function isRerelease(book: any): boolean {
+  const title = (book.title || "").toLowerCase()
+  const description = (book.description || "").toLowerCase()
+
+  // If the book is published in the future, it's likely a legitimate new book, not a rerelease.
+  // (Keeps upcoming releases from being incorrectly filtered.)
+  if (book.publishedDate) {
+    const year = new Date(book.publishedDate).getFullYear()
+    const nextYear = new Date().getFullYear() + 1
+    if (!Number.isNaN(year) && year >= nextYear) {
+      return false
+    }
+  }
+
+  const rereleaseKeywords = [
+    // Reprints and reissues
+    "reissue",
+    "reprint",
+    "new edition",
+    "revised edition",
+    "updated edition",
+    "expanded edition",
+    "enhanced edition",
+    "second edition",
+    "third edition",
+    "fourth edition",
+    "fifth edition",
+
+    // Special editions / packaging
+    "anniversary edition",
+    "special edition",
+    "collector's edition",
+    "deluxe edition",
+    "premium edition",
+    "limited edition",
+    "exclusive edition",
+    "gift edition",
+    "holiday edition",
+    "christmas edition",
+    "boxed set",
+    "box set",
+
+    // Covers
+    "movie cover",
+    "tv cover",
+    "film cover",
+    "netflix cover",
+    "streaming cover",
+
+    // Media adaptations
+    "now a major motion picture",
+    "now a netflix series",
+    "now a tv series",
+    "now streaming",
+    "coming soon to",
+    "now on netflix",
+    "now on tv",
+    "now in theaters",
+    "now a movie",
+    "now a film",
+    "now a series",
+
+    // Other indicators
+    "adaptation",
+    "based on the",
+    "film adaptation",
+    "tv adaptation",
+    "movie adaptation",
+    "netflix adaptation",
+    "streaming adaptation",
+    "cinematic edition",
+    "theatrical edition",
+    "director's cut",
+    "extended edition",
+    "uncut edition",
+    "complete edition",
+    "definitive edition",
+    "author's preferred edition",
+    "restored edition",
+    "remastered edition",
+    "digital edition",
+    "ebook edition",
+    "kindle edition",
+    "audiobook edition",
+    "audio edition",
+    "large print edition",
+    "large print",
+    "dyslexia friendly",
+    "dyslexia-friendly",
+    "accessible edition",
+    "braille edition",
+    "sign language edition",
+  ]
+
+  return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
+}
+
 export function cn(...inputs: (string | undefined | null | boolean | Record<string, boolean>)[]) {
   return inputs
     .filter(Boolean)
@@ -82,6 +180,11 @@ export function deduplicateBooks(books: any[], userCountry: string = "US") {
   books.forEach((book) => {
     // Filter out special editions, graded readers, and abridged versions
     if (isSpecialEdition(book)) {
+      return
+    }
+
+    // Filter out re-releases / reissues / media tie-ins
+    if (isRerelease(book)) {
       return
     }
     

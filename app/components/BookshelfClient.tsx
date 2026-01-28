@@ -15,7 +15,7 @@ import type { Book, User as UserType, Platform, AdvancedFilterState } from "@/li
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { normalizeAuthorName } from "./AuthorManager"
 import { saveUserAuthors } from "@/lib/database"
-import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
+import { deduplicateBooks, isRerelease, isSpecialEdition } from "@/lib/utils"
 import DataExport from "./DataExport"
 import { APIErrorBoundary, ComponentErrorBoundary } from "./ErrorBoundary"
 import { Card, CardContent } from "@/components/ui/card"
@@ -825,118 +825,6 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     return true
-  }
-
-  const isRerelease = (book: Book) => {
-    const title = (book.title || "").toLowerCase()
-    const description = (book.description || "").toLowerCase()
-
-    // If the book is published in the future (2025+), it's likely a legitimate new book, not a rerelease
-    if (book.publishedDate) {
-      const bookYear = new Date(book.publishedDate).getFullYear()
-      if (bookYear >= 2025) {
-        return false // Don't filter out future books as rereleases
-      }
-    }
-
-    // Common rerelease indicators - comprehensive list to filter out special editions
-    const rereleaseKeywords = [
-      // Tie-ins
-      "tie-in",
-      "movie tie-in",
-      "tv tie-in",
-      "netflix tie-in",
-      "film tie-in",
-      "television tie-in",
-      "streaming tie-in",
-      "media tie-in",
-      
-      // Editions
-      "movie edition",
-      "tv edition",
-      "television edition",
-      "film edition",
-      "netflix edition",
-      "streaming edition",
-      "anniversary edition",
-      "special edition",
-      "collector's edition",
-      "deluxe edition",
-      "premium edition",
-      "limited edition",
-      "exclusive edition",
-      "gift edition",
-      "holiday edition",
-      "christmas edition",
-      "boxed set",
-      "box set",
-      
-      // Reprints and reissues
-      "reissue",
-      "reprint",
-      "new edition",
-      "revised edition",
-      "updated edition",
-      "expanded edition",
-      "enhanced edition",
-      "second edition",
-      "third edition",
-      "fourth edition",
-      "fifth edition",
-      
-      // Covers
-      "movie cover",
-      "tv cover",
-      "film cover",
-      "netflix cover",
-      "streaming cover",
-      
-      // Media adaptations
-      "now a major motion picture",
-      "now a netflix series",
-      "now a tv series",
-      "now streaming",
-      "coming soon to",
-      "now on netflix",
-      "now on tv",
-      "now in theaters",
-      "now a movie",
-      "now a film",
-      "now a series",
-      
-      // Other indicators
-      "adaptation",
-      "based on the",
-      "film adaptation",
-      "tv adaptation",
-      "movie adaptation",
-      "netflix adaptation",
-      "streaming adaptation",
-      "cinematic edition",
-      "theatrical edition",
-      "director's cut",
-      "extended edition",
-      "uncut edition",
-      "complete edition",
-      "definitive edition",
-      "author's preferred edition",
-      "restored edition",
-      "remastered edition",
-      "digital edition",
-      "ebook edition",
-      "kindle edition",
-      "audiobook edition",
-      "audio edition",
-      "large print edition",
-      "large print",
-      "dyslexia friendly",
-      "dyslexia-friendly",
-      "accessible edition",
-      "braille edition",
-      "sign language edition",
-    ]
-
-    return rereleaseKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword))
   }
 
   const filteredAndLimitedBooks = useMemo(() => {

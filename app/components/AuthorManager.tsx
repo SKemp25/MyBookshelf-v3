@@ -9,7 +9,7 @@ import type { Book } from "@/lib/types"
 import AuthorImport from "./AuthorImport"
 import { saveUserAuthors } from "@/lib/database"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
-import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
+import { deduplicateBooks, isRerelease, isSpecialEdition } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 
@@ -235,6 +235,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             return false
           }
 
+          // Filter out re-releases / reissues / media tie-ins
+          if (isRerelease(book)) {
+            return false
+          }
+
           const specialReleaseIndicators = [
             "tesco exclusive",
             "walmart exclusive",
@@ -337,11 +342,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             "award-winning series",
           ]
 
-          const isRerelease = rereleaseIndicators.some(
+          const hasRereleaseIndicator = rereleaseIndicators.some(
             (indicator) => title.includes(indicator),
           )
 
-          if (isRerelease) {
+          if (hasRereleaseIndicator) {
             return false
           }
 

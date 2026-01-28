@@ -5,6 +5,7 @@
  */
 
 import { Book } from "@/lib/types"
+import { isRerelease, isSpecialEdition } from "@/lib/utils"
 
 /**
  * Fetch books by author from OpenLibrary Search API
@@ -136,17 +137,12 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         if (book.language && book.language !== "en" && book.language !== "eng") {
           return false
         }
-        
-        // Filter out special editions (basic check)
-        const title = (book.title || "").toLowerCase()
-        const specialEditionIndicators = [
-          "graded reader", "elt reader", "level 1", "level 2", "level 3",
-          "abridged", "simplified", "adapted", "retold"
-        ]
-        
-        if (specialEditionIndicators.some(indicator => title.includes(indicator))) {
-          return false
-        }
+
+        // Filter out special editions / graded readers / abridged versions
+        if (isSpecialEdition(book)) return false
+
+        // Filter out re-releases / reissues / media tie-ins
+        if (isRerelease(book)) return false
         
         return true
       })
