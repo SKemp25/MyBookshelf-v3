@@ -14,16 +14,41 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
     console.log(`📚 Fetching books for ${authorName} from OpenLibrary (fallback)...`)
     
     const searchUrl = `https://openlibrary.org/search.json?author=${encodeURIComponent(authorName)}&language=eng&limit=100`
-    const response = await fetch(searchUrl)
+    console.log(`🌐 OpenLibrary URL: ${searchUrl}`)
     
-    if (!response.ok) {
-      console.error(`OpenLibrary API returned ${response.status}`)
+    let response: Response
+    try {
+      response = await fetch(searchUrl)
+    } catch (fetchError) {
+      console.error(`❌ Network error fetching from OpenLibrary:`, fetchError)
+      if (fetchError instanceof Error) {
+        console.error(`   Error message: ${fetchError.message}`)
+        console.error(`   Error stack: ${fetchError.stack}`)
+      }
       return []
     }
     
-    const data = await response.json()
-    if (!data.docs || data.docs.length === 0) {
+    if (!response.ok) {
+      console.error(`❌ OpenLibrary API returned ${response.status} ${response.statusText}`)
+      const errorText = await response.text().catch(() => 'Unable to read error response')
+      console.error(`   Error details: ${errorText.substring(0, 200)}`)
+      return []
+    }
+    
+    let data: any
+    try {
+      data = await response.json()
+    } catch (jsonError) {
+      console.error(`❌ Error parsing OpenLibrary JSON response:`, jsonError)
+      if (jsonError instanceof Error) {
+        console.error(`   Error message: ${jsonError.message}`)
+      }
+      return []
+    }
+    
+    if (!data || !data.docs || data.docs.length === 0) {
       console.log(`❌ No books found for ${authorName} from OpenLibrary`)
+      console.log(`   Response data:`, data)
       return []
     }
     
@@ -148,9 +173,13 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
     return uniqueBooks
     
   } catch (error) {
-    console.error("Error fetching books from OpenLibrary:", error)
+    console.error("❌ Unexpected error fetching books from OpenLibrary:", error)
     if (error instanceof Error) {
-      console.error("Error details:", error.message, error.stack)
+      console.error("   Error name:", error.name)
+      console.error("   Error message:", error.message)
+      console.error("   Error stack:", error.stack)
+    } else {
+      console.error("   Error (non-Error object):", JSON.stringify(error))
     }
     return []
   }
