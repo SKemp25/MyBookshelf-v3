@@ -355,9 +355,19 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
             imageUrl: thumbnail,
           } as any
         })
-      
+
+      // Normalize the target author name for strict matching
+      const targetAuthorNormalized = authorName.trim().toLowerCase()
+
       const filteredBooks = processedBooks
         .filter((book: any) => {
+          // STRICT AUTHOR MATCHING:
+          // Only include books where the primary author matches the requested author exactly
+          const bookAuthor = (book.author || "").trim().toLowerCase()
+          if (!bookAuthor || bookAuthor !== targetAuthorNormalized) {
+            return false
+          }
+
           // Filter out special editions using title only
           if (isSpecialEdition(book)) return false
           
