@@ -629,18 +629,20 @@ export default function BookRecommendations({
     return lovedIds
   }, [bookRatings])
 
-  useEffect(() => {
-    // Only generate recommendations if there are loved books
-    const hasLovedBooks = lovedBooksKey.length > 0
-    
-    if (hasLovedBooks && authors.length > 0 && !currentRecommendation) {
-      findNextRecommendation()
-    } else if (!hasLovedBooks) {
-      setCurrentRecommendation(null)
-      setCurrentAuthor(null)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authors.length, books.length, lovedBooksKey])
+  // Disable automatic recommendation fetching to prevent rate limiting
+  // Recommendations will only be fetched when user explicitly clicks "Refresh" button
+  // useEffect(() => {
+  //   // Only generate recommendations if there are loved books
+  //   const hasLovedBooks = lovedBooksKey.length > 0
+  //   
+  //   if (hasLovedBooks && authors.length > 0 && !currentRecommendation) {
+  //     findNextRecommendation()
+  //   } else if (!hasLovedBooks) {
+  //     setCurrentRecommendation(null)
+  //     setCurrentAuthor(null)
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [authors.length, books.length, lovedBooksKey])
 
   const hasLovedBooks = useMemo(() => {
     return Array.from(bookRatings.values()).some(rating => rating === "loved")
