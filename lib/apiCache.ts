@@ -223,15 +223,25 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
           // Format publish date
           let publishedDate = doc.first_publish_year ? `${doc.first_publish_year}-01-01` : "Unknown Date"
           
-          // Get cover image if available
-          const coverId = doc.cover_i
-          const thumbnail = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : ""
-          
           // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
           const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
           
           // Use Open Library work key as ID
           const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+          
+          // Get cover image - try multiple methods
+          let thumbnail = ""
+          if (doc.cover_i) {
+            // Primary: use cover_i if available
+            thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+          } else if (isbn) {
+            // Fallback 1: try ISBN
+            thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
+          } else if (doc.key) {
+            // Fallback 2: try work key (OLID)
+            const olid = doc.key.replace('/works/', '')
+            thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
+          }
           
           // Get description from first sentence if available
           const description = doc.first_sentence?.[0] || ""

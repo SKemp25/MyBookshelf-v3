@@ -546,12 +546,25 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
               publishedDate = `${doc.first_publish_year}-01-01`
             }
 
-            // Get cover image if available
-            const coverId = doc.cover_i
-            const thumbnail = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : ""
+            // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
+            const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
 
             // Use Open Library work key as ID
             const id = doc.key?.replace('/works/', 'OL') || `OL-${doc.title?.replace(/\s+/g, '')}-${doc.author_name?.[0]?.replace(/\s+/g, '') || ''}`
+
+            // Get cover image - try multiple methods
+            let thumbnail = ""
+            if (doc.cover_i) {
+              // Primary: use cover_i if available
+              thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+            } else if (isbn) {
+              // Fallback 1: try ISBN
+              thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
+            } else if (doc.key) {
+              // Fallback 2: try work key (OLID)
+              const olid = doc.key.replace('/works/', '')
+              thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
+            }
 
             // Get language
             const langCode = doc.language?.[0] || "eng"
@@ -567,6 +580,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
               categories: doc.subject?.slice(0, 5) || [],
               thumbnail,
               language,
+              isbn,
             }
           })
           .filter((book: Book) => {
