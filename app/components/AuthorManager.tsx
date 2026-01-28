@@ -434,12 +434,22 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
 
         // Fetch all books by this author first
         const authorBooks = await fetchAuthorBooksWithCache(normalizedName)
+        console.log(`📚 Fetched ${authorBooks?.length || 0} books for ${normalizedName}`)
+        
         if (authorBooks && authorBooks.length > 0) {
           // Add all books by this author at once
+          console.log(`✅ Adding ${authorBooks.length} books for ${normalizedName}`)
           onBooksFound(authorBooks)
         } else {
-          // If no books found, just add the specific book
-          onBooksFound([book])
+          // If no books found from API, ensure we at least add the book that triggered this
+          // Ensure the book's author matches the normalized author name we added
+          const bookWithNormalizedAuthor = {
+            ...book,
+            author: normalizedName,
+            authors: [normalizedName],
+          }
+          console.log(`📖 Adding single book: ${book.title} by ${normalizedName}`)
+          onBooksFound([bookWithNormalizedAuthor])
         }
 
         if (userId) {
