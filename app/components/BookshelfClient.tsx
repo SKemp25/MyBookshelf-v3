@@ -1337,13 +1337,18 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         console.log("Adding book:", book.title, "by", bookAuthor)
       })
       
-      // Remove duplicates based on book ID
+      // Replace existing books with same ID (to update covers/descriptions) and add new ones
       const existingIds = new Set(prevBooks.map(book => book.id))
-      const uniqueNewBooks = validNewBooks.filter(book => !existingIds.has(book.id))
+      const booksToAdd = validNewBooks.filter(book => !existingIds.has(book.id))
+      const booksToReplace = validNewBooks.filter(book => existingIds.has(book.id))
       
-      console.log("Unique new books (after dedup):", uniqueNewBooks.length)
+      console.log("New books to add:", booksToAdd.length)
+      console.log("Existing books to replace (with updated covers/descriptions):", booksToReplace.length)
       
-      const allBooks = [...prevBooks, ...uniqueNewBooks]
+      // Remove old versions of books being replaced, then add new versions
+      const updatedBooks = prevBooks.filter(book => !booksToReplace.find(b => b.id === book.id))
+      
+      const allBooks = [...updatedBooks, ...booksToReplace, ...booksToAdd]
       
       // Deduplicate using the improved deduplicateBooks function
       const deduplicatedBooks = deduplicateBooks(allBooks, userState.country || "US")
