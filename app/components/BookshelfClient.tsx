@@ -410,8 +410,13 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
         const allBooks: Book[] = []
         const startTime = performance.now()
         
-        for (const author of authors) {
+        for (let i = 0; i < authors.length; i++) {
+          const author = authors[i]
           try {
+            // Add delay between author fetches to avoid rate limiting
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1500))
+            }
             const authorBooks = await fetchAuthorBooksWithCache(author)
             if (authorBooks && authorBooks.length > 0) {
               // Get existing books by this author to use as reference

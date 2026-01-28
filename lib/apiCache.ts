@@ -160,16 +160,18 @@ async function fetchWithRetry(
         return response
       }
       
-      // For 503/429, retry with exponential backoff
+      // For 503/429, retry with exponential backoff (longer delay for 429)
       if (attempt < maxRetries - 1) {
-        const delay = baseDelay * Math.pow(2, attempt)
-        // Only log in development, not in production
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
-        }
+        // For 429 (rate limit), use much longer delays
+        const delayMultiplier = response.status === 429 ? 5 : 1
+        const delay = baseDelay * Math.pow(2, attempt) * delayMultiplier
+        console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
-        // On final attempt, return the error response silently
+        // On final attempt, return the error response
+        if (response.status === 429) {
+          console.error(`Rate limited by Google Books API. Please wait before trying again.`)
+        }
         return response
       }
     } catch (error) {
@@ -243,10 +245,12 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
   try {
     // Use Google Books API with inauthor query for better results
     // Try primary query first (inauthor for exact match)
+    // Add a small delay before making the request to help avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
     let response = await fetchWithRetry(
       `https://www.googleapis.com/books/v1/volumes?q=inauthor:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
-      3,
-      700
+      2, // Reduce retries to avoid making it worse
+      2000 // Longer base delay for rate limiting
     )
     
     let allBooks: any[] = []
@@ -260,8 +264,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     }
     
     // If we got fewer than 5 books, try a fallback query with just author name (less strict)
+    // Add a delay before fallback to avoid rate limiting
     if (allBooks.length < 5) {
       console.log(`📚 Only ${allBooks.length} books found, trying fallback query...`)
+      // Wait a bit before making the fallback call to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000))
       const fallbackResponse = await fetchWithRetry(
         `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
         3,

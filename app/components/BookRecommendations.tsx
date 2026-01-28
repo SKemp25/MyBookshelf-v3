@@ -363,9 +363,15 @@ export default function BookRecommendations({
           books.map((book) => `${(book.title || "").toLowerCase()}-${getAuthorName(book).toLowerCase()}`),
         )
 
-      for (const authorName of similarAuthors) {
+      for (let i = 0; i < similarAuthors.length; i++) {
+        const authorName = similarAuthors[i]
         // Skip if we've already tried this author
         if (triedAuthors.has(authorName)) continue
+        
+        // Add delay between author fetches to avoid rate limiting
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
         
         try {
           // Fetch books by this author
