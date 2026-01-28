@@ -11,7 +11,7 @@ import { saveUserAuthors } from "@/lib/database"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { deduplicateBooks, isSpecialEdition } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
+import { fetchAuthorBooksWithCache, fetchWorkDescription } from "@/lib/apiCache"
 
 // Helper function to convert HTTP URLs to HTTPS
 function ensureHttps(url: string): string {
@@ -581,6 +581,9 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
               thumbnail,
               language,
               isbn,
+              previewLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+              infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+              canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
             }
           })
           .filter((book: Book) => {
@@ -652,6 +655,39 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
 
         // Limit to top 5 most relevant results
         const topBooks = sortedBooks.slice(0, 5)
+        
+        // Fetch descriptions for books that don't have them
+        const booksWithoutDescriptions = topBooks.filter(book => !book.description || book.description.length === 0)
+        if (booksWithoutDescriptions.length > 0) {
+          const descriptionPromises = booksWithoutDescriptions.map(async (book, index) => {
+            // Small delay to avoid rate limiting
+            if (index > 0) {
+              await new Promise(resolve => setTimeout(resolve, 100 * index))
+            }
+            
+            // Get work key from previewLink or infoLink
+            const workKey = book.previewLink?.replace('https://openlibrary.org', '') || 
+                           book.infoLink?.replace('https://openlibrary.org', '') ||
+                           book.canonicalVolumeLink?.replace('https://openlibrary.org', '') ||
+                           ''
+            
+            if (workKey) {
+              try {
+                const description = await fetchWorkDescription(workKey)
+                if (description) {
+                  book.description = description
+                }
+              } catch (error) {
+                // Silently fail - description is optional
+                console.log("Failed to fetch description for", book.title)
+              }
+            }
+          })
+          
+          // Wait for descriptions to be fetched, then update state
+          await Promise.allSettled(descriptionPromises)
+        }
+        
         console.log("📖 Found books:", topBooks.length, topBooks)
 
         setFoundBooks(topBooks)

@@ -186,6 +186,39 @@ async function fetchWithRetry(
   throw new Error('Max retries exceeded')
 }
 
+// Fetch work details from Open Library to get full description
+export async function fetchWorkDescription(workKey: string): Promise<string> {
+  if (!workKey) return ""
+  
+  try {
+    // Extract OLID from work key (e.g., "/works/OL123456W" -> "OL123456W")
+    const olid = workKey.replace('/works/', '')
+    if (!olid) return ""
+    
+    const response = await fetchWithRetry(
+      `https://openlibrary.org${workKey}.json`,
+      2,
+      500
+    )
+    
+    if (!response.ok) return ""
+    
+    const workData = await response.json()
+    
+    // Open Library description can be a string or an object with a "value" property
+    if (typeof workData.description === 'string') {
+      return workData.description
+    } else if (workData.description?.value) {
+      return workData.description.value
+    }
+    
+    return ""
+  } catch (error) {
+    // Silently fail - description is optional
+    return ""
+  }
+}
+
 export async function fetchAuthorBooksWithCache(authorName: string): Promise<any[]> {
   const cacheKey = getAuthorBooksCacheKey(authorName)
   
@@ -349,6 +382,37 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
           seen.set(key, book)
           uniqueBooks.push(book)
         }
+      }
+      
+      // Fetch descriptions for books that don't have them (limit to first 10 to avoid too many API calls)
+      const booksWithoutDescriptions = uniqueBooks
+        .filter(book => !book.description || book.description.length === 0)
+        .slice(0, 10)
+      
+      if (booksWithoutDescriptions.length > 0) {
+        // Fetch descriptions in parallel (with a small delay between batches to be respectful)
+        const descriptionPromises = booksWithoutDescriptions.map(async (book, index) => {
+          // Small delay to avoid rate limiting
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 100 * index))
+          }
+          
+          // Get work key from previewLink or infoLink
+          const workKey = book.previewLink?.replace('https://openlibrary.org', '') || 
+                         book.infoLink?.replace('https://openlibrary.org', '') ||
+                         book.canonicalVolumeLink?.replace('https://openlibrary.org', '') ||
+                         ''
+          
+          if (workKey) {
+            const description = await fetchWorkDescription(workKey)
+            if (description) {
+              book.description = description
+            }
+          }
+        })
+        
+        // Wait for all description fetches to complete (but don't block if they fail)
+        await Promise.allSettled(descriptionPromises)
       }
       
       // Sort: books with descriptions first, then by publication date (newest first)
