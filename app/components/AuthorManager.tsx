@@ -814,6 +814,28 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                   )}
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      // Add just this single book to the bookshelf
+                      const bookWithNormalizedAuthor = {
+                        ...book,
+                        author: book.author || book.authors?.[0] || "Unknown",
+                        authors: book.authors || [book.author || "Unknown"],
+                      }
+                      onBooksFound([bookWithNormalizedAuthor])
+                      toast({
+                        title: "Book Added",
+                        description: `${book.title} has been added to your bookshelf.`,
+                        duration: 3000,
+                      })
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Book
+                  </Button>
                   {!authors.some((author) => author.toLowerCase() === book.author.toLowerCase()) ? (
                     <Button
                       type="button"
