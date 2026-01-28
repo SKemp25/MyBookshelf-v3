@@ -155,23 +155,24 @@ async function fetchWithRetry(
     try {
       const response = await fetch(url)
       
-      // If successful or non-retryable error, return immediately
-      if (response.ok || (response.status !== 503 && response.status !== 429)) {
+      // IMPORTANT: Do not retry 429 (rate limit). Retrying only wastes time and makes it worse.
+      // Let the caller handle fallback immediately.
+      if (response.status === 429) {
         return response
       }
       
-      // For 503/429, retry with exponential backoff (longer delay for 429)
+      // If successful or non-retryable error, return immediately
+      if (response.ok || response.status !== 503) {
+        return response
+      }
+      
+      // For 503, retry with exponential backoff
       if (attempt < maxRetries - 1) {
-        // For 429 (rate limit), use much longer delays
-        const delayMultiplier = response.status === 429 ? 5 : 1
-        const delay = baseDelay * Math.pow(2, attempt) * delayMultiplier
+        const delay = baseDelay * Math.pow(2, attempt)
         console.log(`API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
         // On final attempt, return the error response
-        if (response.status === 429) {
-          console.error(`Rate limited by Google Books API. Please wait before trying again.`)
-        }
         return response
       }
     } catch (error) {
@@ -420,10 +421,10 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
           return true
         })
       
-      // Remove duplicates by title+author
+      // Remove duplicates by title+author (use the filtered list)
       const seen = new Map<string, any>()
       const uniqueBooks: any[] = []
-      for (const book of processedBooks) {
+      for (const book of filteredBooks) {
         const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`
         if (!seen.has(key)) {
           seen.set(key, book)

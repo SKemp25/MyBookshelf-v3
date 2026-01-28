@@ -462,7 +462,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       "non-fiction", "nonfiction", "reference", "academic"
                     ]
                     const isNonFiction = nonFictionIndicators.some(indicator =>
-                      bookCategories.some(c => c.includes(indicator)) ||
+                      bookCategories.some((c: string) => c.includes(indicator)) ||
                       bookDescription.includes(indicator)
                     )
                     if (isNonFiction) {
@@ -478,10 +478,10 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                   if (hasNonFictionGenre) {
                     const fictionIndicators = ["fiction", "novel", "literature", "romance", "mystery", "thriller"]
                     const isFiction = fictionIndicators.some(indicator =>
-                      bookCategories.some(c => c.includes(indicator)) ||
+                      bookCategories.some((c: string) => c.includes(indicator)) ||
                       bookDescription.includes(indicator)
                     )
-                    if (isFiction && !bookCategories.some(c => c.includes("biography") || c.includes("history"))) {
+                    if (isFiction && !bookCategories.some((c: string) => c.includes("biography") || c.includes("history"))) {
                       return false
                     }
                   }
@@ -957,8 +957,17 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
     }
 
     if ((userState.preferredLanguages || []).length > 0) {
-      const bookLanguage = book.language || "en"
-      if (!userState.preferredLanguages.includes(bookLanguage)) {
+      // Normalize language codes: OpenLibrary often returns "eng" while Google Books returns "en"
+      const normalizeLang = (lang: string) => {
+        const l = (lang || "").toLowerCase().trim()
+        if (l === "eng") return "en"
+        return l || "en"
+      }
+
+      const preferred = new Set((userState.preferredLanguages || []).map(normalizeLang))
+      const bookLanguage = normalizeLang(book.language || "en")
+
+      if (!preferred.has(bookLanguage)) {
         return false
       }
     }
@@ -2193,7 +2202,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                       }, 100)
                     }
                   }}
-                  onAuthorClick={async (authorName) => {
+                  onAuthorClick={async (authorName: string) => {
                     // Note: This is kept for modal compatibility but not used in the new single-book recommendation system
                     // Users add individual books, not entire authors
                     // However, if user explicitly clicks "Add Author" in modal, we'll still support it
@@ -2725,7 +2734,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           return (
                             <button
                               key={key}
-                              onClick={() => setColorTheme(key)}
+                              onClick={() => setColorTheme(key as ColorTheme)}
                               className={`p-3 rounded-lg border-2 transition-all text-left ${borderClass}`}
                             >
                               <div className="flex items-center gap-2 mb-1">
@@ -3275,7 +3284,7 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
                           return (
                             <button
                               key={key}
-                              onClick={() => setColorTheme(key)}
+                              onClick={() => setColorTheme(key as ColorTheme)}
                               className={`p-3 rounded-lg border-2 transition-all text-left ${borderClass}`}
                             >
                               <div className="flex items-center gap-2 mb-1">

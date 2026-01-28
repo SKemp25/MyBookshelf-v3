@@ -16,6 +16,7 @@ interface BookRecommendationsProps {
   bookRatings?: Map<string, "loved" | "liked" | "didnt-like">
   user: any
   onBookClick?: (book: Book) => void
+  onAuthorClick?: (authorName: string) => void | Promise<void>
 }
 
 // Author similarity database - maps authors to similar authors
