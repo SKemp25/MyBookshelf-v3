@@ -261,29 +261,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
       const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
       const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
       if (openLibraryBooks.length > 0) {
-        // Only enhance books that are missing descriptions or covers (much faster)
-        const { enhanceBooksData } = await import("./bookDataMiddleware")
-        // Only enhance books that need it - skip books that already have both cover and description
-        const booksToEnhance = openLibraryBooks.filter(book => 
-          (!book.description || book.description.trim().length === 0) || 
-          (!book.thumbnail || book.thumbnail.trim().length === 0)
-        )
-        
-        if (booksToEnhance.length > 0) {
-          console.log(`🔍 Enhancing ${booksToEnhance.length} out of ${openLibraryBooks.length} books that need descriptions/covers...`)
-          const enhancedBooks = await enhanceBooksData(booksToEnhance, 200) // Faster delay
-          
-          // Merge enhanced books back into the full list
-          const enhancedMap = new Map(enhancedBooks.map(b => [b.id, b]))
-          const finalBooks = openLibraryBooks.map(book => enhancedMap.get(book.id) || book)
-          
-          apiCache.set(cacheKey, finalBooks, 10 * 60 * 1000)
-          return finalBooks
-        } else {
-          // All books already have covers and descriptions
-          apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
-          return openLibraryBooks
-        }
+        // Skip enhancement when we're already rate-limited - return books as-is
+        // Enhancement can happen later in the background or when user explicitly requests it
+        console.log(`✅ Got ${openLibraryBooks.length} books from OpenLibrary (skipping enhancement to avoid more API calls)`)
+        apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
+        return openLibraryBooks
       }
       // If OpenLibrary also fails, return empty array
       console.error(`❌ Both Google Books and OpenLibrary failed for ${authorName}`)
@@ -317,10 +299,10 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
         const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
         const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
         if (openLibraryBooks.length > 0) {
-          const { enhanceBooksData } = await import("./bookDataMiddleware")
-          const enhancedBooks = await enhanceBooksData(openLibraryBooks, 300)
-          apiCache.set(cacheKey, enhancedBooks, 10 * 60 * 1000)
-          return enhancedBooks
+          // Skip enhancement when rate-limited - return books as-is
+          console.log(`✅ Got ${openLibraryBooks.length} books from OpenLibrary (skipping enhancement to avoid more API calls)`)
+          apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
+          return openLibraryBooks
         }
       }
       
@@ -337,9 +319,42 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     }
     
     if (allBooks.length > 0) {
-      // Use middleware to process and enhance books with fallback sources
-      const { processGoogleBooksResponse } = await import("./bookDataMiddleware")
-      const processedBooks = await processGoogleBooksResponse(allBooks, authorName)
+      // Process Google Books response (but skip enhancement to avoid extra API calls)
+      // Enhancement can happen later if needed
+      const processedBooks = allBooks
+        .map((item: any) => {
+          const volumeInfo = item.volumeInfo || {}
+          const author = volumeInfo.authors?.[0] || "Unknown Author"
+          let publishedDate = volumeInfo.publishedDate || "Unknown Date"
+          if (publishedDate && publishedDate.length === 4) {
+            publishedDate = `${publishedDate}-01-01`
+          }
+          const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                      volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
+                      ""
+          const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
+          const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
+                           volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
+          const description = volumeInfo.description || ""
+          return {
+            id,
+            title: volumeInfo.title || "Unknown Title",
+            author,
+            authors: volumeInfo.authors || [author],
+            publishedDate,
+            description,
+            thumbnail,
+            isbn,
+            pageCount: volumeInfo.pageCount || 0,
+            categories: volumeInfo.categories || [],
+            language: volumeInfo.language || "en",
+            publisher: volumeInfo.publisher || "",
+            previewLink: volumeInfo.previewLink || "",
+            infoLink: volumeInfo.infoLink || "",
+            canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
+            imageUrl: thumbnail,
+          } as any
+        })
       
       const filteredBooks = processedBooks
         .filter((book: any) => {
