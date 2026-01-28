@@ -515,128 +515,16 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         }
       }
 
-      // Search Google Books by title
-      const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=intitle:"${encodeURIComponent(searchTitle.trim())}"&maxResults=20&langRestrict=en&printType=books`
-      console.log("🌐 Google Books API URL:", apiUrl)
+      // Simple title search - no quotes for more flexible matching, no middleware, no fallbacks
+      const searchQuery = `intitle:${searchTitle.trim()}`
+      const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=10`
+      console.log("🌐 API URL:", apiUrl)
       
       const response = await fetch(apiUrl)
       console.log("📡 Response status:", response.status)
       
-      // Check if Google Books is rate-limited
-      if (response.status === 429) {
-        console.warn(`⚠️ Google Books API rate-limited (429). Falling back to OpenLibrary...`)
-        
-        // Try OpenLibrary search as fallback
-        const { fetchAuthorBooksFromOpenLibrary } = await import("@/lib/openLibraryFallback")
-        const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
-        
-        // OpenLibrary search by title
-        const openLibraryUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(searchTitle.trim())}&language=eng&limit=20`
-        console.log(`🌐 OpenLibrary fallback URL: ${openLibraryUrl}`)
-        
-        try {
-          const olResponse = await fetch(openLibraryUrl)
-          if (olResponse.ok) {
-            const olData = await olResponse.json()
-            if (olData.docs && olData.docs.length > 0) {
-              // Convert OpenLibrary format to our Book format
-              const olBooks = olData.docs.map((doc: any) => {
-                const title = doc.title || "Unknown Title"
-                const author = doc.author_name?.[0] || "Unknown Author"
-                const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
-                const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
-                
-                let thumbnail = ""
-                if (doc.cover_i) {
-                  thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
-                } else if (isbn) {
-                  thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn.replace(/-/g, "")}-L.jpg`
-                }
-                
-                let description = ""
-                if (doc.first_sentence) {
-                  if (Array.isArray(doc.first_sentence)) {
-                    description = doc.first_sentence.join(" ")
-                  } else if (typeof doc.first_sentence === "string") {
-                    description = doc.first_sentence
-                  }
-                }
-                
-                let publishedDate = "Unknown Date"
-                if (doc.first_publish_year) {
-                  publishedDate = `${doc.first_publish_year}-01-01`
-                }
-                
-                const id = workKey ? `OL-${workKey}` : `OL-${title.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
-                
-                const book: any = {
-                  id,
-                  title,
-                  author,
-                  authors: doc.author_name || [author],
-                  publishedDate,
-                  description,
-                  thumbnail,
-                  isbn,
-                  pageCount: doc.number_of_pages_median || 0,
-                  categories: doc.subject || [],
-                  language: doc.language?.[0] || "en",
-                  publisher: doc.publisher?.[0] || "",
-                }
-                
-                if (workKey) {
-                  book.olWorkKey = workKey
-                  if (description.length > 0 && description.length < 200) {
-                    book.needsFullDescription = true
-                  }
-                }
-                
-                return book
-              })
-              
-              // Filter and enhance
-              const filteredBooks = olBooks.filter((book: Book) => {
-                if (book.language && book.language !== "en" && book.language !== "eng") return false
-                const title = (book.title || "").toLowerCase()
-                const unwantedKeywords = ["free preview", "sample", "promotional", "marketing"]
-                if (unwantedKeywords.some(keyword => title.includes(keyword))) return false
-                return true
-              })
-              
-              // Enhance books that need descriptions/covers
-              const booksToEnhance = filteredBooks.filter((book: any) => 
-                (!book.description || book.description.trim().length === 0) || 
-                (!book.thumbnail || book.thumbnail.trim().length === 0) ||
-                book.needsFullDescription
-              )
-              
-              if (booksToEnhance.length > 0) {
-                const { enhanceBooksData } = await import("@/lib/bookDataMiddleware")
-                const enhancedBooks = await enhanceBooksData(booksToEnhance, 200)
-                const enhancedMap = new Map(enhancedBooks.map((b: Book) => [b.id, b]))
-                const finalBooks = filteredBooks.map((book: Book) => enhancedMap.get(book.id) || book)
-                setFoundBooks(finalBooks)
-                setIsSearching(false)
-                return
-              } else {
-                setFoundBooks(filteredBooks)
-                setIsSearching(false)
-                return
-              }
-            }
-          }
-        } catch (olError) {
-          console.error("OpenLibrary fallback also failed:", olError)
-        }
-        
-        // If OpenLibrary also fails, show error
-        toast({
-          title: "Search failed",
-          description: "Google Books is rate-limited and OpenLibrary search failed. Please try again in a few moments.",
-          variant: "destructive",
-        })
-        setIsSearching(false)
-        return
+      if (!response.ok) {
+        throw new Error(`Google Books API returned ${response.status}`)
       }
       
       if (!response.ok) {
@@ -646,105 +534,62 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       const data = await response.json()
       console.log("📚 API Response:", data)
 
-      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-        // Use middleware to process and enhance books with fallback sources
-        let processedBooks: Book[] = []
-        try {
-          const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
-          processedBooks = await processGoogleBooksResponse(data.items, "")
-          
-          // Ensure we have an array before filtering
-          if (!Array.isArray(processedBooks)) {
-            console.error("processGoogleBooksResponse did not return an array:", processedBooks)
-            processedBooks = []
-          }
-        } catch (processError) {
-          console.error("Error processing Google Books response:", processError)
-          // Fallback: process books directly without middleware
-          processedBooks = data.items.map((item: any) => {
-            const volumeInfo = item.volumeInfo || {}
-            const author = volumeInfo.authors?.[0] || "Unknown Author"
-            let publishedDate = volumeInfo.publishedDate || "Unknown Date"
-            if (publishedDate && publishedDate.length === 4) {
-              publishedDate = `${publishedDate}-01-01`
-            }
-            const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
-                        volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier || ""
-            const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
-            const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
-                             volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
-            return {
-              id,
-              title: volumeInfo.title || "Unknown Title",
-              author,
-              authors: volumeInfo.authors || [author],
-              publishedDate,
-              description: volumeInfo.description || "",
-              thumbnail,
-              isbn,
-              pageCount: volumeInfo.pageCount || 0,
-              categories: volumeInfo.categories || [],
-              language: volumeInfo.language || "en",
-              publisher: volumeInfo.publisher || "",
-              previewLink: volumeInfo.previewLink || "",
-              infoLink: volumeInfo.infoLink || "",
-              canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
-              imageUrl: thumbnail,
-            } as any
-          })
-        }
-        
-        const books: Book[] = processedBooks.filter((book: Book) => {
-            // Filter out non-English books
-            if (book.language && book.language !== "en") {
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`🚫 Filtering out non-English book from search: ${book.title} (language: ${book.language})`)
-              }
-              return false
-            }
-            
-            // Filter out unwanted keywords in title
-            const title = (book.title || "").toLowerCase()
-            const unwantedKeywords = [
-              "free preview",
-              "sample",
-              "showcard",
-              "promotional",
-              "marketing",
-              "advertisement",
-              "ad copy",
-              "book trailer",
-              "excerpt",
-              "preview edition",
-              "advance reader",
-              "arc",
-              "galley",
-              "proof",
-              "uncorrected",
-              "not for sale",
-              "review copy",
-              "promotional copy",
-              "media kit",
-              "press kit",
-              "catalog",
-              "catalogue",
-              "brochure",
-              "flyer",
-              "leaflet",
-              "pamphlet",
-            ]
-            
-            if (unwantedKeywords.some(keyword => title.includes(keyword))) {
-              return false
-            }
-            
-            // Filter out special editions (title only)
-            if (isSpecialEdition(book)) return false
-            
-            return true
-          })
+      if (data.items) {
+        // Simple direct mapping - no middleware, no enhancement calls
+        const books: Book[] = data.items.map((item: any) => {
+          let publishedDate = item.volumeInfo.publishedDate
 
-        // Sort books by relevance: exact title match > publication date (newest first) > has description > has cover
+          if (publishedDate) {
+            // Parse the date
+            let dateObj: Date
+
+            if (publishedDate.length === 4) {
+              dateObj = new Date(`${publishedDate}-01-01`)
+              publishedDate = `${publishedDate}-01-01`
+            } else if (publishedDate.length === 7) {
+              dateObj = new Date(`${publishedDate}-01`)
+              publishedDate = `${publishedDate}-01`
+            } else {
+              dateObj = new Date(publishedDate)
+            }
+
+            // Only validate that the date isn't unreasonably far in the future (more than 2 years)
+            const now = new Date()
+            const twoYearsFromNow = new Date()
+            twoYearsFromNow.setFullYear(now.getFullYear() + 2)
+
+            if (dateObj > twoYearsFromNow) {
+              publishedDate = null
+            }
+
+            // If the date is invalid, set to null
+            if (isNaN(dateObj.getTime())) {
+              publishedDate = null
+            }
+          }
+
+          return {
+            id: item.id,
+            title: item.volumeInfo.title || "Unknown Title",
+            author: item.volumeInfo.authors?.[0] || "Unknown Author",
+            authors: item.volumeInfo.authors || [item.volumeInfo.authors?.[0] || "Unknown Author"],
+            publishedDate: publishedDate || "Unknown Date",
+            description: item.volumeInfo.description || "",
+            pageCount: item.volumeInfo.pageCount || 0,
+            categories: item.volumeInfo.categories || [],
+            thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://") || "",
+            language: item.volumeInfo.language || "en",
+            isbn: item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
+                  item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier || "",
+            publisher: item.volumeInfo.publisher || "",
+            previewLink: item.volumeInfo.previewLink || "",
+            infoLink: item.volumeInfo.infoLink || "",
+            canonicalVolumeLink: item.volumeInfo.canonicalVolumeLink || "",
+            imageUrl: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://") || "",
+          }
+        })
+
+        // Sort books by relevance (exact title matches first, then by publication date - newest first)
         const sortedBooks = books.sort((a, b) => {
           const searchTerm = searchTitle.trim().toLowerCase()
           const aTitle = a.title.toLowerCase()
@@ -754,46 +599,19 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           if (aTitle === searchTerm && bTitle !== searchTerm) return -1
           if (bTitle === searchTerm && aTitle !== searchTerm) return 1
           
-          // Then prioritize by publication date (newest first) - this is more important than description
+          // If both or neither are exact matches, sort by publication date (newest first)
           const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
           const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
-          // Only use date if both dates are valid (not 0)
-          if (aDate > 0 && bDate > 0) {
-            const dateDiff = bDate - aDate
-            // If dates are significantly different (more than 1 year), prioritize newer
-            if (Math.abs(dateDiff) > 365 * 24 * 60 * 60 * 1000) {
-              return dateDiff
-            }
-          }
-          
-          // Then prioritize books with covers
-          const aHasCover = a.thumbnail && a.thumbnail.length > 0
-          const bHasCover = b.thumbnail && b.thumbnail.length > 0
-          if (aHasCover && !bHasCover) return -1
-          if (!aHasCover && bHasCover) return 1
-          
-          // Finally, prioritize books with descriptions
-          const aHasDesc = a.description && a.description.length > 0
-          const bHasDesc = b.description && b.description.length > 0
-          if (aHasDesc && !bHasDesc) return -1
-          if (!aHasDesc && bHasDesc) return 1
-          
-          // If still tied, use date
           return bDate - aDate
         })
 
-        // Limit to top 10 most relevant results (increased from 5 to show more options)
+        // Limit to top 10 most relevant results
         const topBooks = sortedBooks.slice(0, 10)
-        
-        // Google Books already provides descriptions, no need to fetch separately
-        const booksWithDescriptions = topBooks.filter(book => book.description && book.description.length > 0).length
-        console.log(`📖 Found ${topBooks.length} books (${booksWithDescriptions} with descriptions)`)
+        console.log("📖 Found books:", topBooks.length, topBooks)
 
         setFoundBooks(topBooks)
-        // Don't auto-add books to bookshelf - just show as suggestions
-        // Don't clear search title - let user see what they searched for
       } else {
-        console.log("❌ No results from Google Books search")
+        console.log("⚠️ No results from title search")
         setFoundBooks([])
       }
     } catch (error) {
@@ -802,11 +620,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       
       if (error instanceof Error) {
         console.error("Error details:", error.message, error.stack)
-        if (error.message.includes("429")) {
-          errorMessage = "Google Books is temporarily rate-limited. The search will automatically try OpenLibrary as a fallback."
-        } else {
-          errorMessage = `Search failed: ${error.message}`
-        }
+        errorMessage = `Search failed: ${error.message}`
       }
       
       toast({
