@@ -199,19 +199,19 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
   console.log(`Cache miss for author: ${authorName}, fetching from API`)
   
   try {
-    const queries = [
-      `inauthor:"${encodeURIComponent(authorName)}"`,
-      `"${encodeURIComponent(authorName)}" author`,
-    ]
-
+    const primaryQuery = `inauthor:"${encodeURIComponent(authorName)}"`
+    const fallbackQuery = `"${encodeURIComponent(authorName)}" author`
+    const queries = [primaryQuery, fallbackQuery]
     let allBooks: any[] = []
 
-    for (const query of queries) {
+    for (let i = 0; i < queries.length; i++) {
+      const query = queries[i]
+      const isFallback = i === 1
       try {
         const response = await fetchWithRetry(
           `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=newest&printType=books`,
-          3, // max retries
-          1000 // base delay 1 second
+          3,
+          700
         )
         
         if (!response.ok) {
@@ -228,44 +228,45 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
         }
         
         const data = await response.json()
-        if (data.items) {
-          console.log(`API returned ${data.items.length} books for query: ${query}`)
-          // Process the raw API data into proper Book objects
-          // Filter out special editions, graded readers, and abridged versions
+        if (data.items?.length) {
           const processedBooks = data.items
             .map((item: any) => {
-              let publishedDate = item.volumeInfo.publishedDate
+              let publishedDate = item.volumeInfo?.publishedDate
               if (publishedDate && publishedDate.length === 4) {
                 publishedDate = `${publishedDate}-01-01`
               }
-
-              const bookData = {
+              return {
                 id: item.id,
-                title: item.volumeInfo.title || "Unknown Title",
-                author: item.volumeInfo.authors?.[0] || "Unknown Author",
-                authors: item.volumeInfo.authors || [],
+                title: item.volumeInfo?.title || "Unknown Title",
+                author: item.volumeInfo?.authors?.[0] || "Unknown Author",
+                authors: item.volumeInfo?.authors || [],
                 publishedDate: publishedDate || "Unknown Date",
-                description: item.volumeInfo.description || "",
-                categories: item.volumeInfo.categories || [],
-                language: item.volumeInfo.language || "en",
-                pageCount: item.volumeInfo.pageCount || 0,
-                imageUrl: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-                thumbnail: ensureHttps(item.volumeInfo.imageLinks?.thumbnail || ""),
-                previewLink: ensureHttps(item.volumeInfo.previewLink || ""),
-                infoLink: ensureHttps(item.volumeInfo.infoLink || ""),
-                canonicalVolumeLink: ensureHttps(item.volumeInfo.canonicalVolumeLink || ""),
+                description: item.volumeInfo?.description || "",
+                categories: item.volumeInfo?.categories || [],
+                language: item.volumeInfo?.language || "en",
+                pageCount: item.volumeInfo?.pageCount || 0,
+                imageUrl: ensureHttps(item.volumeInfo?.imageLinks?.thumbnail || ""),
+                thumbnail: ensureHttps(item.volumeInfo?.imageLinks?.thumbnail || ""),
+                previewLink: ensureHttps(item.volumeInfo?.previewLink || ""),
+                infoLink: ensureHttps(item.volumeInfo?.infoLink || ""),
+                canonicalVolumeLink: ensureHttps(item.volumeInfo?.canonicalVolumeLink || ""),
               }
-              
-              return bookData
             })
             .filter((book: any) => !isSpecialEdition(book))
-          
-          allBooks = [...allBooks, ...processedBooks]
+          const seen = new Set(allBooks.map((b: any) => b.id))
+          for (const b of processedBooks) {
+            if (!seen.has(b.id)) {
+              seen.add(b.id)
+              allBooks.push(b)
+            }
+          }
+          if (!isFallback && allBooks.length >= 5) break
         }
       } catch (queryError) {
-        console.error(`Error fetching books for query "${query}":`, queryError)
-        // Continue to next query
-        continue
+        if (process.env.NODE_ENV === "development") {
+          console.error(`Error fetching books for query "${query}":`, queryError)
+        }
+        if (!isFallback) continue
       }
     }
 

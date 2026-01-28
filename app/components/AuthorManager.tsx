@@ -189,23 +189,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         setAuthors(updatedAuthors)
         setNewAuthor("")
 
-        try {
-          if (userId) {
-            await saveUserAuthors(userId, updatedAuthors)
-
-            await trackEvent(userId, {
-              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-              event_data: {
-                author_name: normalizedName,
-                total_authors: updatedAuthors.length,
-                timestamp: new Date().toISOString(),
-              },
-            })
-          }
-        } catch (error) {
-          console.error("Error saving authors to database:", error)
-        }
-        
         // Use the already-filtered validBooks instead of re-filtering apiResults
         // This ensures we get all books that matched the author, not just exact matches
         // First, process raw API data into Book format if needed
@@ -323,8 +306,9 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             "oversized edition",
           ]
 
+          // Check edition/tie-in indicators in title only (description often has "bestselling", "award-winning", etc.)
           const isSpecialRelease = specialReleaseIndicators.some(
-            (indicator) => title.includes(indicator) || description.includes(indicator),
+            (indicator) => title.includes(indicator),
           )
 
           if (isSpecialRelease) {
@@ -383,7 +367,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           ]
 
           const isRerelease = rereleaseIndicators.some(
-            (indicator) => title.includes(indicator) || description.includes(indicator),
+            (indicator) => title.includes(indicator),
           )
 
           if (isRerelease) {
@@ -415,6 +399,21 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           description: `Found ${deduplicatedBooks.length} books for ${normalizedName}`,
           duration: 4000, // Auto-dismiss after 4 seconds
         })
+
+        // Persist and track in background so UI feels fast
+        if (userId) {
+          saveUserAuthors(userId, updatedAuthors).catch((e) =>
+            console.error("Error saving authors to database:", e)
+          )
+          trackEvent(userId, {
+            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+            event_data: {
+              author_name: normalizedName,
+              total_authors: updatedAuthors.length,
+              timestamp: new Date().toISOString(),
+            },
+          }).catch(() => {})
+        }
       } catch (error) {
         console.error("Error fetching books for author:", error)
         toast({

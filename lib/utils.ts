@@ -98,7 +98,7 @@ export function deduplicateBooks(books: any[], userCountry: string = "US") {
       return
     }
 
-    // Filter out special editions, reprints, and media tie-ins
+    // Filter out special editions, reprints, and media tie-ins (title only; description often has "bestselling", etc.)
     const unwantedIndicators = [
       "netflix",
       "tv tie-in",
@@ -149,7 +149,7 @@ export function deduplicateBooks(books: any[], userCountry: string = "US") {
     ]
 
     const hasUnwantedIndicator = unwantedIndicators.some(
-      (indicator) => title.includes(indicator) || description.includes(indicator)
+      (indicator) => title.includes(indicator)
     )
 
     if (hasUnwantedIndicator) {
