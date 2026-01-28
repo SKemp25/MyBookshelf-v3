@@ -25,6 +25,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Sparkles,
 } from "lucide-react"
 import type { Book, Platform } from "@/lib/types"
 import { updateBookStatus } from "@/lib/database"
@@ -57,6 +58,8 @@ interface BookGridProps {
   emptyStateIconClass?: string // Theme-aware icon class for empty state
   emptyStateTitleClass?: string // Theme-aware title class for empty state
   emptyStateDescClass?: string // Theme-aware description class for empty state
+  showRecommendButton?: boolean // Show Recommend button; opens Google Books for similar titles
+  onRecommendClick?: (book: Book) => void
 }
 
 export default function BookGrid({
@@ -85,6 +88,8 @@ export default function BookGrid({
   emptyStateIconClass = "text-orange-400",
   emptyStateTitleClass = "text-orange-800",
   emptyStateDescClass = "text-orange-600",
+  showRecommendButton = false,
+  onRecommendClick,
 }: BookGridProps) {
   const showCovers = memoryAids.includes("Show book covers")
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
@@ -581,6 +586,9 @@ export default function BookGrid({
               {renderSortableHeader("Published", "newest")}
               {renderSortableHeader("Pages", "pages")}
               <th className="text-left p-2 text-xs font-bold uppercase text-gray-700 w-24">Status</th>
+              {showRecommendButton && onRecommendClick && (
+                <th className="text-left p-2 text-xs font-bold uppercase text-gray-700 w-16">Rec</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -634,6 +642,20 @@ export default function BookGrid({
                       {getStatusText(status)}
                     </Badge>
                   </td>
+                  {showRecommendButton && onRecommendClick && (
+                    <td className="p-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRecommendClick(book)
+                        }}
+                        className="p-1.5 rounded border-2 border-amber-400 text-amber-800 hover:bg-amber-50 bg-white"
+                        title="Recommend — open Google Books for similar titles"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -813,6 +835,23 @@ export default function BookGrid({
                         </div>
                       )}
                     </div>
+
+                    {showRecommendButton && onRecommendClick && (
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRecommendClick(book)
+                          }}
+                          className="h-8 text-xs font-bold border-2 border-amber-400 text-amber-800 hover:bg-amber-50 bg-white"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Recommend
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Description - Expandable */}
                     {book.description && (
@@ -1065,6 +1104,23 @@ export default function BookGrid({
                       </div>
                     )}
                     </div>
+
+                    {showRecommendButton && onRecommendClick && (
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRecommendClick(book)
+                          }}
+                          className="h-8 px-3 text-xs font-bold border-2 border-amber-400 text-amber-800 hover:bg-amber-50 bg-white"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Recommend
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Platform Links */}
                     {platforms.length > 0 && (

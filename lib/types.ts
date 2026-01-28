@@ -104,6 +104,7 @@ export interface User {
   readingMethod: string[]
   ageRange: string
   suggestNewAuthors?: boolean // Added suggestNewAuthors property for author recommendations
+  showRecommendButton?: boolean // Show Recommend button on books; opens Google Books for similar titles
   createdAt?: string
   dateOfBirth?: string
   preferredReadingTime?: string
