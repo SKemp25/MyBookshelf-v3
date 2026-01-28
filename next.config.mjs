@@ -12,6 +12,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [{ source: "/favicon.ico", destination: "/placeholder-logo.svg" }]
+  },
   // Ensure proper chunk generation
   webpack: (config, { isServer }) => {
     if (!isServer) {

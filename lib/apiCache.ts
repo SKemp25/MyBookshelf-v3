@@ -353,31 +353,21 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
   try {
     // Use Google Books API with inauthor query for better results
     // Try primary query first (inauthor for exact match)
-    // Add a small delay before making the request to help avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Add delay before request to reduce rate-limit risk
+    await new Promise(resolve => setTimeout(resolve, 1500))
     let response = await fetchWithRetry(
-      `https://www.googleapis.com/books/v1/volumes?q=inauthor:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
-      2, // Reduce retries to avoid making it worse
-      2000 // Longer base delay for rate limiting
+      `https://www.googleapis.com/books/v1/volumes?q=inauthor:"${encodeURIComponent(authorName)}"&maxResults=25&langRestrict=en&printType=books`,
+      2,
+      3000
     )
     
     let allBooks: any[] = []
     
-    // Check if Google Books is rate-limited
+    // Google Books rate-limited (429). Do NOT fall back to OpenLibrary — it uses fetch() from
+    // the browser and OpenLibrary blocks CORS, so it would fail. Return [] and cache briefly.
     if (response.status === 429) {
-      console.warn(`⚠️ Google Books API rate-limited (429). Falling back to OpenLibrary...`)
-      const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
-      const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
-      if (openLibraryBooks.length > 0) {
-        // Skip enhancement when we're already rate-limited - return books as-is
-        // Enhancement can happen later in the background or when user explicitly requests it
-        console.log(`✅ Got ${openLibraryBooks.length} books from OpenLibrary (skipping enhancement to avoid more API calls)`)
-        apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
-        return openLibraryBooks
-      }
-      // If OpenLibrary also fails, return empty array
-      console.error(`❌ Both Google Books and OpenLibrary failed for ${authorName}`)
-      apiCache.set(cacheKey, [], 10 * 60 * 1000)
+      console.warn(`⚠️ Google Books API rate-limited (429) for "${authorName}". Try again in a few minutes.`)
+      apiCache.set(cacheKey, [], 2 * 60 * 1000)
       return []
     }
     
@@ -390,31 +380,23 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     }
     
     // If we got fewer than 5 books, try a fallback query with just author name (less strict)
-    // Add a delay before fallback to avoid rate limiting
     if (allBooks.length < 5) {
       console.log(`📚 Only ${allBooks.length} books found, trying fallback query...`)
-      // Wait a bit before making the fallback call to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 2500))
       const fallbackResponse = await fetchWithRetry(
-        `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=40&langRestrict=en&printType=books`,
-        2, // Reduce retries
-        2000 // Longer delay
+        `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=25&langRestrict=en&printType=books`,
+        2,
+        3000
       )
       
-      // Check for rate limiting on fallback too
       if (fallbackResponse.status === 429) {
-        console.warn(`⚠️ Google Books fallback also rate-limited. Using OpenLibrary...`)
-        const { fetchAuthorBooksFromOpenLibrary } = await import("./openLibraryFallback")
-        const openLibraryBooks = await fetchAuthorBooksFromOpenLibrary(authorName)
-        if (openLibraryBooks.length > 0) {
-          // Skip enhancement when rate-limited - return books as-is
-          console.log(`✅ Got ${openLibraryBooks.length} books from OpenLibrary (skipping enhancement to avoid more API calls)`)
-          apiCache.set(cacheKey, openLibraryBooks, 10 * 60 * 1000)
-          return openLibraryBooks
+        console.warn(`⚠️ Google Books fallback also rate-limited for "${authorName}".`)
+        // Keep whatever we got from primary; don't retry OpenLibrary (CORS).
+        if (allBooks.length === 0) {
+          apiCache.set(cacheKey, [], 2 * 60 * 1000)
+          return []
         }
-      }
-      
-      if (fallbackResponse.ok) {
+      } else if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json()
         if (fallbackData.items && fallbackData.items.length > 0) {
           // Merge results, avoiding duplicates by ID
@@ -444,6 +426,10 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
           const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
                            volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
           const description = volumeInfo.description || ""
+          const cleanIsbn = (isbn || "").replace(/-/g, "").trim()
+          const coverFallbacks = cleanIsbn
+            ? { isbn: `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg` }
+            : undefined
           return {
             id,
             title: volumeInfo.title || "Unknown Title",
@@ -453,6 +439,7 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
             description,
             thumbnail,
             isbn,
+            coverFallbacks,
             pageCount: volumeInfo.pageCount || 0,
             categories: volumeInfo.categories || [],
             language: volumeInfo.language || "en",

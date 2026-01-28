@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -104,6 +104,9 @@ export default function RecommendBookModal({ book, authors, friends, onRecommend
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-orange-800">Recommend "{book.title}"</DialogTitle>
+          <DialogDescription className="sr-only">
+            Send a recommendation for this book to a friend via email or SMS.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

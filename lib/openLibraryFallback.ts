@@ -7,6 +7,20 @@
 import { Book } from "@/lib/types"
 import { isRerelease, isSpecialEdition } from "@/lib/utils"
 
+async function fetchOpenLibraryWorkDescription(workId: string): Promise<string> {
+  if (!workId) return ""
+  try {
+    const response = await fetch(`https://openlibrary.org/works/${workId}.json`)
+    if (!response.ok) return ""
+    const workData: any = await response.json()
+    if (typeof workData?.description === "string") return workData.description
+    if (typeof workData?.description?.value === "string") return workData.description.value
+    return ""
+  } catch {
+    return ""
+  }
+}
+
 /**
  * Fetch books by author from OpenLibrary Search API
  */
@@ -63,7 +77,7 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         const isbn = doc.isbn?.[0] || doc.isbn_13?.[0] || doc.isbn_10?.[0] || ""
         
         // Get work key first (needed for fetching full description and covers)
-        const workKey = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
+        const workId = doc.key ? doc.key.replace(/^\/works\//, "").replace(/^\/books\//, "") : null
         
         // Get cover from OpenLibrary (try multiple sources)
         let thumbnail = ""
@@ -77,9 +91,9 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         } else if (doc.oclc?.[0]) {
           // Try OCLC-based cover
           thumbnail = `https://covers.openlibrary.org/b/oclc/${doc.oclc[0]}-L.jpg`
-        } else if (workKey) {
+        } else if (workId) {
           // Try work key-based cover as last resort
-          thumbnail = `https://covers.openlibrary.org/b/olid/${workKey}-L.jpg`
+          thumbnail = `https://covers.openlibrary.org/b/olid/${workId}-L.jpg`
         }
         
         // Get description from first_sentence if available (we'll fetch full description later if needed)
@@ -123,8 +137,8 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
         }
         
         // Store work key and flag for fetching full description
-        if (workKey) {
-          (book as any).olWorkKey = workKey
+        if (workId) {
+          ;(book as any).olWorkKey = workId
         }
         if (hasOnlyFirstSentence) {
           (book as any).needsFullDescription = true
@@ -166,7 +180,44 @@ export async function fetchAuthorBooksFromOpenLibrary(authorName: string): Promi
     })
     
     console.log(`✅ Processed ${uniqueBooks.length} unique books from OpenLibrary for ${authorName}`)
-    return uniqueBooks
+
+    // Lightweight enrichment: OpenLibrary Search often lacks real descriptions.
+    // Fetch *a small number* of work records to fill missing/very-short descriptions.
+    const candidates = uniqueBooks
+      .filter((b: any) => (b?.olWorkKey && (!b.description || b.description.length < 200 || b.needsFullDescription)))
+      .slice(0, 12)
+
+    if (candidates.length > 0) {
+      console.log(`📝 Enriching descriptions for ${candidates.length} OpenLibrary books...`)
+      for (const b of candidates as any[]) {
+        const workId = b?.olWorkKey
+        if (!workId) continue
+        const fullDesc = await fetchOpenLibraryWorkDescription(workId)
+        if (fullDesc && fullDesc.length > (b.description?.length || 0)) {
+          b.description = fullDesc
+          delete b.needsFullDescription
+        }
+        // tiny delay to be gentle to OpenLibrary
+        await new Promise((r) => setTimeout(r, 120))
+      }
+    }
+
+    // Provide consistent fields + cover fallbacks used by the UI
+    const enriched = uniqueBooks.map((b: any) => {
+      const isbn = (b.isbn || "").replace(/-/g, "")
+      const workId = b.olWorkKey
+      const coverFallbacks = {
+        ...(isbn ? { isbn: `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg` } : {}),
+        ...(workId ? { olid: `https://covers.openlibrary.org/b/olid/${workId}-L.jpg` } : {}),
+      }
+      return {
+        ...b,
+        imageUrl: b.imageUrl || b.thumbnail || "",
+        coverFallbacks,
+      } as Book
+    })
+
+    return enriched
     
   } catch (error) {
     console.error("❌ Unexpected error fetching books from OpenLibrary:", error)

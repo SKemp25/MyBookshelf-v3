@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, User, BookOpen, X } from "lucide-react"
@@ -75,6 +75,9 @@ export default function RecommendationBookModal({
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-blue-800">Book Recommendation</DialogTitle>
+          <DialogDescription className="sr-only">
+            View book details, description, and add to your bookshelf or pass.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

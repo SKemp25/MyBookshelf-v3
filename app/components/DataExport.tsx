@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Download, FileText, Database, AlertCircle, FileDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Book } from "@/lib/types"
@@ -318,6 +318,9 @@ ${books.map(book => {
             <Database className="w-5 h-5" />
             Export Your Bookshelf Data
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Export your bookshelf to PDF, CSV, or text. Includes books, authors, and reading status.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

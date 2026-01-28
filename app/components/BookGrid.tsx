@@ -601,27 +601,37 @@ export default function BookGrid({
                   }`}
                 >
                   <td className="p-2">
-                    {book.thumbnail && showCovers ? (
-                      <img
-                        src={book.thumbnail || "/placeholder.svg"}
-                        alt={book.title}
-                        className="w-10 h-15 object-cover rounded shadow-sm"
-                        onError={(e) => {
-                          const img = e.currentTarget
-                          const fallbacks = (book as any).coverFallbacks
-                          if (fallbacks) {
-                            if (fallbacks.isbn && img.src !== fallbacks.isbn) {
-                              img.src = fallbacks.isbn
-                              return
-                            }
-                            if (fallbacks.olid && img.src !== fallbacks.olid) {
-                              img.src = fallbacks.olid
-                              return
-                            }
-                          }
-                          img.style.display = 'none'
-                        }}
-                      />
+                    {showCovers ? (
+                      <div className="relative w-10 h-15">
+                        {book.thumbnail ? (
+                          <img
+                            src={book.thumbnail}
+                            alt={book.title}
+                            className="w-10 h-15 object-cover rounded shadow-sm bg-gray-100"
+                            loading="lazy"
+                            onError={(e) => {
+                              const img = e.currentTarget
+                              const fallbacks = (book as any).coverFallbacks
+                              if (fallbacks?.isbn && img.src !== fallbacks.isbn) {
+                                img.src = fallbacks.isbn
+                                return
+                              }
+                              if (fallbacks?.olid && img.src !== fallbacks.olid) {
+                                img.src = fallbacks.olid
+                                return
+                              }
+                              img.style.display = "none"
+                              img.nextElementSibling?.classList.remove("hidden")
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-10 h-15 bg-gray-200 rounded flex items-center justify-center ${book.thumbnail ? "hidden" : ""}`}
+                          aria-hidden="true"
+                        >
+                          <BookOpen className="w-5 h-5 text-gray-400" />
+                        </div>
+                      </div>
                     ) : (
                       <div className="w-10 h-15 bg-gray-200 rounded flex items-center justify-center">
                         <BookOpen className="w-5 h-5 text-gray-400" />
@@ -689,31 +699,38 @@ export default function BookGrid({
                 {isMobile ? (
                   /* Clean Mobile View - iPhone */
                   <div className="space-y-3">
-                    {/* Book Cover - if available */}
-                    {book.thumbnail && showCovers && (
+                    {/* Book Cover - placeholder when missing */}
+                    {showCovers && (
                       <div className="flex justify-center mt-4">
-                        <img
-                          src={book.thumbnail || "/placeholder.svg"}
-                          alt={book.title}
-                          className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black"
-                          onError={(e) => {
-                            // Try fallback URLs if primary fails
-                            const img = e.currentTarget
-                            const fallbacks = (book as any).coverFallbacks
-                            if (fallbacks) {
-                              if (fallbacks.isbn && img.src !== fallbacks.isbn) {
+                        {book.thumbnail ? (
+                          <img
+                            src={book.thumbnail}
+                            alt={book.title}
+                            className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black bg-gray-100"
+                            loading={index < 6 ? "eager" : "lazy"}
+                            fetchPriority={index < 6 ? "high" : undefined}
+                            onError={(e) => {
+                              const img = e.currentTarget
+                              const fallbacks = (book as any).coverFallbacks
+                              if (fallbacks?.isbn && img.src !== fallbacks.isbn) {
                                 img.src = fallbacks.isbn
                                 return
                               }
-                              if (fallbacks.olid && img.src !== fallbacks.olid) {
+                              if (fallbacks?.olid && img.src !== fallbacks.olid) {
                                 img.src = fallbacks.olid
                                 return
                               }
-                            }
-                            // If all fallbacks fail, hide the image
-                            img.style.display = 'none'
-                          }}
-                        />
+                              img.style.display = "none"
+                              img.nextElementSibling?.classList.remove("hidden")
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-24 h-36 rounded-lg shadow-sm border-2 border-gray-300 bg-gray-200 flex items-center justify-center ${book.thumbnail ? "hidden" : ""}`}
+                          aria-hidden="true"
+                        >
+                          <BookOpen className="w-10 h-10 text-gray-400" />
+                        </div>
                       </div>
                     )}
 
@@ -847,24 +864,28 @@ export default function BookGrid({
                     </div>
 
                     {/* Description - Expandable */}
-                    {book.description && (
-                      <div className="space-y-1">
-                        <p className={`text-xs text-gray-700 leading-relaxed ${expandedMobileDescriptions.has(book.id) ? "" : "line-clamp-2"}`}>
-                          {book.description}
-                        </p>
-                        {book.description.length > 100 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleMobileDescription(book.id)
-                            }}
-                            className="text-xs text-orange-600 hover:text-orange-700 font-bold"
-                          >
-                            {expandedMobileDescriptions.has(book.id) ? "Show less" : "Read more"}
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      {book.description ? (
+                        <>
+                          <p className={`text-xs text-gray-700 leading-relaxed ${expandedMobileDescriptions.has(book.id) ? "" : "line-clamp-2"}`}>
+                            {book.description}
+                          </p>
+                          {book.description.length > 100 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleMobileDescription(book.id)
+                              }}
+                              className="text-xs text-orange-600 hover:text-orange-700 font-bold"
+                            >
+                              {expandedMobileDescriptions.has(book.id) ? "Show less" : "Read more"}
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-500 italic">No description available.</p>
+                      )}
+                    </div>
 
                     {/* Platform Links - Compact */}
                     {platforms.length > 0 && (
@@ -897,30 +918,39 @@ export default function BookGrid({
                 ) : (
                   /* Full Desktop View */
                   <div className="space-y-4">
-                    {/* Book Cover - only show if memory aid preference is enabled */}
-                    {book.thumbnail && showCovers && (
-                    <div className="flex justify-center mt-4">
-                      <img
-                        src={book.thumbnail || "/placeholder.svg"}
-                        alt={book.title}
-                        className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
-                        onError={(e) => {
-                          const img = e.currentTarget
-                          const fallbacks = (book as any).coverFallbacks
-                          if (fallbacks) {
-                            if (fallbacks.isbn && img.src !== fallbacks.isbn) {
-                              img.src = fallbacks.isbn
-                              return
-                            }
-                            if (fallbacks.olid && img.src !== fallbacks.olid) {
-                              img.src = fallbacks.olid
-                              return
-                            }
-                          }
-                          img.style.display = 'none'
-                        }}
-                      />
-                    </div>
+                    {/* Book Cover - placeholder when missing */}
+                    {showCovers && (
+                      <div className="flex justify-center mt-4 relative">
+                        {book.thumbnail ? (
+                          <img
+                            src={book.thumbnail}
+                            alt={book.title}
+                            className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black bg-gray-100"
+                            loading={index < 6 ? "eager" : "lazy"}
+                            fetchPriority={index < 6 ? "high" : undefined}
+                            onError={(e) => {
+                              const img = e.currentTarget
+                              const fallbacks = (book as any).coverFallbacks
+                              if (fallbacks?.isbn && img.src !== fallbacks.isbn) {
+                                img.src = fallbacks.isbn
+                                return
+                              }
+                              if (fallbacks?.olid && img.src !== fallbacks.olid) {
+                                img.src = fallbacks.olid
+                                return
+                              }
+                              img.style.display = "none"
+                              img.nextElementSibling?.classList.remove("hidden")
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-28 h-42 rounded-lg shadow-sm border-2 border-gray-300 bg-gray-200 flex items-center justify-center ${book.thumbnail ? "hidden" : ""}`}
+                          aria-hidden="true"
+                        >
+                          <BookOpen className="w-12 h-12 text-gray-400" />
+                        </div>
+                      </div>
                     )}
 
                   {/* Book Info */}
@@ -975,21 +1005,25 @@ export default function BookGrid({
                   </div>
 
                   {/* Description */}
-                  {book.description && (
-                    <div className="space-y-2">
-                      <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
-                        {book.description}
-                      </p>
-                      {book.description.length > 300 && (
-                        <button
-                          onClick={() => toggleDescription(book.id)}
-                          className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
-                        >
-                          {isExpanded ? "Show less" : "Read more"}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    {book.description ? (
+                      <>
+                        <p className={`text-sm text-gray-700 leading-relaxed ${isExpanded ? "" : "line-clamp-6"}`}>
+                          {book.description}
+                        </p>
+                        {book.description.length > 300 && (
+                          <button
+                            onClick={() => toggleDescription(book.id)}
+                            className="text-xs text-orange-600 hover:text-orange-700 font-bold uppercase"
+                          >
+                            {isExpanded ? "Show less" : "Read more"}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No description available.</p>
+                    )}
+                  </div>
 
                   {/* Action Buttons */}
                   <div className="space-y-3">

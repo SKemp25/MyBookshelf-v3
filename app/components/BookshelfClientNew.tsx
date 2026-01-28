@@ -60,7 +60,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import AdvancedFilters from "./AdvancedFilters"
 
 interface BookshelfClientProps {
@@ -583,6 +583,7 @@ export default function BookshelfClientNew({ user, userProfile }: BookshelfClien
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>My Preferences</DialogTitle>
+            <DialogDescription className="sr-only">Customize your reading preferences and account.</DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <p className="text-sm text-gray-600">Settings will be integrated here</p>
@@ -594,6 +595,7 @@ export default function BookshelfClientNew({ user, userProfile }: BookshelfClien
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Authors & Books</DialogTitle>
+            <DialogDescription className="sr-only">Add authors and manage your book collection.</DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <AuthorManager
@@ -615,6 +617,7 @@ export default function BookshelfClientNew({ user, userProfile }: BookshelfClien
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Advanced Filters</DialogTitle>
+            <DialogDescription className="sr-only">Filter books by author, genre, status, and more.</DialogDescription>
           </DialogHeader>
           <div className="p-4">
             <AdvancedFilters

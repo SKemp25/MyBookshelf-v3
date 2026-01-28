@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { User, Settings, Plus, Trash2, Users } from "lucide-react"
 import type { User as UserType, Friend, SentRecommendation, ReadingPlatform } from "../lib/types"
@@ -91,6 +91,9 @@ export default function UserProfile({
               <User className="w-7 h-7" />
               User Profile & Settings
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              View and edit your profile, friends, and settings.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-8">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -148,6 +148,9 @@ export default function GroupManager({
               <Users className="w-6 h-6" />
               Create Book Group
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new book group and add friends to it.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
