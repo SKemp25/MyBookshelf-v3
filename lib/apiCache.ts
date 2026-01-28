@@ -288,65 +288,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     }
     
     if (allBooks.length > 0) {
-      const processedBooks = allBooks
-        .map((item: any) => {
-          const volumeInfo = item.volumeInfo || {}
-          
-          // Extract author name (first author from array)
-          const author = volumeInfo.authors?.[0] || "Unknown Author"
-          
-          // Format publish date
-          let publishedDate = volumeInfo.publishedDate || "Unknown Date"
-          if (publishedDate && publishedDate.length === 4) {
-            publishedDate = `${publishedDate}-01-01`
-          }
-          
-          // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
-          const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
-                      volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
-                      ""
-          
-          // Use Google Books volume ID
-          const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
-          
-          // Get cover image from Google Books
-          const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
-                           volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
-          
-          if (thumbnail) {
-            console.log(`📷 Using Google Books cover for ${volumeInfo.title}: ${thumbnail}`)
-          } else {
-            console.log(`⚠️ No cover available for ${volumeInfo.title}`)
-          }
-          
-          // Get description from Google Books
-          const description = volumeInfo.description || ""
-          
-          // Get categories
-          const categories = volumeInfo.categories || []
-          
-          // Get language
-          const language = volumeInfo.language || "en"
-          
-          return {
-            id,
-            title: volumeInfo.title || "Unknown Title",
-            author,
-            authors: volumeInfo.authors || [author],
-            publishedDate,
-            description,
-            categories,
-            language,
-            pageCount: volumeInfo.pageCount || 0,
-            imageUrl: thumbnail,
-            thumbnail,
-            previewLink: volumeInfo.previewLink || "",
-            infoLink: volumeInfo.infoLink || "",
-            canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
-            isbn,
-            publisher: volumeInfo.publisher || "",
-          }
-        })
+      // Use middleware to process and enhance books with fallback sources
+      const { processGoogleBooksResponse } = await import("./bookDataMiddleware")
+      const processedBooks = await processGoogleBooksResponse(allBooks, authorName)
+      
+      const filteredBooks = processedBooks
         .filter((book: any) => {
           // Filter out special editions using title only
           if (isSpecialEdition(book)) return false
@@ -411,9 +357,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
         }
       }
       
-      // Google Books already provides descriptions, no need to fetch separately
+      // Enhanced with fallback sources (OpenLibrary for descriptions/covers)
       const booksWithDescriptions = uniqueBooks.filter(book => book.description && book.description.length > 0).length
-      console.log(`📚 ${booksWithDescriptions} out of ${uniqueBooks.length} books have descriptions from Google Books`)
+      const booksWithCovers = uniqueBooks.filter(book => book.thumbnail && book.thumbnail.length > 0).length
+      console.log(`📚 ${booksWithDescriptions} out of ${uniqueBooks.length} books have descriptions (enhanced with fallback sources)`)
+      console.log(`📷 ${booksWithCovers} out of ${uniqueBooks.length} books have covers (enhanced with fallback sources)`)
       
       // Sort: books with descriptions first, then by publication date (newest first)
       uniqueBooks.sort((a, b) => {

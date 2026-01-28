@@ -530,50 +530,9 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       console.log("📚 API Response:", data)
 
       if (data.items && data.items.length > 0) {
-        const books: Book[] = data.items
-          .map((item: any) => {
-            const volumeInfo = item.volumeInfo || {}
-            
-            // Format publish date
-            let publishedDate: string | null = null
-            if (volumeInfo.publishedDate) {
-              if (volumeInfo.publishedDate.length === 4) {
-                publishedDate = `${volumeInfo.publishedDate}-01-01`
-              } else {
-                publishedDate = volumeInfo.publishedDate
-              }
-            }
-
-            // Get ISBN (prefer ISBN_13, fallback to ISBN_10)
-            const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
-                        volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
-                        ""
-
-            // Use Google Books volume ID
-            const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${volumeInfo.authors?.[0]?.replace(/\s+/g, '') || ''}`
-
-            // Get cover image from Google Books
-            const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
-                             volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
-
-            return {
-              id,
-              title: volumeInfo.title || "Unknown Title",
-              author: volumeInfo.authors?.[0] || "Unknown Author",
-              authors: volumeInfo.authors || [],
-              publishedDate: publishedDate,
-              description: volumeInfo.description || "",
-              pageCount: volumeInfo.pageCount || 0,
-              categories: volumeInfo.categories || [],
-              thumbnail,
-              language: volumeInfo.language || "en",
-              isbn,
-              previewLink: volumeInfo.previewLink || "",
-              infoLink: volumeInfo.infoLink || "",
-              canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
-              publisher: volumeInfo.publisher || "",
-            }
-          })
+        // Use middleware to process and enhance books with fallback sources
+        const { processGoogleBooksResponse } = await import("@/lib/bookDataMiddleware")
+        const books: Book[] = await processGoogleBooksResponse(data.items, "")
           .filter((book: Book) => {
             // Filter out non-English books
             if (book.language && book.language !== "en") {
