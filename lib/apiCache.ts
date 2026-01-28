@@ -219,14 +219,19 @@ export async function fetchWorkDescription(workKey: string): Promise<string> {
   }
 }
 
-export async function fetchAuthorBooksWithCache(authorName: string): Promise<any[]> {
+export async function fetchAuthorBooksWithCache(authorName: string, clearCache: boolean = false): Promise<any[]> {
   const cacheKey = getAuthorBooksCacheKey(authorName)
   
-  // Check cache first
-  const cached = apiCache.get(cacheKey)
-  if (cached) {
-    console.log(`Cache hit for author: ${authorName}`)
-    return cached
+  // Check cache first (unless explicitly clearing)
+  if (!clearCache) {
+    const cached = apiCache.get(cacheKey)
+    if (cached) {
+      console.log(`Cache hit for author: ${authorName}`)
+      return cached
+    }
+  } else {
+    console.log(`Cache cleared for author: ${authorName}`)
+    apiCache.delete(cacheKey)
   }
 
   console.log(`Cache miss for author: ${authorName}, fetching from Open Library API`)
@@ -299,15 +304,9 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
           }
           let language = languageMap[langCode] || langCode.substring(0, 2) || "en"
           
-          // If language is still not recognized, try to detect from title/description
-          // Spanish titles often have accents and Spanish words
-          if (!languageMap[langCode] && langCode.length > 2) {
-            const title = (doc.title || "").toLowerCase()
-            // Common Spanish words/patterns in titles
-            const spanishIndicators = ['la ', 'el ', 'de los', 'de las', 'del ', 'una ', 'un ', 'y ', 'con ', 'sin ', 'por ', 'para ']
-            if (spanishIndicators.some(indicator => title.startsWith(indicator) || title.includes(' ' + indicator))) {
-              language = "es"
-            }
+          // Log language detection for debugging
+          if (process.env.NODE_ENV === 'development' && langCode !== 'eng') {
+            console.log(`🌍 Language detected: ${langCode} -> ${language} for book: ${doc.title}`)
           }
           
           return {
@@ -332,8 +331,16 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
           // Filter out special editions using title only
           if (isSpecialEdition(book)) return false
           
-          // Language filtering is done in BookshelfClient based on user preferences
-          // Don't filter here - let the user's preferred languages setting control it
+          // Filter out non-English books (API should filter, but double-check client-side)
+          // Default to English if language is missing or unknown
+          if (book.language && book.language !== "en") {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`🚫 Filtering out non-English book: ${book.title} (language: ${book.language})`)
+            }
+            return false
+          }
+          
+          // Language filtering is also done in BookshelfClient based on user preferences
           
           // Filter out unwanted keywords in title
           const title = (book.title || "").toLowerCase()
@@ -404,10 +411,16 @@ export async function fetchAuthorBooksWithCache(authorName: string): Promise<any
                          ''
           
           if (workKey) {
+            console.log(`📝 Fetching description for ${book.title} using work key: ${workKey}`)
             const description = await fetchWorkDescription(workKey)
             if (description) {
+              console.log(`✅ Got description for ${book.title} (${description.length} chars)`)
               book.description = description
+            } else {
+              console.log(`❌ No description found for ${book.title}`)
             }
+          } else {
+            console.log(`⚠️ No work key available for ${book.title} (previewLink: ${book.previewLink}, infoLink: ${book.infoLink})`)
           }
         })
         

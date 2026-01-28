@@ -116,7 +116,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
 
       try {
         // Use cached API call to check for multiple authors BEFORE adding
-        const apiResults = await fetchAuthorBooksWithCache(normalizedName)
+        // Clear cache to force fresh fetch with new cover/description logic
+        const apiResults = await fetchAuthorBooksWithCache(normalizedName, true)
         
         // Filter out books where author name appears in title but author is different
         // Only include books where the author field actually matches EXACTLY
@@ -433,7 +434,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         onAuthorsChange?.(newAuthorsList)
 
         // Fetch all books by this author first
-        const authorBooks = await fetchAuthorBooksWithCache(normalizedName)
+        // Clear cache to force fresh fetch with new cover/description logic
+        const authorBooks = await fetchAuthorBooksWithCache(normalizedName, true)
         console.log(`📚 Fetched ${authorBooks?.length || 0} books for ${normalizedName}`)
         
         if (authorBooks && authorBooks.length > 0) {
@@ -587,8 +589,15 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             }
           })
           .filter((book: Book) => {
-            // Language filtering is done in BookshelfClient based on user preferences
-            // Don't filter here - let the user's preferred languages setting control it
+            // Filter out non-English books (API should filter, but double-check client-side)
+            if (book.language && book.language !== "en") {
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`🚫 Filtering out non-English book from search: ${book.title} (language: ${book.language})`)
+              }
+              return false
+            }
+            
+            // Language filtering is also done in BookshelfClient based on user preferences
             
             // Filter out unwanted keywords in title
             const title = (book.title || "").toLowerCase()
