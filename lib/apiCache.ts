@@ -276,30 +276,28 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
           if (doc.cover_i) {
             // Primary: use cover_i if available
             thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`📷 Using cover_i for ${doc.title}: ${thumbnail}`)
-            }
+            console.log(`📷 Using cover_i for ${doc.title}: ${thumbnail}`)
           } else if (isbn) {
             // Fallback 1: try ISBN
             thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`📷 Using ISBN fallback for ${doc.title}: ${thumbnail}`)
-            }
+            console.log(`📷 Using ISBN fallback for ${doc.title}: ${thumbnail}`)
           } else if (doc.key) {
             // Fallback 2: try work key (OLID)
             const olid = doc.key.replace('/works/', '')
             thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`📷 Using OLID fallback for ${doc.title}: ${thumbnail}`)
-            }
+            console.log(`📷 Using OLID fallback for ${doc.title}: ${thumbnail}`)
           } else {
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`⚠️ No cover available for ${doc.title} (no cover_i, ISBN, or work key)`)
-            }
+            console.log(`⚠️ No cover available for ${doc.title} (no cover_i: ${doc.cover_i}, ISBN: ${isbn}, work key: ${doc.key})`)
           }
           
           // Get description from first sentence if available
+          // Use empty string initially - will be fetched from work details if missing
           const description = doc.first_sentence?.[0] || ""
+          
+          // Log if description is missing (for debugging)
+          if (!description && process.env.NODE_ENV === 'development') {
+            console.log(`📝 No first_sentence for ${doc.title}, will try to fetch from work details`)
+          }
           
           // Get categories from subjects
           const categories = doc.subject?.slice(0, 5) || []
@@ -418,6 +416,8 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
         .filter(book => !book.description || book.description.length === 0)
         .slice(0, 10)
       
+      console.log(`📚 Found ${booksWithoutDescriptions.length} books without descriptions out of ${uniqueBooks.length} total`)
+      
       if (booksWithoutDescriptions.length > 0) {
         // Fetch descriptions in parallel (with a small delay between batches to be respectful)
         const descriptionPromises = booksWithoutDescriptions.map(async (book, index) => {
@@ -434,20 +434,27 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
           
           if (workKey) {
             console.log(`📝 Fetching description for ${book.title} using work key: ${workKey}`)
-            const description = await fetchWorkDescription(workKey)
-            if (description) {
-              console.log(`✅ Got description for ${book.title} (${description.length} chars)`)
-              book.description = description
-            } else {
-              console.log(`❌ No description found for ${book.title}`)
+            try {
+              const description = await fetchWorkDescription(workKey)
+              if (description && description.length > 0) {
+                console.log(`✅ Got description for ${book.title} (${description.length} chars)`)
+                book.description = description
+              } else {
+                console.log(`❌ No description found for ${book.title} (work returned empty)`)
+              }
+            } catch (error) {
+              console.error(`❌ Error fetching description for ${book.title}:`, error)
             }
           } else {
-            console.log(`⚠️ No work key available for ${book.title} (previewLink: ${book.previewLink}, infoLink: ${book.infoLink})`)
+            console.log(`⚠️ No work key available for ${book.title} (previewLink: ${book.previewLink}, infoLink: ${book.infoLink}, canonicalVolumeLink: ${book.canonicalVolumeLink})`)
           }
         })
         
         // Wait for all description fetches to complete (but don't block if they fail)
-        await Promise.allSettled(descriptionPromises)
+        const results = await Promise.allSettled(descriptionPromises)
+        const successful = results.filter(r => r.status === 'fulfilled').length
+        const failed = results.filter(r => r.status === 'rejected').length
+        console.log(`📝 Description fetching complete: ${successful} succeeded, ${failed} failed`)
       }
       
       // Sort: books with descriptions first, then by publication date (newest first)
