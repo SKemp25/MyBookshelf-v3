@@ -455,6 +455,10 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     return []
   } catch (error) {
     console.error('Error fetching author books from Open Library:', error)
+    // Log more details about the error
+    if (error instanceof Error) {
+      console.error('Error details:', error.message, error.stack)
+    }
     // Return empty array instead of throwing, so the author can still be added
     return []
   }

@@ -387,9 +387,13 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         }
       } catch (error) {
         console.error("Error fetching books for author:", error)
+        // Log more details
+        if (error instanceof Error) {
+          console.error("Error details:", error.message, error.stack)
+        }
         toast({
           title: "Error Adding Author",
-          description: "Failed to fetch books. Please try again.",
+          description: error instanceof Error ? `Failed to fetch books: ${error.message}` : "Failed to fetch books. Please try again.",
           variant: "destructive",
         })
       } finally {
