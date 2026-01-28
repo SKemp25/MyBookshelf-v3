@@ -590,6 +590,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
               previewLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
               infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
               canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
+              // Store fallback cover URLs for error handling
+              coverFallbacks: {
+                isbn: isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` : null,
+                olid: doc.key ? `https://covers.openlibrary.org/b/olid/${doc.key.replace('/works/', '')}-M.jpg` : null,
+              },
             }
           })
           .filter((book: Book) => {

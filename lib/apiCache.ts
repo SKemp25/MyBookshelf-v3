@@ -276,13 +276,26 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
           if (doc.cover_i) {
             // Primary: use cover_i if available
             thumbnail = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`📷 Using cover_i for ${doc.title}: ${thumbnail}`)
+            }
           } else if (isbn) {
             // Fallback 1: try ISBN
             thumbnail = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`📷 Using ISBN fallback for ${doc.title}: ${thumbnail}`)
+            }
           } else if (doc.key) {
             // Fallback 2: try work key (OLID)
             const olid = doc.key.replace('/works/', '')
             thumbnail = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`📷 Using OLID fallback for ${doc.title}: ${thumbnail}`)
+            }
+          } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`⚠️ No cover available for ${doc.title} (no cover_i, ISBN, or work key)`)
+            }
           }
           
           // Get description from first sentence if available
@@ -329,6 +342,11 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
             infoLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
             canonicalVolumeLink: doc.key ? `https://openlibrary.org${doc.key}` : "",
             isbn,
+            // Store fallback cover URLs for error handling
+            coverFallbacks: {
+              isbn: isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` : null,
+              olid: doc.key ? `https://covers.openlibrary.org/b/olid/${doc.key.replace('/works/', '')}-M.jpg` : null,
+            },
           }
         })
         .filter((book: any) => {

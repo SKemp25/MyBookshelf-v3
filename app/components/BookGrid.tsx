@@ -606,6 +606,21 @@ export default function BookGrid({
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
                         className="w-10 h-15 object-cover rounded shadow-sm"
+                        onError={(e) => {
+                          const img = e.currentTarget
+                          const fallbacks = (book as any).coverFallbacks
+                          if (fallbacks) {
+                            if (fallbacks.isbn && img.src !== fallbacks.isbn) {
+                              img.src = fallbacks.isbn
+                              return
+                            }
+                            if (fallbacks.olid && img.src !== fallbacks.olid) {
+                              img.src = fallbacks.olid
+                              return
+                            }
+                          }
+                          img.style.display = 'none'
+                        }}
                       />
                     ) : (
                       <div className="w-10 h-15 bg-gray-200 rounded flex items-center justify-center">
@@ -681,6 +696,23 @@ export default function BookGrid({
                           src={book.thumbnail || "/placeholder.svg"}
                           alt={book.title}
                           className="w-24 h-36 object-cover rounded-lg shadow-sm border-2 border-black"
+                          onError={(e) => {
+                            // Try fallback URLs if primary fails
+                            const img = e.currentTarget
+                            const fallbacks = (book as any).coverFallbacks
+                            if (fallbacks) {
+                              if (fallbacks.isbn && img.src !== fallbacks.isbn) {
+                                img.src = fallbacks.isbn
+                                return
+                              }
+                              if (fallbacks.olid && img.src !== fallbacks.olid) {
+                                img.src = fallbacks.olid
+                                return
+                              }
+                            }
+                            // If all fallbacks fail, hide the image
+                            img.style.display = 'none'
+                          }}
                         />
                       </div>
                     )}
@@ -872,9 +904,24 @@ export default function BookGrid({
                         src={book.thumbnail || "/placeholder.svg"}
                         alt={book.title}
                         className="w-28 h-42 object-cover rounded-lg shadow-sm border-2 border-black"
+                        onError={(e) => {
+                          const img = e.currentTarget
+                          const fallbacks = (book as any).coverFallbacks
+                          if (fallbacks) {
+                            if (fallbacks.isbn && img.src !== fallbacks.isbn) {
+                              img.src = fallbacks.isbn
+                              return
+                            }
+                            if (fallbacks.olid && img.src !== fallbacks.olid) {
+                              img.src = fallbacks.olid
+                              return
+                            }
+                          }
+                          img.style.display = 'none'
+                        }}
                       />
                     </div>
-                  )}
+                    )}
 
                   {/* Book Info */}
                   <div className="space-y-3">
