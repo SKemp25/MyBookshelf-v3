@@ -869,21 +869,15 @@ export default function BookshelfClient({ user, userProfile }: BookshelfClientPr
       return false
     }
 
-    // Only show books by authors in your authors list
+    // Only show books by authors in your authors list — match by full name only (no last-name-only matching).
+    // This avoids different people with the same surname (e.g. Madeline Miller vs Kristen Miller vs Kirsten Miller) being treated as one.
     const bookAuthor = getBookAuthor(book)
-    // Normalize the book's author to match how we store authors
     const normalizedBookAuthor = normalizeAuthorName(bookAuthor)
-    
-    // Use case-insensitive matching to handle normalization differences
     const authorMatches = authors.some(author => {
       const normalizedAuthor = normalizeAuthorName(author)
       const directMatch = author.toLowerCase().trim() === bookAuthor.toLowerCase().trim()
       const normalizedMatch = normalizedAuthor.toLowerCase() === normalizedBookAuthor.toLowerCase()
-      // Also try matching with just last name for cases where first name might differ
-      const authorLast = author.trim().split(/\s+/).pop()?.toLowerCase() || ""
-      const bookAuthorLast = bookAuthor.trim().split(/\s+/).pop()?.toLowerCase() || ""
-      const lastNameMatch = authorLast && bookAuthorLast && authorLast === bookAuthorLast && authorLast.length > 2
-      return directMatch || normalizedMatch || lastNameMatch
+      return directMatch || normalizedMatch
     })
     if (!authorMatches) {
       if (process.env.NODE_ENV === 'development') {
