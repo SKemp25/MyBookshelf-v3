@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -9,7 +9,7 @@ import type { Book } from "@/lib/types"
 import AuthorImport from "./AuthorImport"
 import { saveUserAuthors } from "@/lib/database"
 import { trackEvent, ANALYTICS_EVENTS } from "@/lib/analytics"
-import { deduplicateBooks, isRerelease, isSpecialEdition } from "@/lib/utils"
+import { deduplicateBooks } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchAuthorBooksWithCache } from "@/lib/apiCache"
 
@@ -90,16 +90,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
   const [pendingAuthorName, setPendingAuthorName] = useState<string>("")
   const { toast } = useToast()
 
-  // Scroll focused input into view after keyboard opens (fixes iPhone keyboard blocking)
-  const scrollInputIntoView = useCallback(() => {
-    setTimeout(() => {
-      const el = document.activeElement as HTMLElement | null
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
-        el.scrollIntoView({ block: "center", behavior: "smooth" })
-      }
-    }, 400)
-  }, [])
-
   // Clear found books when user manually clears the search field
   useEffect(() => {
     if (searchTitle.trim() === "") {
@@ -116,17 +106,15 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
 
       try {
         // Use cached API call to check for multiple authors BEFORE adding
-        // Clear cache to force fresh fetch with new cover/description logic
-        const apiResults = await fetchAuthorBooksWithCache(normalizedName, true)
+        const apiResults = await fetchAuthorBooksWithCache(normalizedName)
         
         // Filter out books where author name appears in title but author is different
         // Only include books where the author field actually matches EXACTLY
-        // Open Library returns already-processed books with title, author, etc.
         const validBooks = apiResults.filter((item: any) => {
-          const apiAuthor = item.author || ""
+          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
           if (!apiAuthor) return false
           
-          const bookTitle = (item.title || "").toLowerCase()
+          const bookTitle = (item.volumeInfo?.title || item.title || "").toLowerCase()
           const bookAuthor = normalizeAuthorName(apiAuthor).toLowerCase()
           
           // Exclude books where the searched name appears in title but author is different
@@ -155,7 +143,7 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         const authorGroups = new Map<string, Book[]>()
         
         validBooks.forEach((item: any) => {
-          const apiAuthor = item.author || ""
+          const apiAuthor = item.volumeInfo?.authors?.[0] || item.author || ""
           if (!apiAuthor) return
           
           const normalizedApiAuthor = normalizeAuthorName(apiAuthor)
@@ -191,8 +179,56 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         setAuthors(updatedAuthors)
         setNewAuthor("")
 
-        // Open Library returns already-processed books, so use validBooks directly
-        const processedBooks = validBooks
+        try {
+          if (userId) {
+            await saveUserAuthors(userId, updatedAuthors)
+
+            await trackEvent(userId, {
+              event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
+              event_data: {
+                author_name: normalizedName,
+                total_authors: updatedAuthors.length,
+                timestamp: new Date().toISOString(),
+              },
+            })
+          }
+        } catch (error) {
+          console.error("Error saving authors to database:", error)
+        }
+        
+        // Use the already-filtered validBooks instead of re-filtering apiResults
+        // This ensures we get all books that matched the author, not just exact matches
+        // First, process raw API data into Book format if needed
+        const processedBooks = validBooks.map((item: any) => {
+          // If already processed (has title directly), return as-is
+          if (item.title && !item.volumeInfo) {
+            return item
+          }
+          
+          // Process raw API data
+          const volumeInfo = item.volumeInfo || {}
+          let publishedDate = volumeInfo.publishedDate
+          if (publishedDate && publishedDate.length === 4) {
+            publishedDate = `${publishedDate}-01-01`
+          }
+          
+          return {
+            id: item.id,
+            title: volumeInfo.title || "Unknown Title",
+            author: volumeInfo.authors?.[0] || "Unknown Author",
+            authors: volumeInfo.authors || [],
+            publishedDate: publishedDate || "Unknown Date",
+            description: volumeInfo.description || "",
+            categories: volumeInfo.categories || [],
+            language: volumeInfo.language || "en",
+            pageCount: volumeInfo.pageCount || 0,
+            imageUrl: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
+            thumbnail: ensureHttps(volumeInfo.imageLinks?.thumbnail || ""),
+            previewLink: ensureHttps(volumeInfo.previewLink || ""),
+            infoLink: ensureHttps(volumeInfo.infoLink || ""),
+            canonicalVolumeLink: ensureHttps(volumeInfo.canonicalVolumeLink || ""),
+          }
+        })
 
         const filteredBooks = processedBooks.filter((book) => {
           const title = (book.title || "").toLowerCase()
@@ -232,11 +268,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           )
 
           if (hasUnwantedContent) {
-            return false
-          }
-
-          // Filter out re-releases / reissues / media tie-ins
-          if (isRerelease(book)) {
             return false
           }
 
@@ -282,9 +313,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             "oversized edition",
           ]
 
-          // Check edition/tie-in indicators in title only (description often has "bestselling", "award-winning", etc.)
           const isSpecialRelease = specialReleaseIndicators.some(
-            (indicator) => title.includes(indicator),
+            (indicator) => title.includes(indicator) || description.includes(indicator),
           )
 
           if (isSpecialRelease) {
@@ -342,11 +372,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             "award-winning series",
           ]
 
-          const hasRereleaseIndicator = rereleaseIndicators.some(
-            (indicator) => title.includes(indicator),
+          const isRerelease = rereleaseIndicators.some(
+            (indicator) => title.includes(indicator) || description.includes(indicator),
           )
 
-          if (hasRereleaseIndicator) {
+          if (isRerelease) {
             return false
           }
 
@@ -375,30 +405,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           description: `Found ${deduplicatedBooks.length} books for ${normalizedName}`,
           duration: 4000, // Auto-dismiss after 4 seconds
         })
-
-        // Persist and track in background so UI feels fast
-        if (userId) {
-          saveUserAuthors(userId, updatedAuthors).catch((e) =>
-            console.error("Error saving authors to database:", e)
-          )
-          trackEvent(userId, {
-            event_type: ANALYTICS_EVENTS.AUTHOR_ADDED,
-            event_data: {
-              author_name: normalizedName,
-              total_authors: updatedAuthors.length,
-              timestamp: new Date().toISOString(),
-            },
-          }).catch(() => {})
-        }
       } catch (error) {
         console.error("Error fetching books for author:", error)
-        // Log more details
-        if (error instanceof Error) {
-          console.error("Error details:", error.message, error.stack)
-        }
         toast({
           title: "Error Adding Author",
-          description: error instanceof Error ? `Failed to fetch books: ${error.message}` : "Failed to fetch books. Please try again.",
+          description: "Failed to fetch books. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -443,24 +454,13 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         onAuthorsChange?.(newAuthorsList)
 
         // Fetch all books by this author first
-        // Clear cache to force fresh fetch with new cover/description logic
-        const authorBooks = await fetchAuthorBooksWithCache(normalizedName, true)
-        console.log(`📚 Fetched ${authorBooks?.length || 0} books for ${normalizedName}`)
-        
+        const authorBooks = await fetchAuthorBooksWithCache(normalizedName)
         if (authorBooks && authorBooks.length > 0) {
           // Add all books by this author at once
-          console.log(`✅ Adding ${authorBooks.length} books for ${normalizedName}`)
           onBooksFound(authorBooks)
         } else {
-          // If no books found from API, ensure we at least add the book that triggered this
-          // Ensure the book's author matches the normalized author name we added
-          const bookWithNormalizedAuthor = {
-            ...book,
-            author: normalizedName,
-            authors: [normalizedName],
-          }
-          console.log(`📖 Adding single book: ${book.title} by ${normalizedName}`)
-          onBooksFound([bookWithNormalizedAuthor])
+          // If no books found, just add the specific book
+          onBooksFound([book])
         }
 
         if (userId) {
@@ -504,23 +504,21 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
   const searchBooks = async () => {
     if (!searchTitle.trim()) return
 
+    console.log("🔍 Starting search for:", searchTitle.trim())
     setIsSearching(true)
-    try {
-      if (userId) {
-        try {
-          await trackEvent(userId, {
-            event_type: ANALYTICS_EVENTS.BOOK_SEARCH,
-            event_data: {
-              search_query: searchTitle.trim(),
-              timestamp: new Date().toISOString(),
-            },
-          })
-        } catch {
-          /* analytics only; don't block search */
-        }
-      }
 
-      // Simple title search - no quotes for more flexible matching, no middleware, no fallbacks
+    if (userId) {
+      await trackEvent(userId, {
+        event_type: ANALYTICS_EVENTS.BOOK_SEARCH,
+        event_data: {
+          search_query: searchTitle.trim(),
+          timestamp: new Date().toISOString(),
+        },
+      })
+    }
+
+    try {
+      // Try title search (more flexible than exact quotes)
       const searchQuery = `intitle:${searchTitle.trim()}`
       const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=10`
       console.log("🌐 API URL:", apiUrl)
@@ -528,15 +526,10 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
       const response = await fetch(apiUrl)
       console.log("📡 Response status:", response.status)
       
-      if (!response.ok) {
-        throw new Error(`Google Books API returned ${response.status}`)
-      }
-      
       const data = await response.json()
       console.log("📚 API Response:", data)
 
       if (data.items) {
-        // Simple direct mapping - no middleware, no enhancement calls
         const books: Book[] = data.items.map((item: any) => {
           let publishedDate = item.volumeInfo.publishedDate
 
@@ -573,24 +566,16 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             id: item.id,
             title: item.volumeInfo.title || "Unknown Title",
             author: item.volumeInfo.authors?.[0] || "Unknown Author",
-            authors: item.volumeInfo.authors || [item.volumeInfo.authors?.[0] || "Unknown Author"],
-            publishedDate: publishedDate || "Unknown Date",
-            description: item.volumeInfo.description || "",
-            pageCount: item.volumeInfo.pageCount || 0,
-            categories: item.volumeInfo.categories || [],
-            thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://") || "",
+            publishedDate: publishedDate,
+            description: item.volumeInfo.description,
+            pageCount: item.volumeInfo.pageCount,
+            categories: item.volumeInfo.categories,
+            thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://"),
             language: item.volumeInfo.language || "en",
-            isbn: item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
-                  item.volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier || "",
-            publisher: item.volumeInfo.publisher || "",
-            previewLink: item.volumeInfo.previewLink || "",
-            infoLink: item.volumeInfo.infoLink || "",
-            canonicalVolumeLink: item.volumeInfo.canonicalVolumeLink || "",
-            imageUrl: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://") || "",
           }
         })
 
-        // Sort books by relevance (exact title matches first, then by publication date - newest first)
+        // Sort books by relevance (exact title matches first, then by publication date)
         const sortedBooks = books.sort((a, b) => {
           const searchTerm = searchTitle.trim().toLowerCase()
           const aTitle = a.title.toLowerCase()
@@ -606,29 +591,93 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           return bDate - aDate
         })
 
-        // Limit to top 10 most relevant results
-        const topBooks = sortedBooks.slice(0, 10)
+        // Limit to top 5 most relevant results
+        const topBooks = sortedBooks.slice(0, 5)
         console.log("📖 Found books:", topBooks.length, topBooks)
 
         setFoundBooks(topBooks)
+        // Don't auto-add books to bookshelf - just show as suggestions
+        // Don't clear search title - let user see what they searched for
       } else {
-        console.log("⚠️ No results from title search")
-        setFoundBooks([])
+        console.log("⚠️ No results from title search, trying fallback...")
+        // If title search returns no results, try a broader search
+        const fallbackUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchTitle.trim())}&maxResults=10`
+        console.log("🔄 Fallback URL:", fallbackUrl)
+        
+        const fallbackResponse = await fetch(fallbackUrl)
+        console.log("📡 Fallback response status:", fallbackResponse.status)
+        
+        const fallbackData = await fallbackResponse.json()
+        console.log("📚 Fallback response:", fallbackData)
+
+        if (fallbackData.items) {
+          const fallbackBooks: Book[] = fallbackData.items.map((item: any) => {
+            let publishedDate = item.volumeInfo.publishedDate
+
+            if (publishedDate) {
+              let dateObj: Date
+              if (publishedDate.length === 4) {
+                dateObj = new Date(`${publishedDate}-01-01`)
+                publishedDate = `${publishedDate}-01-01`
+              } else if (publishedDate.length === 7) {
+                dateObj = new Date(`${publishedDate}-01`)
+                publishedDate = `${publishedDate}-01`
+              } else {
+                dateObj = new Date(publishedDate)
+              }
+
+              const now = new Date()
+              const twoYearsFromNow = new Date()
+              twoYearsFromNow.setFullYear(now.getFullYear() + 2)
+
+              if (dateObj > twoYearsFromNow) {
+                publishedDate = null
+              }
+
+              if (isNaN(dateObj.getTime())) {
+                publishedDate = null
+              }
+            }
+
+            return {
+              id: item.id,
+              title: item.volumeInfo.title || "Unknown Title",
+              author: item.volumeInfo.authors?.[0] || "Unknown Author",
+              publishedDate: publishedDate,
+              description: item.volumeInfo.description,
+              pageCount: item.volumeInfo.pageCount,
+              categories: item.volumeInfo.categories,
+              thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace("http://", "https://"),
+              language: item.volumeInfo.language || "en",
+            }
+          })
+
+          // Sort fallback results by relevance
+          const sortedFallbackBooks = fallbackBooks.sort((a, b) => {
+            const searchTerm = searchTitle.trim().toLowerCase()
+            const aTitle = a.title.toLowerCase()
+            const bTitle = b.title.toLowerCase()
+            
+            if (aTitle === searchTerm && bTitle !== searchTerm) return -1
+            if (bTitle === searchTerm && aTitle !== searchTerm) return 1
+            
+            const aDate = a.publishedDate ? new Date(a.publishedDate).getTime() : 0
+            const bDate = b.publishedDate ? new Date(b.publishedDate).getTime() : 0
+            return bDate - aDate
+          })
+
+          const topFallbackBooks = sortedFallbackBooks.slice(0, 5)
+          console.log("📖 Fallback books found:", topFallbackBooks.length, topFallbackBooks)
+          
+          setFoundBooks(topFallbackBooks)
+          // Don't auto-add books to bookshelf - just show as suggestions
+          // Don't clear search title - let user see what they searched for
+        } else {
+          console.log("❌ No results from fallback search either")
+        }
       }
     } catch (error) {
       console.error("Error searching books:", error)
-      let errorMessage = "Could not search for books. Please try again."
-      
-      if (error instanceof Error) {
-        console.error("Error details:", error.message, error.stack)
-        errorMessage = `Search failed: ${error.message}`
-      }
-      
-      toast({
-        title: "Search failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
     } finally {
       setIsSearching(false)
     }
@@ -643,13 +692,11 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             value={newAuthor}
             onChange={(e) => setNewAuthor(e.target.value)}
             placeholder="Enter author name..."
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAuthor(); } }}
-            onFocus={scrollInputIntoView}
-            className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
+            onKeyPress={(e) => e.key === "Enter" && addAuthor()}
+            className="flex-1 border-orange-200 focus:border-orange-400"
             disabled={isAddingAuthor}
           />
           <Button
-            type="button"
             onClick={addAuthor}
             disabled={!newAuthor.trim() || isAddingAuthor}
             className="bg-orange-500 hover:bg-orange-600"
@@ -660,7 +707,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
         </div>
 
         <Button
-          type="button"
           onClick={() => setShowImport(true)}
           variant="outline"
           className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
@@ -683,12 +729,10 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
             value={searchTitle}
             onChange={(e) => setSearchTitle(e.target.value)}
             placeholder="Type a book title here (e.g., 'The Great Gatsby')"
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchBooks(); } }}
-            onFocus={scrollInputIntoView}
-            className="flex-1 border-orange-200 focus:border-orange-400 scroll-mb-[35vh]"
+            onKeyPress={(e) => e.key === "Enter" && searchBooks()}
+            className="flex-1 border-orange-200 focus:border-orange-400"
           />
           <Button
-            type="button"
             onClick={searchBooks}
             disabled={!searchTitle.trim() || isSearching}
             className="bg-orange-500 hover:bg-orange-600"
@@ -705,7 +749,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold text-orange-800">Found Books ({foundBooks.length})</h4>
             <Button
-              type="button"
               size="sm"
               variant="outline"
               onClick={() => setFoundBooks([])}
@@ -730,31 +773,8 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      // Add just this single book to the bookshelf
-                      const bookWithNormalizedAuthor = {
-                        ...book,
-                        author: book.author || book.authors?.[0] || "Unknown",
-                        authors: book.authors || [book.author || "Unknown"],
-                      }
-                      onBooksFound([bookWithNormalizedAuthor])
-                      toast({
-                        title: "Book Added",
-                        description: `${book.title} has been added to your bookshelf.`,
-                        duration: 3000,
-                      })
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add Book
-                  </Button>
                   {!authors.some((author) => author.toLowerCase() === book.author.toLowerCase()) ? (
                     <Button
-                      type="button"
                       size="sm"
                       onClick={() => addAuthorFromBook(book)}
                       disabled={isAddingAuthor}
@@ -792,7 +812,6 @@ export default function AuthorManager({ authors, setAuthors, onBooksFound, onAut
                 >
                   <span className="font-medium text-orange-900">{author}</span>
                   <Button
-                    type="button"
                     size="sm"
                     variant="ghost"
                     onClick={() => removeAuthor(author)}

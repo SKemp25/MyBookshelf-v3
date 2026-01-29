@@ -348,222 +348,22 @@ export async function fetchAuthorBooksWithCache(authorName: string, clearCache: 
     apiCache.delete(cacheKey)
   }
 
-  console.log(`Cache miss for author: ${authorName}, fetching from Google Books API`)
-  
+  console.log(`Cache miss for author: ${authorName}, fetching via /api/search (server-side fallback enabled)`)
+
   try {
-    // Use Google Books API with inauthor query for better results
-    // Try primary query first (inauthor for exact match)
-    // Add delay before request to reduce rate-limit risk
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    let response = await fetchWithRetry(
-      `https://www.googleapis.com/books/v1/volumes?q=inauthor:"${encodeURIComponent(authorName)}"&maxResults=25&langRestrict=en&printType=books`,
-      2,
-      3000
-    )
-    
-    let allBooks: any[] = []
-    
-    // Google Books rate-limited (429). Do NOT fall back to OpenLibrary — it uses fetch() from
-    // the browser and OpenLibrary blocks CORS, so it would fail. Return [] and cache briefly.
-    if (response.status === 429) {
-      console.warn(`⚠️ Google Books API rate-limited (429) for "${authorName}". Try again in a few minutes.`)
+    const url = `/api/search?author=${encodeURIComponent(authorName)}&maxResults=25&lang=en`
+    const response = await fetch(url, { cache: "no-store" })
+    if (!response.ok) {
       apiCache.set(cacheKey, [], 2 * 60 * 1000)
       return []
     }
-    
-    if (response.ok) {
-      const data = await response.json()
-      if (data.items && data.items.length > 0) {
-        allBooks = data.items
-        console.log(`📚 Found ${allBooks.length} books from primary query for ${authorName}`)
-      }
-    }
-    
-    // If we got fewer than 5 books, try a fallback query with just author name (less strict)
-    if (allBooks.length < 5) {
-      console.log(`📚 Only ${allBooks.length} books found, trying fallback query...`)
-      await new Promise(resolve => setTimeout(resolve, 2500))
-      const fallbackResponse = await fetchWithRetry(
-        `https://www.googleapis.com/books/v1/volumes?q=author:"${encodeURIComponent(authorName)}"&maxResults=25&langRestrict=en&printType=books`,
-        2,
-        3000
-      )
-      
-      if (fallbackResponse.status === 429) {
-        console.warn(`⚠️ Google Books fallback also rate-limited for "${authorName}".`)
-        // Keep whatever we got from primary; don't retry OpenLibrary (CORS).
-        if (allBooks.length === 0) {
-          apiCache.set(cacheKey, [], 2 * 60 * 1000)
-          return []
-        }
-      } else if (fallbackResponse.ok) {
-        const fallbackData = await fallbackResponse.json()
-        if (fallbackData.items && fallbackData.items.length > 0) {
-          // Merge results, avoiding duplicates by ID
-          const existingIds = new Set(allBooks.map((item: any) => item.id))
-          const newItems = fallbackData.items.filter((item: any) => !existingIds.has(item.id))
-          allBooks = [...allBooks, ...newItems]
-          console.log(`📚 Added ${newItems.length} more books from fallback query (total: ${allBooks.length})`)
-        }
-      }
-    }
-    
-    if (allBooks.length > 0) {
-      // Process Google Books response (but skip enhancement to avoid extra API calls)
-      // Enhancement can happen later if needed
-      const processedBooks = allBooks
-        .map((item: any) => {
-          const volumeInfo = item.volumeInfo || {}
-          const author = volumeInfo.authors?.[0] || "Unknown Author"
-          let publishedDate = volumeInfo.publishedDate || "Unknown Date"
-          if (publishedDate && publishedDate.length === 4) {
-            publishedDate = `${publishedDate}-01-01`
-          }
-          const isbn = volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")?.identifier ||
-                      volumeInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")?.identifier ||
-                      ""
-          const id = item.id || `GB-${volumeInfo.title?.replace(/\s+/g, '')}-${author.replace(/\s+/g, '')}`
-          const thumbnail = volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || 
-                           volumeInfo.imageLinks?.smallThumbnail?.replace("http:", "https:") || ""
-          const description = volumeInfo.description || ""
-          const cleanIsbn = (isbn || "").replace(/-/g, "").trim()
-          const coverFallbacks = cleanIsbn
-            ? { isbn: `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg` }
-            : undefined
-          return {
-            id,
-            title: volumeInfo.title || "Unknown Title",
-            author,
-            authors: volumeInfo.authors || [author],
-            publishedDate,
-            description,
-            thumbnail,
-            isbn,
-            coverFallbacks,
-            pageCount: volumeInfo.pageCount || 0,
-            categories: volumeInfo.categories || [],
-            language: volumeInfo.language || "en",
-            publisher: volumeInfo.publisher || "",
-            previewLink: volumeInfo.previewLink || "",
-            infoLink: volumeInfo.infoLink || "",
-            canonicalVolumeLink: volumeInfo.canonicalVolumeLink || "",
-            imageUrl: thumbnail,
-          } as any
-        })
-
-      // Normalize the target author name for strict matching
-      const targetAuthorNormalized = authorName.trim().toLowerCase()
-
-      const filteredBooks = processedBooks
-        .filter((book: any) => {
-          // STRICT AUTHOR MATCHING:
-          // Only include books where the primary author matches the requested author exactly
-          const bookAuthor = (book.author || "").trim().toLowerCase()
-          if (!bookAuthor || bookAuthor !== targetAuthorNormalized) {
-            return false
-          }
-
-          // Filter out special editions using title only
-          if (isSpecialEdition(book)) return false
-
-          // Filter out re-releases / reissues / media tie-ins
-          if (isRerelease(book)) return false
-          
-          // Filter out non-English books (API should filter, but double-check client-side)
-          // Default to English if language is missing or unknown
-          if (book.language && book.language !== "en") {
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`🚫 Filtering out non-English book: ${book.title} (language: ${book.language})`)
-            }
-            return false
-          }
-          
-          // Language filtering is also done in BookshelfClient based on user preferences
-          
-          // Filter out unwanted keywords in title
-          const title = (book.title || "").toLowerCase()
-          const unwantedKeywords = [
-            "free preview",
-            "sample",
-            "showcard",
-            "promotional",
-            "marketing",
-            "advertisement",
-            "ad copy",
-            "book trailer",
-            "excerpt",
-            "preview edition",
-            "advance reader",
-            "arc",
-            "galley",
-            "proof",
-            "uncorrected",
-            "not for sale",
-            "review copy",
-            "promotional copy",
-            "media kit",
-            "press kit",
-            "catalog",
-            "catalogue",
-            "brochure",
-            "flyer",
-            "leaflet",
-            "pamphlet",
-          ]
-          
-          if (unwantedKeywords.some(keyword => title.includes(keyword))) {
-            return false
-          }
-          
-          return true
-        })
-      
-      // Remove duplicates by title+author (use the filtered list)
-      const seen = new Map<string, any>()
-      const uniqueBooks: any[] = []
-      for (const book of filteredBooks) {
-        const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`
-        if (!seen.has(key)) {
-          seen.set(key, book)
-          uniqueBooks.push(book)
-        }
-      }
-      
-      // Enhanced with fallback sources (OpenLibrary for descriptions/covers)
-      const booksWithDescriptions = uniqueBooks.filter(book => book.description && book.description.length > 0).length
-      const booksWithCovers = uniqueBooks.filter(book => book.thumbnail && book.thumbnail.length > 0).length
-      console.log(`📚 ${booksWithDescriptions} out of ${uniqueBooks.length} books have descriptions (enhanced with fallback sources)`)
-      console.log(`📷 ${booksWithCovers} out of ${uniqueBooks.length} books have covers (enhanced with fallback sources)`)
-      
-      // Sort: books with descriptions first, then by publication date (newest first)
-      uniqueBooks.sort((a, b) => {
-        const aHasDesc = a.description && a.description.length > 0
-        const bHasDesc = b.description && b.description.length > 0
-        if (aHasDesc && !bHasDesc) return -1
-        if (!aHasDesc && bHasDesc) return 1
-        
-        const aDate = a.publishedDate && a.publishedDate !== "Unknown Date" ? new Date(a.publishedDate).getTime() : 0
-        const bDate = b.publishedDate && b.publishedDate !== "Unknown Date" ? new Date(b.publishedDate).getTime() : 0
-        return bDate - aDate
-      })
-      
-      // Cache the result for 10 minutes
-      apiCache.set(cacheKey, uniqueBooks, 10 * 60 * 1000)
-      
-      return uniqueBooks
-    }
-    
-    // No results
-    console.log(`❌ No books found for ${authorName} from Google Books API`)
-    apiCache.set(cacheKey, [], 10 * 60 * 1000)
-    return []
+    const books = (await response.json()) || []
+    // Cache the result for 10 minutes (or briefly if empty)
+    apiCache.set(cacheKey, Array.isArray(books) ? books : [], (Array.isArray(books) && books.length > 0) ? 10 * 60 * 1000 : 2 * 60 * 1000)
+    return Array.isArray(books) ? books : []
   } catch (error) {
-    console.error('Error fetching author books from Google Books:', error)
-    // Log more details about the error
-    if (error instanceof Error) {
-      console.error('Error details:', error.message, error.stack)
-    }
-    // Return empty array instead of throwing, so the author can still be added
+    console.error("Error fetching author books via /api/search:", error)
+    apiCache.set(cacheKey, [], 2 * 60 * 1000)
     return []
   }
 }
@@ -633,23 +433,16 @@ export async function searchBooksWithCache(query: string): Promise<any[]> {
   console.log(`Cache miss for search: ${query}, fetching from API`)
   
   try {
-    const response = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10`,
-    )
-    
+    const url = `/api/search?q=${encodeURIComponent(query)}&maxResults=10&lang=en`
+    const response = await fetch(url, { cache: "no-store" })
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`)
+      throw new Error(`Search request failed: ${response.status}`)
     }
-    
-    const data = await response.json()
-    const books = data.items || []
-
-    // Cache the result for 5 minutes
-    apiCache.set(cacheKey, books, 5 * 60 * 1000)
-    
-    return books
+    const books = (await response.json()) || []
+    apiCache.set(cacheKey, Array.isArray(books) ? books : [], 5 * 60 * 1000)
+    return Array.isArray(books) ? books : []
   } catch (error) {
-    console.error('Error searching books:', error)
+    console.error("Error searching books via /api/search:", error)
     throw error
   }
 }
